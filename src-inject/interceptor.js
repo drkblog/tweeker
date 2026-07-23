@@ -78,16 +78,38 @@
     };
 
     // ── DOM MutationObserver ──
-    // Watch for new tweet elements being added to the timeline.
+    // Watch for new tweet elements being added to the timeline with debouncing & deduplication.
 
     let observerStarted = false;
+    let mutationDebounceTimer = null;
+    const pendingNodesToScan = new Set();
+
+    function processPendingDOMNodes() {
+        if (pendingNodesToScan.size === 0) return;
+
+        const nodes = Array.from(pendingNodesToScan);
+        pendingNodesToScan.clear();
+
+        for (const node of nodes) {
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) continue;
+            // Ignore mutations originating inside Tweeker overlay container
+            if (node.closest && node.closest('#tweeker-overlay-container')) continue;
+
+            if (node.matches && node.matches('[data-testid="tweet"]')) {
+                parseDOMTweet(node);
+            } else if (node.querySelectorAll) {
+                const articles = node.querySelectorAll('[data-testid="tweet"]');
+                for (const article of articles) {
+                    parseDOMTweet(article);
+                }
+            }
+        }
+    }
 
     function startDOMObserver() {
         if (observerStarted) return;
 
-        // Wait for the timeline container to appear
         const checkInterval = setInterval(function() {
-            // X.com uses a <main> element or [data-testid="primaryColumn"] for the timeline
             const timeline = document.querySelector('[data-testid="primaryColumn"]') ||
                              document.querySelector('main[role="main"]') ||
                              document.querySelector('main');
@@ -100,21 +122,13 @@
                     for (const mutation of mutations) {
                         for (const node of mutation.addedNodes) {
                             if (node.nodeType === Node.ELEMENT_NODE) {
-                                // Look for tweet article elements
-                                const articles = node.querySelectorAll
-                                    ? node.querySelectorAll('[data-testid="tweet"]')
-                                    : [];
-
-                                if (node.matches && node.matches('[data-testid="tweet"]')) {
-                                    parseDOMTweet(node);
-                                }
-
-                                for (const article of articles) {
-                                    parseDOMTweet(article);
-                                }
+                                pendingNodesToScan.add(node);
                             }
                         }
                     }
+
+                    if (mutationDebounceTimer) clearTimeout(mutationDebounceTimer);
+                    mutationDebounceTimer = setTimeout(processPendingDOMNodes, 300);
                 });
 
                 observer.observe(timeline, {
@@ -239,6 +253,9 @@
      */
     function parseDOMTweet(articleEl) {
         try {
+            if (!articleEl || articleEl.dataset.tweekerParsed) return;
+            articleEl.dataset.tweekerParsed = 'true';
+
             // Extract basic info from DOM structure
             const userLink = articleEl.querySelector('a[role="link"][href^="/"]');
             const textEl = articleEl.querySelector('[data-testid="tweetText"]');
@@ -252,7 +269,7 @@
                 window.__tweeker.sendTweets([{
                     tweet_id: 'dom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
                     author_handle: handle,
-                    author_name: handle, // DOM doesn't always have display name easily
+                    author_name: handle,
                     content: content,
                     timestamp: new Date().toISOString(),
                     likes: 0,

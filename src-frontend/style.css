@@ -77,28 +77,28 @@
     --panel-width: 360px;
 }
 
-/* ── Reset ── */
-*, *::before, *::after {
+/* ── Scoped Reset for Tweeker Overlay ── */
+#tweeker-overlay-container *,
+#tweeker-overlay-container *::before,
+#tweeker-overlay-container *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-body {
+#tweeker-overlay-container {
     font-family: var(--font-family);
     font-size: var(--font-size-md);
     color: var(--color-text-primary);
     background: transparent;
-    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Make the body transparent so X.com webview shows through */
     pointer-events: none;
 }
 
-/* Allow pointer events only on interactive elements */
-.overlay-toggle,
-.overlay-panel {
+/* Allow pointer events only on interactive overlay elements */
+#tweeker-overlay-container .overlay-toggle,
+#tweeker-overlay-container .overlay-panel {
     pointer-events: auto;
 }
 
