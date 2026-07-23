@@ -1,0 +1,19 @@
+fn main() {
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .app_manifest(tauri_build::AppManifest::new().commands(&[
+                "get_app_version",
+                "get_connection_status",
+                "get_timeline_stats",
+                "get_alarms",
+                "create_alarm",
+                "delete_alarm",
+                "toggle_alarm",
+                "get_scheduled_tweets",
+                "create_scheduled_tweet",
+                "delete_scheduled_tweet",
+                "toggle_overlay",
+            ])),
+    )
+    .unwrap();
+}

@@ -1,0 +1,488 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Tweeker — Control Panel Application Logic
+// ─────────────────────────────────────────────────────────────────────────────
+// Organized into: State, DOM Elements, Tab Management, Data Rendering,
+// Form Handlers, Event Listeners, and Initialization.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const invoke = (window.__TAURI__ && window.__TAURI__.core) 
+    ? window.__TAURI__.core.invoke 
+    : async (cmd, args) => { console.debug('[Tweeker IPC Fallback]', cmd, args); };
+
+const listen = (window.__TAURI__ && window.__TAURI__.event)
+    ? window.__TAURI__.event.listen
+    : () => {};
+
+const emit = (window.__TAURI__ && window.__TAURI__.event)
+    ? window.__TAURI__.event.emit
+    : () => {};
+
+// ── State ──
+
+const state = {
+    panelOpen: false,
+    activeTab: 'stats',
+    stats: null,
+    alarms: [],
+    scheduledTweets: [],
+    connectionStatus: {
+        x_webview_loaded: false,
+        interceptor_active: false,
+        last_heartbeat: null,
+    },
+    statsRefreshInterval: null,
+};
+
+// ── DOM Elements ──
+
+const dom = {
+    overlayToggle: document.getElementById('overlay-toggle'),
+    overlayPanel: document.getElementById('overlay-panel'),
+    panelClose: document.getElementById('panel-close'),
+    appVersion: document.getElementById('app-version'),
+
+    // Status
+    statusDot: document.getElementById('status-dot'),
+    statusText: document.getElementById('status-text'),
+
+    // Tabs
+    tabs: document.querySelectorAll('.tab'),
+    tabContents: {
+        stats: document.getElementById('content-stats'),
+        alarms: document.getElementById('content-alarms'),
+        scheduler: document.getElementById('content-scheduler'),
+        settings: document.getElementById('content-settings'),
+    },
+
+    // Stats
+    statTweets: document.querySelector('#stat-tweets .stat-value'),
+    statAuthors: document.querySelector('#stat-authors .stat-value'),
+    statLikes: document.querySelector('#stat-likes .stat-value'),
+    statRetweets: document.querySelector('#stat-retweets .stat-value'),
+    topAuthorsList: document.getElementById('top-authors-list'),
+
+    // Alarms
+    alarmForm: document.getElementById('alarm-form'),
+    alarmName: document.getElementById('alarm-name'),
+    alarmType: document.getElementById('alarm-type'),
+    alarmPattern: document.getElementById('alarm-pattern'),
+    alarmsList: document.getElementById('alarms-list'),
+
+    // Scheduler
+    scheduleForm: document.getElementById('schedule-form'),
+    scheduleContent: document.getElementById('schedule-content'),
+    scheduleDatetime: document.getElementById('schedule-datetime'),
+    charCount: document.getElementById('char-count'),
+    scheduledList: document.getElementById('scheduled-list'),
+
+    // Settings
+    interceptorStatus: document.getElementById('interceptor-status'),
+    sessionStart: document.getElementById('session-start'),
+    settingsVersion: document.getElementById('settings-version'),
+};
+
+// ── Panel Toggle ──
+
+function togglePanel(forceState) {
+    const newState = forceState !== undefined ? forceState : !state.panelOpen;
+    state.panelOpen = newState;
+
+    if (newState) {
+        dom.overlayPanel.classList.add('open');
+        dom.overlayPanel.setAttribute('aria-hidden', 'false');
+        dom.overlayToggle.classList.add('panel-open');
+        startStatsRefresh();
+    } else {
+        dom.overlayPanel.classList.remove('open');
+        dom.overlayPanel.setAttribute('aria-hidden', 'true');
+        dom.overlayToggle.classList.remove('panel-open');
+        stopStatsRefresh();
+    }
+}
+
+// ── Tab Management ──
+
+function switchTab(tabName) {
+    state.activeTab = tabName;
+
+    // Update tab buttons
+    dom.tabs.forEach(tab => {
+        const isActive = tab.dataset.tab === tabName;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive);
+    });
+
+    // Show/hide tab content
+    Object.entries(dom.tabContents).forEach(([name, el]) => {
+        if (name === tabName) {
+            el.hidden = false;
+            el.classList.add('active');
+        } else {
+            el.hidden = true;
+            el.classList.remove('active');
+        }
+    });
+
+    // Refresh data for the active tab
+    if (tabName === 'stats') refreshStats();
+    if (tabName === 'alarms') refreshAlarms();
+    if (tabName === 'scheduler') refreshScheduledTweets();
+    if (tabName === 'settings') refreshSettings();
+}
+
+// ── Data Rendering ──
+
+async function refreshStats() {
+    try {
+        const stats = await invoke('get_timeline_stats');
+        state.stats = stats;
+        renderStats(stats);
+    } catch (e) {
+        console.error('[Tweeker] Failed to refresh stats:', e);
+    }
+}
+
+function renderStats(stats) {
+    dom.statTweets.textContent = formatNumber(stats.total_tweets_seen || 0);
+    dom.statAuthors.textContent = formatNumber(stats.unique_authors || 0);
+    dom.statLikes.textContent = formatNumber(stats.total_likes || 0);
+    dom.statRetweets.textContent = formatNumber(stats.total_retweets || 0);
+
+    // Top authors
+    if (stats.top_authors && stats.top_authors.length > 0) {
+        dom.topAuthorsList.innerHTML = stats.top_authors
+            .map(author => `
+                <div class="author-item">
+                    <div class="author-info">
+                        <span class="author-name">${escapeHtml(author.name)}</span>
+                        <span class="author-handle">@${escapeHtml(author.handle)}</span>
+                    </div>
+                    <span class="author-count">${author.count}</span>
+                </div>
+            `)
+            .join('');
+    } else {
+        dom.topAuthorsList.innerHTML = '<p class="empty-state">No data yet — browse your timeline to start collecting stats.</p>';
+    }
+}
+
+async function refreshAlarms() {
+    try {
+        const alarms = await invoke('get_alarms');
+        state.alarms = alarms;
+        renderAlarms(alarms);
+    } catch (e) {
+        console.error('[Tweeker] Failed to refresh alarms:', e);
+    }
+}
+
+function renderAlarms(alarms) {
+    if (!alarms || alarms.length === 0) {
+        dom.alarmsList.innerHTML = '<p class="empty-state">No alarms configured yet.</p>';
+        return;
+    }
+
+    dom.alarmsList.innerHTML = alarms
+        .map(alarm => `
+            <div class="list-item" data-alarm-id="${alarm.id}">
+                <div class="list-item-info">
+                    <div class="list-item-title">${escapeHtml(alarm.name)}</div>
+                    <div class="list-item-subtitle">${alarm.alarm_type}: ${escapeHtml(alarm.pattern)}</div>
+                </div>
+                <div class="list-item-actions">
+                    <label class="toggle-switch">
+                        <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="handleToggleAlarm('${alarm.id}', this.checked)" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <button class="btn btn-danger" onclick="handleDeleteAlarm('${alarm.id}')">×</button>
+                </div>
+            </div>
+        `)
+        .join('');
+}
+
+async function refreshScheduledTweets() {
+    try {
+        const tweets = await invoke('get_scheduled_tweets');
+        state.scheduledTweets = tweets;
+        renderScheduledTweets(tweets);
+    } catch (e) {
+        console.error('[Tweeker] Failed to refresh scheduled tweets:', e);
+    }
+}
+
+function renderScheduledTweets(tweets) {
+    if (!tweets || tweets.length === 0) {
+        dom.scheduledList.innerHTML = '<p class="empty-state">No scheduled tweets.</p>';
+        return;
+    }
+
+    dom.scheduledList.innerHTML = tweets
+        .map(tweet => `
+            <div class="list-item" data-tweet-id="${tweet.id}">
+                <div class="list-item-info">
+                    <div class="list-item-title">${escapeHtml(truncate(tweet.content, 60))}</div>
+                    <div class="list-item-subtitle">${formatDate(tweet.scheduled_for)} · ${tweet.status}</div>
+                </div>
+                <div class="list-item-actions">
+                    <button class="btn btn-danger" onclick="handleDeleteScheduledTweet('${tweet.id}')">×</button>
+                </div>
+            </div>
+        `)
+        .join('');
+}
+
+async function refreshConnectionStatus() {
+    try {
+        const status = await invoke('get_connection_status');
+        state.connectionStatus = status;
+        renderConnectionStatus(status);
+    } catch (e) {
+        console.error('[Tweeker] Failed to refresh connection status:', e);
+    }
+}
+
+function renderConnectionStatus(status) {
+    if (status.x_webview_loaded && status.interceptor_active) {
+        dom.statusDot.className = 'status-dot connected';
+        dom.statusText.textContent = 'Connected';
+    } else if (status.x_webview_loaded) {
+        dom.statusDot.className = 'status-dot';
+        dom.statusText.textContent = 'Webview loaded';
+    } else {
+        dom.statusDot.className = 'status-dot disconnected';
+        dom.statusText.textContent = 'Disconnected';
+    }
+}
+
+async function refreshSettings() {
+    await refreshConnectionStatus();
+
+    const status = state.connectionStatus;
+    dom.interceptorStatus.textContent = status.interceptor_active ? 'Active' : 'Inactive';
+    dom.interceptorStatus.className = `setting-badge ${status.interceptor_active ? 'badge-active' : 'badge-inactive'}`;
+
+    if (state.stats?.session_start) {
+        dom.sessionStart.textContent = formatDate(state.stats.session_start);
+    }
+
+    try {
+        const version = await invoke('get_app_version');
+        dom.settingsVersion.textContent = `v${version}`;
+    } catch (e) {
+        dom.settingsVersion.textContent = '—';
+    }
+}
+
+// ── Stats auto-refresh ──
+
+function startStatsRefresh() {
+    stopStatsRefresh();
+    refreshStats();
+    refreshConnectionStatus();
+    state.statsRefreshInterval = setInterval(() => {
+        if (state.activeTab === 'stats') refreshStats();
+        refreshConnectionStatus();
+    }, 5000);
+}
+
+function stopStatsRefresh() {
+    if (state.statsRefreshInterval) {
+        clearInterval(state.statsRefreshInterval);
+        state.statsRefreshInterval = null;
+    }
+}
+
+// ── Form Handlers ──
+
+async function handleCreateAlarm(e) {
+    e.preventDefault();
+
+    const name = dom.alarmName.value.trim();
+    const alarmType = dom.alarmType.value;
+    const pattern = dom.alarmPattern.value.trim();
+
+    if (!name || !pattern) return;
+
+    try {
+        await invoke('create_alarm', {
+            request: {
+                name: name,
+                alarm_type: alarmType,
+                pattern: pattern,
+            },
+        });
+
+        dom.alarmName.value = '';
+        dom.alarmPattern.value = '';
+        refreshAlarms();
+    } catch (e) {
+        console.error('[Tweeker] Failed to create alarm:', e);
+    }
+}
+
+async function handleDeleteAlarm(id) {
+    try {
+        await invoke('delete_alarm', { id });
+        refreshAlarms();
+    } catch (e) {
+        console.error('[Tweeker] Failed to delete alarm:', e);
+    }
+}
+
+async function handleToggleAlarm(id, enabled) {
+    try {
+        await invoke('toggle_alarm', { id, enabled });
+    } catch (e) {
+        console.error('[Tweeker] Failed to toggle alarm:', e);
+    }
+}
+
+async function handleScheduleTweet(e) {
+    e.preventDefault();
+
+    const content = dom.scheduleContent.value.trim();
+    const datetimeLocal = dom.scheduleDatetime.value;
+
+    if (!content || !datetimeLocal) return;
+
+    // Convert local datetime to ISO 8601 / RFC 3339
+    const scheduledFor = new Date(datetimeLocal).toISOString();
+
+    try {
+        await invoke('create_scheduled_tweet', {
+            content: content,
+            scheduledFor: scheduledFor,
+        });
+
+        dom.scheduleContent.value = '';
+        dom.scheduleDatetime.value = '';
+        dom.charCount.textContent = '0';
+        refreshScheduledTweets();
+    } catch (e) {
+        console.error('[Tweeker] Failed to schedule tweet:', e);
+    }
+}
+
+async function handleDeleteScheduledTweet(id) {
+    try {
+        await invoke('delete_scheduled_tweet', { id });
+        refreshScheduledTweets();
+    } catch (e) {
+        console.error('[Tweeker] Failed to delete scheduled tweet:', e);
+    }
+}
+
+// Make handlers available globally for inline onclick handlers
+window.handleDeleteAlarm = handleDeleteAlarm;
+window.handleToggleAlarm = handleToggleAlarm;
+window.handleDeleteScheduledTweet = handleDeleteScheduledTweet;
+
+// ── Utility functions ──
+
+function formatNumber(num) {
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+    return num.toString();
+}
+
+function formatDate(isoString) {
+    if (!isoString) return '—';
+    try {
+        const d = new Date(isoString);
+        return d.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch {
+        return '—';
+    }
+}
+
+function truncate(str, maxLen) {
+    if (!str) return '';
+    return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ── Event Listeners ──
+
+// Panel toggle
+dom.overlayToggle.addEventListener('click', () => togglePanel());
+dom.panelClose.addEventListener('click', () => togglePanel(false));
+
+// Keyboard shortcut: Ctrl/Cmd + Shift + T
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        togglePanel();
+    }
+    // Escape to close
+    if (e.key === 'Escape' && state.panelOpen) {
+        togglePanel(false);
+    }
+});
+
+// Tab switching
+dom.tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        switchTab(tab.dataset.tab);
+    });
+});
+
+// Forms
+dom.alarmForm.addEventListener('submit', handleCreateAlarm);
+dom.scheduleForm.addEventListener('submit', handleScheduleTweet);
+
+// Character counter for tweet composer
+dom.scheduleContent.addEventListener('input', () => {
+    dom.charCount.textContent = dom.scheduleContent.value.length;
+});
+
+// ── Tauri Event Listeners ──
+
+// Listen for stats update events from the Rust backend
+listen('stats-updated', (event) => {
+    if (state.activeTab === 'stats' && state.panelOpen) {
+        refreshStats();
+    }
+});
+
+// Listen for scheduler ticks (for future use)
+listen('scheduler-tick', (event) => {
+    // Will be used to trigger scheduled tweet sending
+});
+
+// ── Initialization ──
+
+async function init() {
+    // Set app version
+    try {
+        const version = await invoke('get_app_version');
+        dom.appVersion.textContent = `v${version}`;
+        dom.settingsVersion.textContent = `v${version}`;
+    } catch (e) {
+        dom.appVersion.textContent = '';
+    }
+
+    // Set default datetime to 1 hour from now
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const localIso = now.toISOString().slice(0, 16);
+    dom.scheduleDatetime.value = localIso;
+
+    // Initial data load
+    await refreshConnectionStatus();
+
+    console.log('[Tweeker] Control panel initialized');
+}
+
+init();

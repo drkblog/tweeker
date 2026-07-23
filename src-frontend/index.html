@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tweeker — Control Panel</title>
+    <meta name="description" content="Tweeker power-user control panel for X.com">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Overlay toggle button — always visible in the bottom-right corner -->
+    <button id="overlay-toggle" class="overlay-toggle" title="Toggle Tweeker Panel (Ctrl+Shift+T)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <line x1="9" y1="4" x2="9" y2="20"/>
+        </svg>
+    </button>
+
+    <!-- Overlay drawer panel -->
+    <aside id="overlay-panel" class="overlay-panel" aria-hidden="true">
+        <!-- Panel header -->
+        <header class="panel-header">
+            <div class="panel-brand">
+                <h1 class="panel-title">Tweeker</h1>
+                <span id="app-version" class="panel-version"></span>
+            </div>
+            <button id="panel-close" class="panel-close" title="Close panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </header>
+
+        <!-- Connection status bar -->
+        <div id="status-bar" class="status-bar">
+            <div class="status-indicator">
+                <span id="status-dot" class="status-dot"></span>
+                <span id="status-text" class="status-text">Connecting...</span>
+            </div>
+        </div>
+
+        <!-- Tab navigation -->
+        <nav class="panel-tabs" role="tablist">
+            <button class="tab active" role="tab" aria-selected="true" data-tab="stats" id="tab-stats">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+                Stats
+            </button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="alarms" id="tab-alarms">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Alarms
+            </button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="scheduler" id="tab-scheduler">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Schedule
+            </button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="settings" id="tab-settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Settings
+            </button>
+        </nav>
+
+        <!-- Tab content panels -->
+        <div class="panel-content">
+            <!-- Stats tab -->
+            <section id="content-stats" class="tab-content active" role="tabpanel">
+                <div class="stats-grid">
+                    <div class="stat-card" id="stat-tweets">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">Tweets Seen</span>
+                    </div>
+                    <div class="stat-card" id="stat-authors">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">Unique Authors</span>
+                    </div>
+                    <div class="stat-card" id="stat-likes">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">Total Likes</span>
+                    </div>
+                    <div class="stat-card" id="stat-retweets">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">Total Retweets</span>
+                    </div>
+                </div>
+                <div class="section-heading">
+                    <h2>Top Authors</h2>
+                </div>
+                <div id="top-authors-list" class="top-authors-list">
+                    <p class="empty-state">No data yet — browse your timeline to start collecting stats.</p>
+                </div>
+            </section>
+
+            <!-- Alarms tab -->
+            <section id="content-alarms" class="tab-content" role="tabpanel" hidden>
+                <div class="section-heading">
+                    <h2>Keyword & User Alarms</h2>
+                </div>
+                <form id="alarm-form" class="create-form">
+                    <input type="text" id="alarm-name" placeholder="Alarm name" required class="input" />
+                    <select id="alarm-type" class="input" required>
+                        <option value="keyword">Keyword</option>
+                        <option value="user">User</option>
+                        <option value="mention">Mention</option>
+                        <option value="engagement">Engagement</option>
+                    </select>
+                    <input type="text" id="alarm-pattern" placeholder="Keyword or @username" required class="input" />
+                    <button type="submit" class="btn btn-primary">Create Alarm</button>
+                </form>
+                <div id="alarms-list" class="items-list">
+                    <p class="empty-state">No alarms configured yet.</p>
+                </div>
+            </section>
+
+            <!-- Scheduler tab -->
+            <section id="content-scheduler" class="tab-content" role="tabpanel" hidden>
+                <div class="section-heading">
+                    <h2>Scheduled Tweets</h2>
+                </div>
+                <form id="schedule-form" class="create-form">
+                    <textarea id="schedule-content" placeholder="What's happening?" required class="input textarea" maxlength="280"></textarea>
+                    <div class="schedule-row">
+                        <input type="datetime-local" id="schedule-datetime" required class="input" />
+                        <button type="submit" class="btn btn-primary">Schedule</button>
+                    </div>
+                    <div class="char-count"><span id="char-count">0</span>/280</div>
+                </form>
+                <div id="scheduled-list" class="items-list">
+                    <p class="empty-state">No scheduled tweets.</p>
+                </div>
+            </section>
+
+            <!-- Settings tab -->
+            <section id="content-settings" class="tab-content" role="tabpanel" hidden>
+                <div class="section-heading">
+                    <h2>Settings</h2>
+                </div>
+                <div class="settings-group">
+                    <label class="setting-item">
+                        <span class="setting-label">Interceptor Active</span>
+                        <span id="interceptor-status" class="setting-badge badge-active">Active</span>
+                    </label>
+                    <label class="setting-item">
+                        <span class="setting-label">Session Started</span>
+                        <span id="session-start" class="setting-value">—</span>
+                    </label>
+                    <label class="setting-item">
+                        <span class="setting-label">App Version</span>
+                        <span id="settings-version" class="setting-value">—</span>
+                    </label>
+                </div>
+            </section>
+        </div>
+    </aside>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-create-scheduled-tweet"
+description = "Enables the create_scheduled_tweet command without any pre-configured scope."
+commands.allow = ["create_scheduled_tweet"]
+
+[[permission]]
+identifier = "deny-create-scheduled-tweet"
+description = "Denies the create_scheduled_tweet command without any pre-configured scope."
+commands.deny = ["create_scheduled_tweet"]
