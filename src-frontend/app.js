@@ -29,6 +29,7 @@ const state = {
     autoReadOnStart: false,
     maxLogLines: 2000,
     logs: [],
+    panelSize: { width: null, height: null },
     stats: null,
     alarms: [],
     scheduledTweets: [],
@@ -45,6 +46,9 @@ const state = {
 const dom = {
     overlayToggle: document.getElementById('overlay-toggle'),
     overlayPanel: document.getElementById('overlay-panel'),
+    panelResizeHandleLeft: document.getElementById('panel-resize-handle-left'),
+    panelResizeHandleBottom: document.getElementById('panel-resize-handle-bottom'),
+    panelResizeHandleCorner: document.getElementById('panel-resize-handle-corner'),
     panelClose: document.getElementById('panel-close'),
     copyUrlBtn: document.getElementById('copy-url-btn'),
     copyUrlToast: document.getElementById('copy-url-toast'),
@@ -872,6 +876,172 @@ function initDraggableToggle() {
     });
 }
 
+// ── Resizable Overlay Panel Drawer ──
+
+function getClampedPanelDimensions(rawWidth, rawHeight) {
+    const screenW = window.innerWidth || document.documentElement.clientWidth || 1200;
+    const screenH = window.innerHeight || document.documentElement.clientHeight || 800;
+
+    // Minimum limits: 320px width, 300px height
+    // Maximum limits: 70% width, 96% height
+    const maxW = Math.max(320, Math.round(screenW * 0.70));
+    const minW = Math.min(320, maxW);
+
+    const maxH = Math.max(300, Math.round(screenH * 0.96));
+    const minH = Math.min(300, maxH);
+
+    // Default dimensions: 23% screen width, 90% screen height
+    const defaultW = Math.round(screenW * 0.23);
+    const defaultH = Math.round(screenH * 0.90);
+
+    let w = (rawWidth !== undefined && rawWidth !== null) ? parseInt(rawWidth, 10) : defaultW;
+    let h = (rawHeight !== undefined && rawHeight !== null) ? parseInt(rawHeight, 10) : defaultH;
+
+    if (isNaN(w) || w <= 0) w = defaultW;
+    if (isNaN(h) || h <= 0) h = defaultH;
+
+    w = Math.max(minW, Math.min(maxW, w));
+    h = Math.max(minH, Math.min(maxH, h));
+
+    return { width: w, height: h };
+}
+
+function applyPanelDimensions(width, height) {
+    const panel = dom.overlayPanel;
+    if (!panel) return;
+
+    const clamped = getClampedPanelDimensions(width, height);
+    state.panelSize = clamped;
+
+    panel.style.setProperty('width', clamped.width + 'px', 'important');
+    panel.style.setProperty('height', clamped.height + 'px', 'important');
+    panel.style.setProperty('top', '20px', 'important');
+    panel.style.setProperty('right', '20px', 'important');
+
+    return clamped;
+}
+
+function savePanelSize(width, height) {
+    try {
+        localStorage.setItem('tweeker_panel_size', JSON.stringify({ width, height }));
+    } catch (e) {}
+}
+
+function initResizablePanel() {
+    const panel = dom.overlayPanel;
+    const handleLeft = dom.panelResizeHandleLeft || document.getElementById('panel-resize-handle-left');
+    const handleBottom = dom.panelResizeHandleBottom || document.getElementById('panel-resize-handle-bottom');
+    const handleCorner = dom.panelResizeHandleCorner || document.getElementById('panel-resize-handle-corner');
+
+    if (!panel) return;
+
+    // Restore saved size from localStorage
+    let savedW = null;
+    let savedH = null;
+    try {
+        const saved = localStorage.getItem('tweeker_panel_size');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            savedW = parsed.width;
+            savedH = parsed.height;
+        }
+    } catch (e) {}
+
+    // Apply initial clamped dimensions
+    applyPanelDimensions(savedW, savedH);
+
+    let activeHandle = null;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+
+    function startResize(e, handleType) {
+        if (e.button !== undefined && e.button !== 0) return;
+
+        activeHandle = handleType;
+        startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+        const rect = panel.getBoundingClientRect();
+        startWidth = rect.width;
+        startHeight = rect.height;
+
+        panel.classList.add('is-resizing');
+
+        const el = (handleType === 'left') ? handleLeft :
+                   (handleType === 'bottom') ? handleBottom : handleCorner;
+        if (el) el.classList.add('active');
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+        if (!activeHandle) return;
+        if (e.cancelable) e.preventDefault();
+
+        const currentX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        const currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+
+        if (activeHandle === 'left' || activeHandle === 'corner') {
+            // Dragging left (negative deltaX) increases width because panel is right-anchored
+            const deltaX = startX - currentX;
+            newWidth = startWidth + deltaX;
+        }
+
+        if (activeHandle === 'bottom' || activeHandle === 'corner') {
+            // Dragging down (positive deltaY) increases height because panel is top-anchored
+            const deltaY = currentY - startY;
+            newHeight = startHeight + deltaY;
+        }
+
+        applyPanelDimensions(newWidth, newHeight);
+    }
+
+    function onPointerUp() {
+        if (!activeHandle) return;
+
+        panel.classList.remove('is-resizing');
+        [handleLeft, handleBottom, handleCorner].forEach(h => {
+            if (h) h.classList.remove('active');
+        });
+
+        activeHandle = null;
+
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('touchmove', onPointerMove);
+        window.removeEventListener('touchend', onPointerUp);
+
+        if (state.panelSize) {
+            savePanelSize(state.panelSize.width, state.panelSize.height);
+        }
+    }
+
+    if (handleLeft) {
+        handleLeft.addEventListener('pointerdown', (e) => startResize(e, 'left'));
+    }
+    if (handleBottom) {
+        handleBottom.addEventListener('pointerdown', (e) => startResize(e, 'bottom'));
+    }
+    if (handleCorner) {
+        handleCorner.addEventListener('pointerdown', (e) => startResize(e, 'corner'));
+    }
+
+    // Re-clamp on window resize to ensure max 70% width / 96% height limits are maintained
+    window.addEventListener('resize', () => {
+        if (state.panelSize) {
+            applyPanelDimensions(state.panelSize.width, state.panelSize.height);
+        }
+    });
+}
+
 // ── Auto Read Management ──
 
 function setAutoReadState(enabled) {
@@ -965,8 +1135,9 @@ if (dom.scheduledList) {
     });
 }
 
-// Initialize draggable toggle button
+// Initialize draggable toggle button and resizable panel
 initDraggableToggle();
+initResizablePanel();
 
 // Keyboard shortcut: Ctrl/Cmd + Shift + T
 document.addEventListener('keydown', (e) => {
