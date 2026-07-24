@@ -315,6 +315,74 @@
     color: var(--tw-text-primary) !important;
 }
 
+/* ── Browser Navigation Bar ── */
+#tweeker-overlay-container .browser-nav-bar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 8px 18px !important;
+    border-bottom: 1px solid var(--tw-border) !important;
+    flex-shrink: 0 !important;
+    background: hsla(220, 20%, 9%, 0.75) !important;
+}
+
+#tweeker-overlay-container .nav-btn {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 6px !important;
+    border: 1px solid var(--tw-border) !important;
+    background: var(--tw-bg-card) !important;
+    color: var(--tw-text-secondary) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease, transform 100ms ease !important;
+}
+
+#tweeker-overlay-container .nav-btn:hover {
+    background: var(--tw-bg-card-hover) !important;
+    color: var(--tw-text-primary) !important;
+    border-color: hsla(220, 15%, 40%, 0.6) !important;
+}
+
+#tweeker-overlay-container .nav-btn:active {
+    transform: scale(0.95) !important;
+}
+
+#tweeker-overlay-container .nav-btn svg {
+    flex-shrink: 0 !important;
+}
+
+#tweeker-overlay-container .nav-url-wrapper {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+#tweeker-overlay-container .nav-url-input {
+    width: 100% !important;
+    height: 26px !important;
+    padding: 0 10px !important;
+    border-radius: 6px !important;
+    border: 1px solid var(--tw-border) !important;
+    background: var(--tw-bg-input) !important;
+    color: var(--tw-text-primary) !important;
+    font-family: var(--tw-font) !important;
+    font-size: 11px !important;
+    outline: none !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease !important;
+}
+
+#tweeker-overlay-container .nav-url-input:focus {
+    border-color: var(--tw-border-focus) !important;
+    box-shadow: 0 0 0 2px var(--tw-accent-glow) !important;
+    background: hsla(220, 18%, 14%, 0.95) !important;
+}
+
 #tweeker-overlay-container .copy-toast {
     position: absolute !important;
     bottom: -28px !important;

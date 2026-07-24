@@ -54,6 +54,12 @@ const dom = {
     copyUrlToast: document.getElementById('copy-url-toast'),
     appVersion: document.getElementById('app-version'),
 
+    // Browser navigation bar
+    navBackBtn: document.getElementById('nav-back-btn'),
+    navForwardBtn: document.getElementById('nav-forward-btn'),
+    navReloadBtn: document.getElementById('nav-reload-btn'),
+    navUrlInput: document.getElementById('nav-url-input'),
+
     // Status & Auto read
     statusDot: document.getElementById('status-dot'),
     statusText: document.getElementById('status-text'),
@@ -1042,6 +1048,90 @@ function initResizablePanel() {
     });
 }
 
+// ── Browser Navigation Bar Logic ──
+
+function syncNavUrlInput() {
+    if (!dom.navUrlInput) return;
+    // Do not overwrite while user is actively editing/focusing the URL input
+    if (document.activeElement === dom.navUrlInput) return;
+
+    try {
+        const currentUrl = window.location.href;
+        if (currentUrl && dom.navUrlInput.value !== currentUrl) {
+            dom.navUrlInput.value = currentUrl;
+        }
+    } catch (e) {}
+}
+
+function handleNavigateUrl() {
+    if (!dom.navUrlInput) return;
+
+    let input = dom.navUrlInput.value.trim();
+    if (!input) return;
+
+    let targetUrl = input;
+
+    // Handle relative path (e.g. /home or /notifications or /elonmusk)
+    if (input.startsWith('/')) {
+        targetUrl = 'https://x.com' + input;
+    } else if (!/^https?:\/\//i.test(input)) {
+        // Handle x.com/... or twitter.com/... or raw username
+        if (input.startsWith('x.com') || input.startsWith('twitter.com')) {
+            targetUrl = 'https://' + input;
+        } else {
+            targetUrl = 'https://x.com/' + input.replace(/^@/, '');
+        }
+    }
+
+    addLogEntry({
+        type: 'system',
+        text: `Navigating to: ${targetUrl}`
+    });
+
+    try {
+        window.location.href = targetUrl;
+    } catch (e) {
+        console.error('[Tweeker Navigation Error]', e);
+    }
+}
+
+function initBrowserNavBar() {
+    if (dom.navBackBtn) {
+        dom.navBackBtn.addEventListener('click', () => {
+            try { window.history.back(); } catch (e) {}
+        });
+    }
+
+    if (dom.navForwardBtn) {
+        dom.navForwardBtn.addEventListener('click', () => {
+            try { window.history.forward(); } catch (e) {}
+        });
+    }
+
+    if (dom.navReloadBtn) {
+        dom.navReloadBtn.addEventListener('click', () => {
+            try { window.location.reload(); } catch (e) {}
+        });
+    }
+
+    if (dom.navUrlInput) {
+        dom.navUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleNavigateUrl();
+            }
+        });
+    }
+
+    // Sync URL input initially and on location changes
+    syncNavUrlInput();
+    window.addEventListener('popstate', syncNavUrlInput);
+    window.addEventListener('hashchange', syncNavUrlInput);
+
+    // Periodically check for SPA URL navigation changes inside X.com
+    setInterval(syncNavUrlInput, 2000);
+}
+
 // ── Auto Read Management ──
 
 function setAutoReadState(enabled) {
@@ -1135,9 +1225,10 @@ if (dom.scheduledList) {
     });
 }
 
-// Initialize draggable toggle button and resizable panel
+// Initialize draggable toggle button, resizable panel, and browser nav bar
 initDraggableToggle();
 initResizablePanel();
+initBrowserNavBar();
 
 // Keyboard shortcut: Ctrl/Cmd + Shift + T
 document.addEventListener('keydown', (e) => {
