@@ -391,12 +391,18 @@ async function handleScheduleTweet(e) {
 
     if (!content || !datetimeLocal) return;
 
-    const scheduledFor = new Date(datetimeLocal).toISOString();
+    const localDate = parseLocalDatetimeInput(datetimeLocal);
+    if (isNaN(localDate.getTime())) {
+        console.error('[Tweeker] Invalid date format:', datetimeLocal);
+        return;
+    }
+
+    const scheduledForIso = localDate.toISOString();
 
     const newTweet = {
         id: 'sched-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         content,
-        scheduled_for: scheduledFor,
+        scheduled_for: scheduledForIso,
         status: 'Pending',
         created_at: new Date().toISOString(),
     };
@@ -404,7 +410,7 @@ async function handleScheduleTweet(e) {
     try {
         const created = await invoke('create_scheduled_tweet', {
             content: content,
-            scheduled_for: scheduledFor,
+            scheduled_for: scheduledForIso,
         });
 
         if (created && created.id) {
@@ -420,6 +426,11 @@ async function handleScheduleTweet(e) {
 
     dom.scheduleContent.value = '';
     dom.charCount.textContent = '0';
+
+    const defaultNext = new Date();
+    defaultNext.setHours(defaultNext.getHours() + 1);
+    dom.scheduleDatetime.value = getLocalDatetimeInputValue(defaultNext);
+
     renderScheduledTweets(state.scheduledTweets);
 }
 
@@ -439,6 +450,34 @@ window.handleDeleteScheduledTweet = handleDeleteScheduledTweet;
 
 // ── Utility functions ──
 
+/**
+ * Format a Date object into "YYYY-MM-DDTHH:mm" for <input type="datetime-local">
+ * using the user's local timezone.
+ */
+function getLocalDatetimeInputValue(dateObj) {
+    if (!dateObj || isNaN(dateObj.getTime())) return '';
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+/**
+ * Parse a "YYYY-MM-DDTHH:mm" string from <input type="datetime-local">
+ * strictly in the user's local timezone.
+ */
+function parseLocalDatetimeInput(inputValue) {
+    if (!inputValue) return new Date(NaN);
+    const parts = inputValue.split('T');
+    if (parts.length !== 2) return new Date(inputValue);
+    const [datePart, timePart] = parts;
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes, 0);
+}
+
 function formatNumber(num) {
     if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
     if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
@@ -449,6 +488,7 @@ function formatDate(isoString) {
     if (!isoString) return '—';
     try {
         const d = new Date(isoString);
+        if (isNaN(d.getTime())) return '—';
         return d.toLocaleDateString(undefined, {
             month: 'short',
             day: 'numeric',
@@ -824,11 +864,10 @@ async function init() {
         dom.appVersion.textContent = '';
     }
 
-    // Set default datetime to 1 hour from now
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    const localIso = now.toISOString().slice(0, 16);
-    dom.scheduleDatetime.value = localIso;
+    // Set default datetime to 1 hour from current local time
+    const defaultNext = new Date();
+    defaultNext.setHours(defaultNext.getHours() + 1);
+    dom.scheduleDatetime.value = getLocalDatetimeInputValue(defaultNext);
 
     // Restore Auto read startup setting
     const autoReadStartup = localStorage.getItem('tweeker_autoread_on_start') === 'true';
