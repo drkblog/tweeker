@@ -39,6 +39,8 @@ const dom = {
     overlayToggle: document.getElementById('overlay-toggle'),
     overlayPanel: document.getElementById('overlay-panel'),
     panelClose: document.getElementById('panel-close'),
+    copyUrlBtn: document.getElementById('copy-url-btn'),
+    copyUrlToast: document.getElementById('copy-url-toast'),
     appVersion: document.getElementById('app-version'),
 
     // Status
@@ -235,15 +237,22 @@ function renderScheduledTweets(tweets) {
 async function refreshConnectionStatus() {
     try {
         const status = await invoke('get_connection_status');
-        state.connectionStatus = status;
-        renderConnectionStatus(status);
+        if (status) {
+            // Keep interceptor_active if already confirmed via postMessage
+            if (state.connectionStatus.interceptor_active) {
+                status.interceptor_active = true;
+            }
+            state.connectionStatus = { ...state.connectionStatus, ...status };
+        }
+        renderConnectionStatus(state.connectionStatus);
     } catch (e) {
-        console.error('[Tweeker] Failed to refresh connection status:', e);
+        // Fallback: rely on window.postMessage state
+        renderConnectionStatus(state.connectionStatus);
     }
 }
 
 function renderConnectionStatus(status) {
-    if (status.x_webview_loaded && status.interceptor_active) {
+    if (status.interceptor_active) {
         dom.statusDot.className = 'status-dot connected';
         dom.statusText.textContent = 'Connected';
     } else if (status.x_webview_loaded) {
@@ -413,11 +422,161 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+function handleCopyUrl() {
+    try {
+        const currentUrl = window.location.href;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                showCopyToast();
+            }).catch(() => {
+                fallbackCopyUrl(currentUrl);
+            });
+        } else {
+            fallbackCopyUrl(currentUrl);
+        }
+    } catch (e) {
+        console.error('[Tweeker] Failed to copy URL:', e);
+    }
+}
+
+function fallbackCopyUrl(url) {
+    try {
+        const dummy = document.createElement('textarea');
+        dummy.value = url;
+        document.body.appendChild(dummy);
+        dummy.select();
+        document.execCommand('copy');
+        document.body.removeChild(dummy);
+        showCopyToast();
+    } catch (e) {
+        console.error('[Tweeker] Fallback copy failed:', e);
+    }
+}
+
+function showCopyToast() {
+    if (!dom.copyUrlToast) return;
+    dom.copyUrlToast.classList.add('show');
+    setTimeout(() => {
+        dom.copyUrlToast.classList.remove('show');
+    }, 1500);
+}
+
+// ── Draggable Overlay Toggle Button ──
+
+function initDraggableToggle() {
+    const toggle = dom.overlayToggle;
+    if (!toggle) return;
+
+    // Restore saved position
+    const savedPos = localStorage.getItem('tweeker_toggle_pos');
+    if (savedPos) {
+        try {
+            const { top, left } = JSON.parse(savedPos);
+            const maxLeft = Math.max(10, window.innerWidth - 60);
+            const maxTop = Math.max(10, window.innerHeight - 60);
+            const validLeft = Math.min(Math.max(10, left), maxLeft);
+            const validTop = Math.min(Math.max(10, top), maxTop);
+            toggle.style.top = validTop + 'px';
+            toggle.style.left = validLeft + 'px';
+            toggle.style.right = 'auto';
+            toggle.style.bottom = 'auto';
+        } catch (e) {}
+    }
+
+    let isDragging = false;
+    let startX, startY;
+    let initialLeft, initialTop;
+    let dragThresholdPassed = false;
+
+    function onPointerDown(e) {
+        if (e.button !== undefined && e.button !== 0) return;
+
+        isDragging = true;
+        dragThresholdPassed = false;
+        startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+        const rect = toggle.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+        if (!isDragging) return;
+
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+        const deltaX = clientX - startX;
+        const deltaY = clientY - startY;
+
+        if (!dragThresholdPassed && Math.hypot(deltaX, deltaY) > 5) {
+            dragThresholdPassed = true;
+            toggle.classList.add('is-dragging');
+        }
+
+        if (dragThresholdPassed) {
+            if (e.cancelable) e.preventDefault();
+
+            const newLeft = Math.min(Math.max(10, initialLeft + deltaX), window.innerWidth - 60);
+            const newTop = Math.min(Math.max(10, initialTop + deltaY), window.innerHeight - 60);
+
+            toggle.style.left = newLeft + 'px';
+            toggle.style.top = newTop + 'px';
+            toggle.style.right = 'auto';
+            toggle.style.bottom = 'auto';
+        }
+    }
+
+    function onPointerUp() {
+        if (!isDragging) return;
+
+        isDragging = false;
+        toggle.classList.remove('is-dragging');
+
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('touchmove', onPointerMove);
+        window.removeEventListener('touchend', onPointerUp);
+
+        if (dragThresholdPassed) {
+            const rect = toggle.getBoundingClientRect();
+            localStorage.setItem('tweeker_toggle_pos', JSON.stringify({
+                left: rect.left,
+                top: rect.top
+            }));
+        }
+    }
+
+    toggle.addEventListener('pointerdown', onPointerDown);
+
+    toggle.addEventListener('click', (e) => {
+        if (dragThresholdPassed) {
+            e.stopImmediatePropagation();
+            dragThresholdPassed = false;
+            return;
+        }
+        togglePanel();
+    });
+}
+
 // ── Event Listeners ──
 
-// Panel toggle
-dom.overlayToggle.addEventListener('click', () => togglePanel());
+// Copy URL button
+if (dom.copyUrlBtn) {
+    dom.copyUrlBtn.addEventListener('click', handleCopyUrl);
+}
+
+// Panel close
 dom.panelClose.addEventListener('click', () => togglePanel(false));
+
+// Initialize draggable toggle button
+initDraggableToggle();
 
 // Keyboard shortcut: Ctrl/Cmd + Shift + T
 document.addEventListener('keydown', (e) => {
@@ -445,6 +604,73 @@ dom.scheduleForm.addEventListener('submit', handleScheduleTweet);
 // Character counter for tweet composer
 dom.scheduleContent.addEventListener('input', () => {
     dom.charCount.textContent = dom.scheduleContent.value.length;
+});
+
+// ── Interceptor Message Handler ──
+function processIncomingTweets(tweets) {
+    if (!tweets || !Array.isArray(tweets)) return;
+
+    if (!state.stats) {
+        state.stats = {
+            total_tweets_seen: 0,
+            unique_authors: 0,
+            total_likes: 0,
+            total_retweets: 0,
+            total_replies: 0,
+            session_start: new Date().toISOString(),
+            top_authors: [],
+        };
+    }
+
+    if (!window._tweeker_seen_tweets) window._tweeker_seen_tweets = new Set();
+    if (!window._tweeker_author_map) window._tweeker_author_map = new Map();
+
+    for (const tweet of tweets) {
+        if (!tweet || !tweet.tweet_id || window._tweeker_seen_tweets.has(tweet.tweet_id)) continue;
+        window._tweeker_seen_tweets.add(tweet.tweet_id);
+
+        state.stats.total_tweets_seen += 1;
+        state.stats.total_likes += (tweet.likes || 0);
+        state.stats.total_retweets += (tweet.retweets || 0);
+        state.stats.total_replies += (tweet.replies || 0);
+
+        const handle = tweet.author_handle || 'unknown';
+        const name = tweet.author_name || handle;
+        const current = window._tweeker_author_map.get(handle) || { name, count: 0 };
+        current.count += 1;
+        window._tweeker_author_map.set(handle, current);
+    }
+
+    state.stats.unique_authors = window._tweeker_author_map.size;
+
+    const top = Array.from(window._tweeker_author_map.entries())
+        .map(([handle, info]) => ({ handle, name: info.name, count: info.count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    state.stats.top_authors = top;
+
+    if (state.activeTab === 'stats') {
+        renderStats(state.stats);
+    }
+}
+
+// Listen for messages from injected bridge.js
+window.addEventListener('message', (event) => {
+    if (!event.data || event.data.__tweeker !== true) return;
+
+    const { type, payload } = event.data;
+
+    if (type === 'heartbeat' || type === 'tweet_data') {
+        state.connectionStatus.x_webview_loaded = true;
+        state.connectionStatus.interceptor_active = true;
+        state.connectionStatus.last_heartbeat = new Date();
+        renderConnectionStatus(state.connectionStatus);
+    }
+
+    if (type === 'tweet_data' && payload && payload.tweets) {
+        processIncomingTweets(payload.tweets);
+    }
 });
 
 // ── Tauri Event Listeners ──
