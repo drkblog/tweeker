@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use crate::models::{Alarm, AlarmType, ScheduledTweet, TweetStatus, InterceptedTweet};
