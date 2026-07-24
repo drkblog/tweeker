@@ -27,6 +27,8 @@ const state = {
     activeTab: 'stats',
     autoRead: false,
     autoReadOnStart: false,
+    maxLogLines: 2000,
+    logs: [],
     stats: null,
     alarms: [],
     scheduledTweets: [],
@@ -60,6 +62,7 @@ const dom = {
         stats: document.getElementById('content-stats'),
         alarms: document.getElementById('content-alarms'),
         scheduler: document.getElementById('content-scheduler'),
+        logs: document.getElementById('content-logs'),
         settings: document.getElementById('content-settings'),
     },
 
@@ -84,7 +87,13 @@ const dom = {
     charCount: document.getElementById('char-count'),
     scheduledList: document.getElementById('scheduled-list'),
 
+    // Logs
+    logCountText: document.getElementById('log-count-text'),
+    clearLogsBtn: document.getElementById('clear-logs-btn'),
+    logOutputContainer: document.getElementById('log-output-container'),
+
     // Settings
+    maxLogLinesInput: document.getElementById('max-log-lines-input'),
     interceptorStatus: document.getElementById('interceptor-status'),
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
@@ -136,6 +145,7 @@ function switchTab(tabName) {
     if (tabName === 'stats') refreshStats();
     if (tabName === 'alarms') refreshAlarms();
     if (tabName === 'scheduler') refreshScheduledTweets();
+    if (tabName === 'logs') refreshLogsView();
     if (tabName === 'settings') refreshSettings();
 }
 
@@ -367,18 +377,30 @@ async function handleCreateAlarm(e) {
     state.alarms.push(newAlarm);
     try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
 
+    addLogEntry({
+        type: 'system',
+        text: `Created alarm '${name}' (${rawType}: ${pattern})`
+    });
+
     dom.alarmName.value = '';
     dom.alarmPattern.value = '';
     renderAlarms(state.alarms);
 }
 
 async function handleDeleteAlarm(id) {
+    const alarm = (state.alarms || []).find(a => a.id === id);
+    const alarmName = alarm ? alarm.name : id;
     try {
         await invoke('delete_alarm', { id }).catch(() => {});
     } catch (err) {}
     state.alarms = (state.alarms || []).filter(a => a.id !== id);
     try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
     renderAlarms(state.alarms);
+
+    addLogEntry({
+        type: 'system',
+        text: `Deleted alarm '${alarmName}'`
+    });
 }
 
 async function handleToggleAlarm(id, enabled) {
@@ -386,7 +408,13 @@ async function handleToggleAlarm(id, enabled) {
         await invoke('toggle_alarm', { id, enabled }).catch(() => {});
     } catch (err) {}
     const alarm = (state.alarms || []).find(a => a.id === id);
-    if (alarm) alarm.enabled = enabled;
+    if (alarm) {
+        alarm.enabled = enabled;
+        addLogEntry({
+            type: 'system',
+            text: `Alarm '${alarm.name}' ${enabled ? 'enabled' : 'disabled'}`
+        });
+    }
     try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
 }
 
@@ -431,6 +459,11 @@ async function handleScheduleTweet(e) {
     state.scheduledTweets.push(newTweet);
     try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
 
+    addLogEntry({
+        type: 'system',
+        text: `Scheduled tweet for ${formatDate(scheduledForIso)}: "${truncate(content, 50)}"`
+    });
+
     dom.scheduleContent.value = '';
     dom.charCount.textContent = '0';
 
@@ -448,6 +481,11 @@ async function handleDeleteScheduledTweet(id) {
     state.scheduledTweets = (state.scheduledTweets || []).filter(t => t.id !== id);
     try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
     renderScheduledTweets(state.scheduledTweets);
+
+    addLogEntry({
+        type: 'system',
+        text: `Deleted scheduled tweet (ID: ${id})`
+    });
 }
 
 // Make handlers available globally for inline onclick handlers
@@ -519,43 +557,203 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-function handleCopyUrl() {
-    try {
-        const currentUrl = window.location.href;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(currentUrl).then(() => {
-                showCopyToast();
-            }).catch(() => {
-                fallbackCopyUrl(currentUrl);
-            });
-        } else {
-            fallbackCopyUrl(currentUrl);
-        }
-    } catch (e) {
-        console.error('[Tweeker] Failed to copy URL:', e);
+// ── Log Management & Rendering ──
+
+function updateLogCountText() {
+    if (dom.logCountText) {
+        dom.logCountText.textContent = `${state.logs.length} / ${state.maxLogLines} lines`;
     }
 }
 
-function fallbackCopyUrl(url) {
+function pruneLogs() {
+    if (!Array.isArray(state.logs)) state.logs = [];
+    if (state.logs.length > state.maxLogLines) {
+        state.logs = state.logs.slice(-state.maxLogLines);
+    }
+}
+
+function addLogEntry(entry) {
+    if (!entry) return;
+
+    const type = entry.type || 'system';
+    const text = entry.text || '';
+    const tweetId = entry.tweetId || null;
+    const authorHandle = entry.authorHandle || null;
+    let tweetUrl = entry.tweetUrl || null;
+
+    if (!tweetUrl && tweetId) {
+        tweetUrl = authorHandle 
+            ? `https://x.com/${authorHandle.replace(/^@/, '')}/status/${tweetId}`
+            : `https://x.com/i/status/${tweetId}`;
+    }
+
+    const timestamp = entry.timestamp || new Date().toLocaleTimeString([], { hour12: false });
+
+    const logItem = {
+        id: 'log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        type,
+        text,
+        tweetId,
+        tweetUrl,
+        authorHandle,
+        timestamp,
+    };
+
+    if (!Array.isArray(state.logs)) state.logs = [];
+    state.logs.push(logItem);
+    pruneLogs();
+
+    // Persist logs in localStorage
+    try {
+        localStorage.setItem('tweeker_logs', JSON.stringify(state.logs.slice(-500)));
+    } catch (e) {}
+
+    updateLogCountText();
+    renderLogItem(logItem);
+}
+
+function renderLogItem(item) {
+    if (!dom.logOutputContainer) return;
+
+    // Remove empty state if present
+    const emptyState = dom.logOutputContainer.querySelector('.log-empty-state');
+    if (emptyState) emptyState.remove();
+
+    const entryDiv = document.createElement('div');
+    entryDiv.className = `log-entry log-entry-${item.type || 'system'}`;
+    entryDiv.dataset.logId = item.id;
+    entryDiv.innerHTML = getLogItemInnerHtml(item);
+
+    dom.logOutputContainer.appendChild(entryDiv);
+
+    // Prune DOM elements if DOM child count exceeds maxLogLines
+    const entries = dom.logOutputContainer.querySelectorAll('.log-entry');
+    if (entries.length > state.maxLogLines) {
+        const toRemove = entries.length - state.maxLogLines;
+        for (let i = 0; i < toRemove; i++) {
+            entries[i].remove();
+        }
+    }
+
+    // Autoscroll to bottom
+    dom.logOutputContainer.scrollTop = dom.logOutputContainer.scrollHeight;
+}
+
+function getLogItemInnerHtml(item) {
+    const type = item.type || 'system';
+    const tagLabel = type.toUpperCase();
+    
+    let contentHtml = escapeHtml(item.text);
+
+    if (item.authorHandle) {
+        const handleText = '@' + item.authorHandle.replace(/^@/, '');
+        if (!contentHtml.includes('class="log-author"')) {
+            const escapedHandle = escapeHtml(handleText);
+            contentHtml = contentHtml.replace(escapedHandle, `<span class="log-author">${escapedHandle}</span>`);
+        }
+    }
+
+    let linksHtml = '';
+    if (item.tweetId) {
+        const url = item.tweetUrl || `https://x.com/i/status/${item.tweetId}`;
+        linksHtml = `
+            <a class="log-id-link" data-copy-id="${escapeHtml(item.tweetId)}" title="Click to copy Tweet ID">ID: ${escapeHtml(item.tweetId)}</a>
+            <a class="log-url-link" data-copy-url="${escapeHtml(url)}" title="Click to copy Tweet URL">🔗 URL</a>
+        `;
+    } else if (item.tweetUrl) {
+        linksHtml = `
+            <a class="log-url-link" data-copy-url="${escapeHtml(item.tweetUrl)}" title="Click to copy Tweet URL">🔗 URL</a>
+        `;
+    }
+
+    return `
+        <span class="log-timestamp">${escapeHtml(item.timestamp)}</span>
+        <span class="log-tag log-tag-${type}">${tagLabel}</span>
+        <span class="log-content">${contentHtml}${linksHtml}</span>
+    `;
+}
+
+function refreshLogsView() {
+    if (!dom.logOutputContainer) return;
+    updateLogCountText();
+
+    if (!state.logs || state.logs.length === 0) {
+        dom.logOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No logs recorded yet.</p>';
+        return;
+    }
+
+    dom.logOutputContainer.innerHTML = state.logs.map(item => `
+        <div class="log-entry log-entry-${item.type || 'system'}" data-log-id="${item.id}">
+            ${getLogItemInnerHtml(item)}
+        </div>
+    `).join('');
+
+    dom.logOutputContainer.scrollTop = dom.logOutputContainer.scrollHeight;
+}
+
+function clearLogs() {
+    state.logs = [];
+    try { localStorage.removeItem('tweeker_logs'); } catch (e) {}
+    updateLogCountText();
+    if (dom.logOutputContainer) {
+        dom.logOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No logs recorded yet.</p>';
+    }
+    addLogEntry({
+        type: 'system',
+        text: 'Log output cleared'
+    });
+}
+
+function copyToClipboard(text, successMessage = 'Copied!') {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToastMessage(successMessage);
+            }).catch(() => {
+                fallbackCopyText(text, successMessage);
+            });
+        } else {
+            fallbackCopyText(text, successMessage);
+        }
+    } catch (e) {
+        console.error('[Tweeker] Failed to copy:', e);
+    }
+}
+
+function fallbackCopyText(text, successMessage) {
     try {
         const dummy = document.createElement('textarea');
-        dummy.value = url;
+        dummy.value = text;
         document.body.appendChild(dummy);
         dummy.select();
         document.execCommand('copy');
         document.body.removeChild(dummy);
-        showCopyToast();
+        showToastMessage(successMessage);
     } catch (e) {
         console.error('[Tweeker] Fallback copy failed:', e);
     }
 }
 
-function showCopyToast() {
+function showToastMessage(msg) {
     if (!dom.copyUrlToast) return;
+    dom.copyUrlToast.textContent = msg;
     dom.copyUrlToast.classList.add('show');
     setTimeout(() => {
         dom.copyUrlToast.classList.remove('show');
+        setTimeout(() => { dom.copyUrlToast.textContent = 'Copied!'; }, 200);
     }, 1500);
+}
+
+function handleCopyUrl() {
+    copyToClipboard(window.location.href, 'URL Copied!');
+}
+
+function fallbackCopyUrl(url) {
+    fallbackCopyText(url, 'URL Copied!');
+}
+
+function showCopyToast() {
+    showToastMessage('URL Copied!');
 }
 
 // ── Draggable Overlay Toggle Button ──
@@ -665,6 +863,7 @@ function initDraggableToggle() {
 // ── Auto Read Management ──
 
 function setAutoReadState(enabled) {
+    const prevState = state.autoRead;
     state.autoRead = !!enabled;
     if (dom.autoReadToggle) {
         dom.autoReadToggle.checked = state.autoRead;
@@ -681,6 +880,13 @@ function setAutoReadState(enabled) {
 
     // Update Rust backend if connected
     invoke('set_auto_read', { enabled: state.autoRead }).catch(() => {});
+
+    if (prevState !== state.autoRead) {
+        addLogEntry({
+            type: 'system',
+            text: `Auto read timeline ${state.autoRead ? 'enabled' : 'disabled'}`
+        });
+    }
 }
 
 // ── Event Listeners ──
@@ -778,6 +984,51 @@ dom.scheduleContent.addEventListener('input', () => {
     dom.charCount.textContent = dom.scheduleContent.value.length;
 });
 
+// Clear logs button
+if (dom.clearLogsBtn) {
+    dom.clearLogsBtn.addEventListener('click', clearLogs);
+}
+
+// Max log lines setting input
+if (dom.maxLogLinesInput) {
+    dom.maxLogLinesInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 10) val = 2000;
+        state.maxLogLines = val;
+        e.target.value = val;
+        try { localStorage.setItem('tweeker_max_log_lines', val.toString()); } catch (err) {}
+        pruneLogs();
+        refreshLogsView();
+        addLogEntry({
+            type: 'system',
+            text: `Maximum log lines limit updated to ${val}`
+        });
+    });
+}
+
+// Log container click delegation for Tweet ID & URL copy links
+if (dom.logOutputContainer) {
+    dom.logOutputContainer.addEventListener('click', (e) => {
+        const idLink = e.target.closest('.log-id-link');
+        if (idLink) {
+            const copyId = idLink.dataset.copyId;
+            if (copyId) {
+                copyToClipboard(copyId, 'Tweet ID copied!');
+            }
+            return;
+        }
+
+        const urlLink = e.target.closest('.log-url-link');
+        if (urlLink) {
+            const copyUrl = urlLink.dataset.copyUrl;
+            if (copyUrl) {
+                copyToClipboard(copyUrl, 'Tweet URL copied!');
+            }
+            return;
+        }
+    });
+}
+
 // ── Interceptor Message Handler ──
 function processIncomingTweets(tweets) {
     if (!tweets || !Array.isArray(tweets)) return;
@@ -869,6 +1120,18 @@ function checkAlarmsForTweet(tweet) {
             showAlarmToast(alarm, tweet);
             renderAlarms(state.alarms);
             try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+
+            const tweetId = tweet.tweet_id || '';
+            const author = tweet.author_handle || 'user';
+            const tweetUrl = tweetId ? `https://x.com/${author}/status/${tweetId}` : null;
+
+            addLogEntry({
+                type: 'alarm',
+                text: `Alarm '${alarm.name}' triggered by @${author}: "${truncate(tweet.full_text || tweet.content, 60)}"`,
+                tweetId: tweetId,
+                tweetUrl: tweetUrl,
+                authorHandle: author
+            });
         }
     }
 }
@@ -977,6 +1240,12 @@ async function checkScheduledTweets() {
 
             // Show Toast Notification
             showScheduledTweetToast(tweet, posted);
+
+            addLogEntry({
+                type: 'schedule',
+                text: `Scheduled tweet ${posted ? 'posted live to X.com' : 'triggered'}: "${truncate(tweet.content, 60)}"`,
+                tweetId: tweet.id
+            });
         }
     }
 
@@ -1074,6 +1343,24 @@ async function init() {
     // Set initial Auto read state
     setAutoReadState(autoReadStartup);
 
+    // Restore saved max log lines setting
+    const savedMaxLogs = parseInt(localStorage.getItem('tweeker_max_log_lines'), 10);
+    if (!isNaN(savedMaxLogs) && savedMaxLogs >= 10) {
+        state.maxLogLines = savedMaxLogs;
+    }
+    if (dom.maxLogLinesInput) {
+        dom.maxLogLinesInput.value = state.maxLogLines;
+    }
+
+    // Restore saved log entries
+    try {
+        const savedLogs = localStorage.getItem('tweeker_logs');
+        if (savedLogs) {
+            state.logs = JSON.parse(savedLogs);
+            pruneLogs();
+        }
+    } catch (e) {}
+
     // Restore saved alarms and scheduled tweets
     try {
         const savedAlarms = localStorage.getItem('tweeker_alarms');
@@ -1087,11 +1374,18 @@ async function init() {
 
     renderAlarms(state.alarms || []);
     renderScheduledTweets(state.scheduledTweets || []);
+    refreshLogsView();
 
     // Initial data load
     await refreshConnectionStatus();
     await refreshAlarms();
     await refreshScheduledTweets();
+
+    // Log session startup
+    addLogEntry({
+        type: 'system',
+        text: `Tweeker control panel session initialized`
+    });
 
     // Start 5-second monitor loop for scheduled tweets
     setInterval(checkScheduledTweets, 5000);

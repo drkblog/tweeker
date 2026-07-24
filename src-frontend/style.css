@@ -798,3 +798,217 @@
         transform: translateY(0) scale(1);
     }
 }
+
+/* ── Logs Tab & Autoscroll Console ── */
+#tweeker-overlay-container .logs-header-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+    padding: 0 4px !important;
+}
+
+#tweeker-overlay-container .log-count-text {
+    font-size: 11px !important;
+    color: var(--tw-text-muted) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+}
+
+#tweeker-overlay-container .btn-secondary {
+    background: var(--tw-bg-card) !important;
+    color: var(--tw-text-secondary) !important;
+    border: 1px solid var(--tw-border) !important;
+}
+
+#tweeker-overlay-container .btn-secondary:hover {
+    background: var(--tw-bg-card-hover) !important;
+    color: var(--tw-text-primary) !important;
+}
+
+#tweeker-overlay-container .btn-sm {
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+}
+
+#tweeker-overlay-container .log-output-container {
+    background: hsla(220, 22%, 7%, 0.96) !important;
+    border: 1px solid var(--tw-border) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', 'SF Mono', Consolas, monospace, var(--tw-font) !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+    height: calc(100vh - 220px) !important;
+    max-height: 520px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    scroll-behavior: smooth !important;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+#tweeker-overlay-container .log-output-container::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+#tweeker-overlay-container .log-output-container::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+#tweeker-overlay-container .log-output-container::-webkit-scrollbar-thumb {
+    background: hsla(220, 15%, 30%, 0.6) !important;
+    border-radius: 3px !important;
+}
+
+#tweeker-overlay-container .log-empty-state {
+    padding: 40px 16px !important;
+}
+
+#tweeker-overlay-container .log-entry {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
+    background: hsla(220, 18%, 12%, 0.4) !important;
+    border-left: 3px solid var(--tw-border) !important;
+    transition: background 120ms ease !important;
+    word-break: break-word !important;
+}
+
+#tweeker-overlay-container .log-entry:hover {
+    background: hsla(220, 18%, 16%, 0.8) !important;
+}
+
+#tweeker-overlay-container .log-entry-alarm {
+    border-left-color: var(--tw-danger) !important;
+}
+
+#tweeker-overlay-container .log-entry-schedule {
+    border-left-color: var(--tw-success) !important;
+}
+
+#tweeker-overlay-container .log-entry-system {
+    border-left-color: var(--tw-accent) !important;
+}
+
+#tweeker-overlay-container .log-entry-timeline {
+    border-left-color: hsl(280, 65%, 60%) !important;
+}
+
+#tweeker-overlay-container .log-timestamp {
+    color: var(--tw-text-muted) !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    flex-shrink: 0 !important;
+    padding-top: 1px !important;
+}
+
+#tweeker-overlay-container .log-tag {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    flex-shrink: 0 !important;
+}
+
+#tweeker-overlay-container .log-tag-alarm {
+    background: hsla(0, 72%, 51%, 0.2) !important;
+    color: hsl(0, 85%, 70%) !important;
+    border: 1px solid hsla(0, 72%, 51%, 0.35) !important;
+}
+
+#tweeker-overlay-container .log-tag-schedule {
+    background: hsla(142, 71%, 45%, 0.2) !important;
+    color: hsl(142, 80%, 65%) !important;
+    border: 1px solid hsla(142, 71%, 45%, 0.35) !important;
+}
+
+#tweeker-overlay-container .log-tag-system {
+    background: hsla(199, 89%, 48%, 0.2) !important;
+    color: hsl(199, 90%, 70%) !important;
+    border: 1px solid hsla(199, 89%, 48%, 0.35) !important;
+}
+
+#tweeker-overlay-container .log-tag-timeline {
+    background: hsla(280, 65%, 60%, 0.2) !important;
+    color: hsl(280, 75%, 75%) !important;
+    border: 1px solid hsla(280, 65%, 60%, 0.35) !important;
+}
+
+#tweeker-overlay-container .log-content {
+    flex: 1 !important;
+    color: var(--tw-text-primary) !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+}
+
+#tweeker-overlay-container .log-id-link {
+    color: hsl(199, 89%, 65%) !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    text-decoration: underline !important;
+    text-decoration-color: hsla(199, 89%, 65%, 0.4) !important;
+    padding: 0 3px !important;
+    border-radius: 3px !important;
+    transition: color 150ms ease, background 150ms ease !important;
+}
+
+#tweeker-overlay-container .log-id-link:hover {
+    color: hsl(199, 100%, 75%) !important;
+    background: hsla(199, 89%, 48%, 0.25) !important;
+}
+
+#tweeker-overlay-container .log-url-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: 4px !important;
+    padding: 1px 6px !important;
+    border-radius: 4px !important;
+    background: hsla(38, 92%, 50%, 0.2) !important;
+    border: 1px solid hsla(38, 92%, 50%, 0.4) !important;
+    color: hsl(38, 95%, 65%) !important;
+    cursor: pointer !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    transition: background 150ms ease, transform 150ms ease !important;
+    vertical-align: middle !important;
+    text-decoration: none !important;
+}
+
+#tweeker-overlay-container .log-url-link:hover {
+    background: hsla(38, 92%, 50%, 0.35) !important;
+    color: hsl(38, 100%, 75%) !important;
+    transform: scale(1.05) !important;
+}
+
+#tweeker-overlay-container .log-author {
+    color: hsl(280, 65%, 75%) !important;
+    font-weight: 600 !important;
+}
+
+/* ── Settings Info & Number Input ── */
+#tweeker-overlay-container .setting-info {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+}
+
+#tweeker-overlay-container .setting-desc {
+    font-size: 10px !important;
+    color: var(--tw-text-muted) !important;
+}
+
+#tweeker-overlay-container .input-number {
+    width: 90px !important;
+    text-align: right !important;
+    padding: 8px 12px !important;
+}
+
