@@ -5,6 +5,9 @@
 // Form Handlers, Event Listeners, and Initialization.
 // ─────────────────────────────────────────────────────────────────────────────
 
+if (window.__tweeker_app_initialized) return;
+window.__tweeker_app_initialized = true;
+
 const invoke = (window.__TAURI__ && window.__TAURI__.core) 
     ? window.__TAURI__.core.invoke 
     : async (cmd, args) => { console.debug('[Tweeker IPC Fallback]', cmd, args); };
@@ -237,17 +240,21 @@ function renderScheduledTweets(tweets) {
     }
 
     dom.scheduledList.innerHTML = tweets
-        .map(tweet => `
-            <div class="list-item" data-tweet-id="${tweet.id}">
-                <div class="list-item-info">
-                    <div class="list-item-title">${escapeHtml(truncate(tweet.content, 60))}</div>
-                    <div class="list-item-subtitle">${formatDate(tweet.scheduled_for)} · ${tweet.status}</div>
+        .map(tweet => {
+            const isSent = tweet.status === 'Sent';
+            const statusClass = isSent ? 'badge-active' : 'badge-inactive';
+            return `
+                <div class="list-item" data-tweet-id="${tweet.id}">
+                    <div class="list-item-info">
+                        <div class="list-item-title">${escapeHtml(truncate(tweet.content, 60))}</div>
+                        <div class="list-item-subtitle">${formatDate(tweet.scheduled_for)} · <span class="${statusClass}" style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${tweet.status}</span></div>
+                    </div>
+                    <div class="list-item-actions">
+                        <button type="button" class="btn btn-danger schedule-delete-btn" title="Delete scheduled tweet">×</button>
+                    </div>
                 </div>
-                <div class="list-item-actions">
-                    <button type="button" class="btn btn-danger schedule-delete-btn" title="Delete scheduled tweet">×</button>
-                </div>
-            </div>
-        `)
+            `;
+        })
         .join('');
 }
 
@@ -804,6 +811,9 @@ function processIncomingTweets(tweets) {
         const current = window._tweeker_author_map.get(handle) || { name, count: 0 };
         current.count += 1;
         window._tweeker_author_map.set(handle, current);
+
+        // Evaluate active alarms against incoming tweet
+        checkAlarmsForTweet(tweet);
     }
 
     state.stats.unique_authors = window._tweeker_author_map.size;
@@ -818,6 +828,191 @@ function processIncomingTweets(tweets) {
     if (state.activeTab === 'stats') {
         renderStats(state.stats);
     }
+}
+
+function checkAlarmsForTweet(tweet) {
+    if (!state.alarms || !Array.isArray(state.alarms)) return;
+
+    const fullText = (tweet.full_text || tweet.content || '').toLowerCase();
+    const authorHandle = (tweet.author_handle || '').toLowerCase();
+    const authorName = (tweet.author_name || '').toLowerCase();
+    const likes = tweet.likes || 0;
+    const retweets = tweet.retweets || 0;
+
+    for (const alarm of state.alarms) {
+        if (!alarm.enabled || !alarm.pattern) continue;
+
+        const rawType = typeof alarm.alarm_type === 'string'
+            ? alarm.alarm_type.toLowerCase()
+            : (Object.keys(alarm.alarm_type || {})[0] || 'keyword').toLowerCase();
+
+        const pattern = alarm.pattern.trim().toLowerCase();
+        let matched = false;
+
+        if (rawType === 'keyword') {
+            matched = fullText.includes(pattern);
+        } else if (rawType === 'user') {
+            const cleanPattern = pattern.replace(/^@/, '');
+            matched = authorHandle.includes(cleanPattern) || authorName.includes(cleanPattern);
+        } else if (rawType === 'mention') {
+            const cleanPattern = pattern.replace(/^@/, '');
+            matched = fullText.includes('@' + cleanPattern);
+        } else if (rawType === 'engagement') {
+            const minEngagement = parseInt(pattern, 10);
+            if (!isNaN(minEngagement)) {
+                matched = (likes + retweets) >= minEngagement;
+            }
+        }
+
+        if (matched) {
+            alarm.last_triggered = new Date().toISOString();
+            showAlarmToast(alarm, tweet);
+            renderAlarms(state.alarms);
+            try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+        }
+    }
+}
+
+function showAlarmToast(alarm, tweet) {
+    let container = document.getElementById('tweeker-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'tweeker-toast-container';
+        const overlay = document.getElementById('tweeker-overlay-container') || document.body;
+        overlay.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'tweeker-alarm-toast';
+    toast.innerHTML = `
+        <div class="alarm-toast-title">🚨 Alarm Triggered: ${escapeHtml(alarm.name)}</div>
+        <div class="alarm-toast-text"><strong>@${escapeHtml(tweet.author_handle || 'user')}</strong>: ${escapeHtml(truncate(tweet.full_text || tweet.content, 80))}</div>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 400);
+    }, 4500);
+}
+
+async function postTweetToX(content) {
+    if (!content) return false;
+
+    try {
+        // 1. Check if composer is already visible
+        let composer = document.querySelector('[data-testid="tweetTextarea_0"]') 
+            || document.querySelector('[role="textbox"][contenteditable="true"]');
+
+        // 2. If composer is not visible, click the sidebar Post button
+        if (!composer) {
+            const composeBtn = document.querySelector('[data-testid="SideNav_NewTweet_Button"]')
+                || document.querySelector('a[href="/compose/post"]')
+                || document.querySelector('[aria-label="Post"]');
+            
+            if (composeBtn) {
+                composeBtn.click();
+                await new Promise(r => setTimeout(r, 450));
+                composer = document.querySelector('[data-testid="tweetTextarea_0"]') 
+                    || document.querySelector('[role="textbox"][contenteditable="true"]');
+            }
+        }
+
+        // 3. Insert tweet text into composer
+        if (composer) {
+            composer.focus();
+
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(composer);
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            document.execCommand('insertText', false, content);
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+            composer.dispatchEvent(new Event('change', { bubbles: true }));
+
+            await new Promise(r => setTimeout(r, 500));
+
+            // 4. Click the Post button
+            const postBtn = document.querySelector('[data-testid="tweetButtonInline"]')
+                || document.querySelector('[data-testid="tweetButton"]')
+                || document.querySelector('[aria-label="Post"]');
+
+            if (postBtn && !postBtn.disabled && postBtn.getAttribute('aria-disabled') !== 'true') {
+                postBtn.click();
+                console.log('[Tweeker] Successfully posted scheduled tweet to X.com!');
+                return true;
+            }
+        }
+    } catch (err) {
+        console.error('[Tweeker] Automatic tweet post error:', err);
+    }
+    return false;
+}
+
+async function checkScheduledTweets() {
+    if (!state.scheduledTweets || !Array.isArray(state.scheduledTweets)) return;
+
+    const now = new Date();
+    let updated = false;
+
+    for (const tweet of state.scheduledTweets) {
+        const isPending = tweet.status === 'Pending' || tweet.status === 'pending' || !tweet.status;
+        if (!isPending) continue;
+
+        const schedDate = new Date(tweet.scheduled_for);
+        if (!isNaN(schedDate.getTime()) && schedDate <= now) {
+            tweet.status = 'Sent';
+            updated = true;
+
+            // Copy tweet content to clipboard as fallback
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(tweet.content).catch(() => {});
+            }
+
+            // Post tweet live to X.com
+            const posted = await postTweetToX(tweet.content);
+
+            // Show Toast Notification
+            showScheduledTweetToast(tweet, posted);
+        }
+    }
+
+    if (updated) {
+        renderScheduledTweets(state.scheduledTweets);
+        try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+    }
+}
+
+function showScheduledTweetToast(tweet, posted) {
+    let container = document.getElementById('tweeker-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'tweeker-toast-container';
+        const overlay = document.getElementById('tweeker-overlay-container') || document.body;
+        overlay.appendChild(container);
+    }
+
+    const subText = posted 
+        ? 'Posted live to X.com!' 
+        : 'Copied to clipboard (ready to post)';
+
+    const toast = document.createElement('div');
+    toast.className = 'tweeker-alarm-toast';
+    toast.innerHTML = `
+        <div class="alarm-toast-title" style="color: #10b981;">🚀 Scheduled Tweet ${posted ? 'Posted!' : 'Triggered!'}</div>
+        <div class="alarm-toast-text">${escapeHtml(truncate(tweet.content, 90))}</div>
+        <div class="alarm-toast-sub" style="font-size: 11px; color: var(--tw-text-muted); margin-top: 4px;">${subText}</div>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 400);
+    }, 6000);
 }
 
 // Listen for messages from injected bridge.js
@@ -897,6 +1092,10 @@ async function init() {
     await refreshConnectionStatus();
     await refreshAlarms();
     await refreshScheduledTweets();
+
+    // Start 5-second monitor loop for scheduled tweets
+    setInterval(checkScheduledTweets, 5000);
+    checkScheduledTweets();
 
     console.log('[Tweeker] Control panel initialized');
 }

@@ -92,8 +92,13 @@
 
         for (const node of nodes) {
             if (!node || node.nodeType !== Node.ELEMENT_NODE) continue;
-            // Ignore mutations originating inside Tweeker overlay container
-            if (node.closest && node.closest('#tweeker-overlay-container')) continue;
+            if (node.closest) {
+                if (node.closest('#tweeker-overlay-container')) continue;
+                if (node.closest('[data-testid="tweetTextarea_0"]')) continue;
+                if (node.closest('[role="textbox"]')) continue;
+                if (node.closest('.DraftEditor-root')) continue;
+                if (node.closest('input, textarea, [contenteditable="true"]')) continue;
+            }
 
             if (node.matches && node.matches('[data-testid="tweet"]')) {
                 parseDOMTweet(node);
@@ -121,9 +126,16 @@
                 const observer = new MutationObserver(function(mutations) {
                     for (const mutation of mutations) {
                         for (const node of mutation.addedNodes) {
-                            if (node.nodeType === Node.ELEMENT_NODE) {
-                                pendingNodesToScan.add(node);
-                            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.closest) {
+                    if (node.closest('#tweeker-overlay-container')) continue;
+                    if (node.closest('[data-testid="tweetTextarea_0"]')) continue;
+                    if (node.closest('[role="textbox"]')) continue;
+                    if (node.closest('.DraftEditor-root')) continue;
+                    if (node.closest('input, textarea, [contenteditable="true"]')) continue;
+                }
+                pendingNodesToScan.add(node);
+            }
                         }
                     }
 
@@ -150,31 +162,45 @@
     let autoReadEnabled = false;
     let autoReadIntervalTimer = null;
 
+    function isUserTyping() {
+        const active = document.activeElement;
+        if (!active) return false;
+        if (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') return true;
+        if (active.isContentEditable) return true;
+        if (active.closest && (active.closest('[role="textbox"]') || active.closest('.DraftEditor-root'))) return true;
+        return false;
+    }
+
     function triggerAutoReadCheck() {
         if (!autoReadEnabled) return;
+        // Never interfere while the user is actively typing a tweet, reply, or form input
+        if (isUserTyping()) return;
 
         try {
-            // 1. Search for X.com new tweets pill button
+            // 1. Search strictly for X.com new tweets pill button
             const pillLabel = document.querySelector('[data-testid="pillLabel"]');
             let pillBtn = null;
 
             if (pillLabel) {
                 pillBtn = pillLabel.closest ? (pillLabel.closest('[role="button"]') || pillLabel) : pillLabel;
             } else {
-                // Fallback query for floating new tweets notification buttons
-                const candidateButtons = document.querySelectorAll('div[role="button"][tabindex="0"]');
-                for (const btn of candidateButtons) {
-                    const text = (btn.textContent || '').toLowerCase();
-                    if (text.includes('tweet') || text.includes('post') || text.includes('show')) {
-                        pillBtn = btn;
-                        break;
-                    }
-                }
+                // Strict query for floating new posts notification pills only (never generic buttons)
+                pillBtn = document.querySelector('[aria-label*="New posts"]')
+                    || document.querySelector('[aria-label*="See new posts"]')
+                    || document.querySelector('[aria-label*="Show new tweets"]');
             }
 
             if (pillBtn && typeof pillBtn.click === 'function') {
-                console.log('[Tweeker Interceptor] Auto read: clicking new tweets pill');
-                pillBtn.click();
+                const isComposerBtn = pillBtn.closest && (
+                    pillBtn.closest('[data-testid="tweetTextarea_0"]') ||
+                    pillBtn.closest('[role="textbox"]') ||
+                    pillBtn.closest('.DraftEditor-root') ||
+                    pillBtn.closest('#tweeker-overlay-container')
+                );
+                if (!isComposerBtn) {
+                    console.log('[Tweeker Interceptor] Auto read: clicking new tweets pill');
+                    pillBtn.click();
+                }
             }
 
             // 2. Scan timeline DOM for any unparsed tweets
