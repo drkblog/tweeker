@@ -28,6 +28,8 @@
     "allow-get-scheduled-tweets",
     "allow-create-scheduled-tweet",
     "allow-delete-scheduled-tweet",
-    "allow-toggle-overlay"
+    "allow-toggle-overlay",
+    "allow-get-auto-read",
+    "allow-set-auto-read"
   ]
 }

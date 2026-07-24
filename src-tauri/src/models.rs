@@ -53,9 +53,13 @@ pub struct Alarm {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AlarmType {
+    #[serde(alias = "Keyword", alias = "keyword")]
     Keyword,   // triggers when a tweet contains a keyword
+    #[serde(alias = "User", alias = "user")]
     User,      // triggers when a specific user tweets
+    #[serde(alias = "Mention", alias = "mention")]
     Mention,   // triggers when the logged-in user is mentioned
+    #[serde(alias = "Engagement", alias = "engagement")]
     Engagement, // triggers when a tweet exceeds engagement threshold
 }
 

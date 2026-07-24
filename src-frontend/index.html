@@ -115,8 +115,10 @@
                 <form id="alarm-form" class="create-form">
                     <input type="text" id="alarm-name" placeholder="Alarm Name (e.g. AI News)" required class="input" />
                     <select id="alarm-type" class="input">
-                        <option value="Keyword">Keyword Match</option>
-                        <option value="User">User Match</option>
+                        <option value="keyword">Keyword Match</option>
+                        <option value="user">User Match</option>
+                        <option value="mention">Mention Match</option>
+                        <option value="engagement">Engagement Threshold</option>
                     </select>
                     <input type="text" id="alarm-pattern" placeholder="Pattern (e.g. #LLM, @openai)" required class="input" />
                     <button type="submit" class="btn btn-primary">Add Alarm</button>

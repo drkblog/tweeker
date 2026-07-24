@@ -175,11 +175,14 @@ function renderStats(stats) {
 async function refreshAlarms() {
     try {
         const alarms = await invoke('get_alarms');
-        state.alarms = alarms;
-        renderAlarms(alarms);
+        if (Array.isArray(alarms) && alarms.length > 0) {
+            state.alarms = alarms;
+            try { localStorage.setItem('tweeker_alarms', JSON.stringify(alarms)); } catch (e) {}
+        }
     } catch (e) {
-        console.error('[Tweeker] Failed to refresh alarms:', e);
+        console.debug('[Tweeker] refreshAlarms fallback:', e);
     }
+    renderAlarms(state.alarms || []);
 }
 
 function renderAlarms(alarms) {
@@ -189,32 +192,42 @@ function renderAlarms(alarms) {
     }
 
     dom.alarmsList.innerHTML = alarms
-        .map(alarm => `
-            <div class="list-item" data-alarm-id="${alarm.id}">
-                <div class="list-item-info">
-                    <div class="list-item-title">${escapeHtml(alarm.name)}</div>
-                    <div class="list-item-subtitle">${alarm.alarm_type}: ${escapeHtml(alarm.pattern)}</div>
+        .map(alarm => {
+            const rawType = typeof alarm.alarm_type === 'string' 
+                ? alarm.alarm_type 
+                : (Object.keys(alarm.alarm_type || {})[0] || 'keyword');
+            const typeLabel = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+
+            return `
+                <div class="list-item" data-alarm-id="${alarm.id}">
+                    <div class="list-item-info">
+                        <div class="list-item-title">${escapeHtml(alarm.name)}</div>
+                        <div class="list-item-subtitle">${typeLabel}: ${escapeHtml(alarm.pattern)}</div>
+                    </div>
+                    <div class="list-item-actions">
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="alarm-toggle-input" ${alarm.enabled ? 'checked' : ''} />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <button type="button" class="btn btn-danger alarm-delete-btn" title="Delete alarm">×</button>
+                    </div>
                 </div>
-                <div class="list-item-actions">
-                    <label class="toggle-switch">
-                        <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="handleToggleAlarm('${alarm.id}', this.checked)" />
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <button class="btn btn-danger" onclick="handleDeleteAlarm('${alarm.id}')">×</button>
-                </div>
-            </div>
-        `)
+            `;
+        })
         .join('');
 }
 
 async function refreshScheduledTweets() {
     try {
         const tweets = await invoke('get_scheduled_tweets');
-        state.scheduledTweets = tweets;
-        renderScheduledTweets(tweets);
+        if (Array.isArray(tweets) && tweets.length > 0) {
+            state.scheduledTweets = tweets;
+            try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(tweets)); } catch (e) {}
+        }
     } catch (e) {
-        console.error('[Tweeker] Failed to refresh scheduled tweets:', e);
+        console.debug('[Tweeker] refreshScheduledTweets fallback:', e);
     }
+    renderScheduledTweets(state.scheduledTweets || []);
 }
 
 function renderScheduledTweets(tweets) {
@@ -231,7 +244,7 @@ function renderScheduledTweets(tweets) {
                     <div class="list-item-subtitle">${formatDate(tweet.scheduled_for)} · ${tweet.status}</div>
                 </div>
                 <div class="list-item-actions">
-                    <button class="btn btn-danger" onclick="handleDeleteScheduledTweet('${tweet.id}')">×</button>
+                    <button type="button" class="btn btn-danger schedule-delete-btn" title="Delete scheduled tweet">×</button>
                 </div>
             </div>
         `)
@@ -312,43 +325,62 @@ async function handleCreateAlarm(e) {
     e.preventDefault();
 
     const name = dom.alarmName.value.trim();
-    const alarmType = dom.alarmType.value;
+    const rawType = (dom.alarmType.value || 'keyword').toLowerCase();
     const pattern = dom.alarmPattern.value.trim();
 
     if (!name || !pattern) return;
 
+    const newAlarm = {
+        id: 'alarm-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        name,
+        alarm_type: rawType,
+        pattern,
+        enabled: true,
+        created_at: new Date().toISOString(),
+        last_triggered: null,
+    };
+
     try {
-        await invoke('create_alarm', {
+        const created = await invoke('create_alarm', {
             request: {
                 name: name,
-                alarm_type: alarmType,
+                alarm_type: rawType,
                 pattern: pattern,
             },
         });
 
-        dom.alarmName.value = '';
-        dom.alarmPattern.value = '';
-        refreshAlarms();
-    } catch (e) {
-        console.error('[Tweeker] Failed to create alarm:', e);
+        if (created && created.id) {
+            newAlarm.id = created.id;
+        }
+    } catch (err) {
+        console.debug('[Tweeker] IPC create_alarm fallback:', err);
     }
+
+    if (!state.alarms) state.alarms = [];
+    state.alarms.push(newAlarm);
+    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+
+    dom.alarmName.value = '';
+    dom.alarmPattern.value = '';
+    renderAlarms(state.alarms);
 }
 
 async function handleDeleteAlarm(id) {
     try {
-        await invoke('delete_alarm', { id });
-        refreshAlarms();
-    } catch (e) {
-        console.error('[Tweeker] Failed to delete alarm:', e);
-    }
+        await invoke('delete_alarm', { id }).catch(() => {});
+    } catch (err) {}
+    state.alarms = (state.alarms || []).filter(a => a.id !== id);
+    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    renderAlarms(state.alarms);
 }
 
 async function handleToggleAlarm(id, enabled) {
     try {
-        await invoke('toggle_alarm', { id, enabled });
-    } catch (e) {
-        console.error('[Tweeker] Failed to toggle alarm:', e);
-    }
+        await invoke('toggle_alarm', { id, enabled }).catch(() => {});
+    } catch (err) {}
+    const alarm = (state.alarms || []).find(a => a.id === id);
+    if (alarm) alarm.enabled = enabled;
+    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
 }
 
 async function handleScheduleTweet(e) {
@@ -359,31 +391,45 @@ async function handleScheduleTweet(e) {
 
     if (!content || !datetimeLocal) return;
 
-    // Convert local datetime to ISO 8601 / RFC 3339
     const scheduledFor = new Date(datetimeLocal).toISOString();
 
+    const newTweet = {
+        id: 'sched-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        content,
+        scheduled_for: scheduledFor,
+        status: 'Pending',
+        created_at: new Date().toISOString(),
+    };
+
     try {
-        await invoke('create_scheduled_tweet', {
+        const created = await invoke('create_scheduled_tweet', {
             content: content,
-            scheduledFor: scheduledFor,
+            scheduled_for: scheduledFor,
         });
 
-        dom.scheduleContent.value = '';
-        dom.scheduleDatetime.value = '';
-        dom.charCount.textContent = '0';
-        refreshScheduledTweets();
-    } catch (e) {
-        console.error('[Tweeker] Failed to schedule tweet:', e);
+        if (created && created.id) {
+            newTweet.id = created.id;
+        }
+    } catch (err) {
+        console.debug('[Tweeker] IPC create_scheduled_tweet fallback:', err);
     }
+
+    if (!state.scheduledTweets) state.scheduledTweets = [];
+    state.scheduledTweets.push(newTweet);
+    try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+
+    dom.scheduleContent.value = '';
+    dom.charCount.textContent = '0';
+    renderScheduledTweets(state.scheduledTweets);
 }
 
 async function handleDeleteScheduledTweet(id) {
     try {
-        await invoke('delete_scheduled_tweet', { id });
-        refreshScheduledTweets();
-    } catch (e) {
-        console.error('[Tweeker] Failed to delete scheduled tweet:', e);
-    }
+        await invoke('delete_scheduled_tweet', { id }).catch(() => {});
+    } catch (err) {}
+    state.scheduledTweets = (state.scheduledTweets || []).filter(t => t.id !== id);
+    try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+    renderScheduledTweets(state.scheduledTweets);
 }
 
 // Make handlers available globally for inline onclick handlers
@@ -618,6 +664,42 @@ if (dom.copyUrlBtn) {
 // Panel close
 dom.panelClose.addEventListener('click', () => togglePanel(false));
 
+// Alarms list event delegation
+if (dom.alarmsList) {
+    dom.alarmsList.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.alarm-delete-btn') || e.target.closest('.btn-danger');
+        if (deleteBtn) {
+            const item = deleteBtn.closest('.list-item');
+            if (item && item.dataset.alarmId) {
+                handleDeleteAlarm(item.dataset.alarmId);
+            }
+        }
+    });
+
+    dom.alarmsList.addEventListener('change', (e) => {
+        const toggleInput = e.target.closest('.alarm-toggle-input') || e.target.closest('input[type="checkbox"]');
+        if (toggleInput) {
+            const item = toggleInput.closest('.list-item');
+            if (item && item.dataset.alarmId) {
+                handleToggleAlarm(item.dataset.alarmId, toggleInput.checked);
+            }
+        }
+    });
+}
+
+// Scheduled tweets list event delegation
+if (dom.scheduledList) {
+    dom.scheduledList.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.schedule-delete-btn') || e.target.closest('.btn-danger');
+        if (deleteBtn) {
+            const item = deleteBtn.closest('.list-item');
+            if (item && item.dataset.tweetId) {
+                handleDeleteScheduledTweet(item.dataset.tweetId);
+            }
+        }
+    });
+}
+
 // Initialize draggable toggle button
 initDraggableToggle();
 
@@ -758,8 +840,24 @@ async function init() {
     // Set initial Auto read state
     setAutoReadState(autoReadStartup);
 
+    // Restore saved alarms and scheduled tweets
+    try {
+        const savedAlarms = localStorage.getItem('tweeker_alarms');
+        if (savedAlarms) state.alarms = JSON.parse(savedAlarms);
+    } catch (e) {}
+
+    try {
+        const savedSched = localStorage.getItem('tweeker_scheduled_tweets');
+        if (savedSched) state.scheduledTweets = JSON.parse(savedSched);
+    } catch (e) {}
+
+    renderAlarms(state.alarms || []);
+    renderScheduledTweets(state.scheduledTweets || []);
+
     // Initial data load
     await refreshConnectionStatus();
+    await refreshAlarms();
+    await refreshScheduledTweets();
 
     console.log('[Tweeker] Control panel initialized');
 }
