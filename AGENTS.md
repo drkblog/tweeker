@@ -48,6 +48,8 @@ src-frontend/         # Local control panel overlay UI & styling
 - The control panel is a **floating glass drawer** with inset margins (`top: 16px; right: 16px; bottom: 16px; height: calc(100vh - 32px)`), rounded corners (`border-radius: 16px`), and width `380px`.
 - The floating toggle button (`.overlay-toggle`) is **draggable by the user** so they can uncover UI elements behind it. Drag position is saved in `localStorage` (`tweeker_toggle_pos`).
 - Header includes a **Copy URL button** (`#copy-url-btn`) that copies `window.location.href` to clipboard with a visual feedback toast (`#copy-url-toast`).
+- The status bar contains an **Auto read toggle** (`#auto-read-toggle`), off by default. A startup setting in Settings ("Auto read on app start", stored in `localStorage` as `tweeker_autoread_on_start`) automatically activates Auto read when the app opens.
+- When **Auto read** is enabled, `interceptor.js` automatically clicks X.com floating "New Tweets" pill buttons as they appear and processes all incoming timeline messages immediately.
 
 ### Backend (Rust / Tauri v2)
 - Retain proper error handling (`Result<T, String>`) for all `#[tauri::command]` handlers.

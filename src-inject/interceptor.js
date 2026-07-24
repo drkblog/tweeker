@@ -144,6 +144,75 @@
     // Start the observer after a delay to let X.com render
     setTimeout(startDOMObserver, 2000);
 
+    // ── Auto Read feature ──
+    // Automatically clicks X.com "New Tweets" pill when visible and processes all timeline messages.
+
+    let autoReadEnabled = false;
+    let autoReadIntervalTimer = null;
+
+    function triggerAutoReadCheck() {
+        if (!autoReadEnabled) return;
+
+        try {
+            // 1. Search for X.com new tweets pill button
+            const pillLabel = document.querySelector('[data-testid="pillLabel"]');
+            let pillBtn = null;
+
+            if (pillLabel) {
+                pillBtn = pillLabel.closest ? (pillLabel.closest('[role="button"]') || pillLabel) : pillLabel;
+            } else {
+                // Fallback query for floating new tweets notification buttons
+                const candidateButtons = document.querySelectorAll('div[role="button"][tabindex="0"]');
+                for (const btn of candidateButtons) {
+                    const text = (btn.textContent || '').toLowerCase();
+                    if (text.includes('tweet') || text.includes('post') || text.includes('show')) {
+                        pillBtn = btn;
+                        break;
+                    }
+                }
+            }
+
+            if (pillBtn && typeof pillBtn.click === 'function') {
+                console.log('[Tweeker Interceptor] Auto read: clicking new tweets pill');
+                pillBtn.click();
+            }
+
+            // 2. Scan timeline DOM for any unparsed tweets
+            const timeline = document.querySelector('[data-testid="primaryColumn"]') || document.querySelector('main');
+            if (timeline) {
+                const articles = timeline.querySelectorAll('[data-testid="tweet"]');
+                for (const article of articles) {
+                    parseDOMTweet(article);
+                }
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Auto read check error:', e);
+        }
+    }
+
+    function updateAutoReadState(enabled) {
+        autoReadEnabled = !!enabled;
+        if (autoReadIntervalTimer) {
+            clearInterval(autoReadIntervalTimer);
+            autoReadIntervalTimer = null;
+        }
+
+        if (autoReadEnabled) {
+            console.log('[Tweeker Interceptor] Auto read ACTIVE');
+            triggerAutoReadCheck();
+            autoReadIntervalTimer = setInterval(triggerAutoReadCheck, 2000);
+        } else {
+            console.log('[Tweeker Interceptor] Auto read INACTIVE');
+        }
+    }
+
+    // Listen for Auto Read toggle events from overlay app.js
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.__tweeker && event.data.type === 'set_auto_read') {
+            updateAutoReadState(event.data.enabled);
+        }
+    });
+
     // ── Helper functions ──
 
     /**

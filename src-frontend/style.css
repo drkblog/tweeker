@@ -222,6 +222,9 @@
 
 /* ── Status Bar ── */
 #tweeker-overlay-container .status-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     padding: 10px 24px !important;
     border-bottom: 1px solid var(--tw-border) !important;
     flex-shrink: 0 !important;
@@ -252,6 +255,20 @@
 }
 
 #tweeker-overlay-container .status-text {
+    font-size: 11px !important;
+    color: var(--tw-text-secondary) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+}
+
+#tweeker-overlay-container .auto-read-bar-control {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#tweeker-overlay-container .auto-read-label {
     font-size: 11px !important;
     color: var(--tw-text-secondary) !important;
     font-weight: 600 !important;

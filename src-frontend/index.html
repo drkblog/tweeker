@@ -47,6 +47,13 @@
                 <span id="status-dot" class="status-dot"></span>
                 <span id="status-text" class="status-text">Connecting...</span>
             </div>
+            <div class="auto-read-bar-control" title="Auto read timeline messages when ready">
+                <span class="auto-read-label">Auto read</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="auto-read-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
         </div>
 
         <!-- Tab navigation -->
@@ -60,23 +67,23 @@
                 Alarms
             </button>
             <button class="tab" role="tab" aria-selected="false" data-tab="scheduler" id="tab-scheduler">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Schedule
             </button>
             <button class="tab" role="tab" aria-selected="false" data-tab="settings" id="tab-settings">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Settings
             </button>
         </nav>
 
-        <!-- Tab content panels -->
+        <!-- Panel content container -->
         <div class="panel-content">
             <!-- Stats tab -->
-            <section id="content-stats" class="tab-content active" role="tabpanel">
+            <section id="content-stats" class="tab-content" role="tabpanel">
                 <div class="stats-grid">
                     <div class="stat-card" id="stat-tweets">
                         <span class="stat-value">0</span>
-                        <span class="stat-label">Tweets Seen</span>
+                        <span class="stat-label">Tweets Intercepted</span>
                     </div>
                     <div class="stat-card" id="stat-authors">
                         <span class="stat-value">0</span>
@@ -91,30 +98,33 @@
                         <span class="stat-label">Total Retweets</span>
                     </div>
                 </div>
+
                 <div class="section-heading">
                     <h2>Top Authors</h2>
                 </div>
                 <div id="top-authors-list" class="top-authors-list">
-                    <p class="empty-state">No data yet — browse your timeline to start collecting stats.</p>
+                    <p class="empty-state">No tweets intercepted yet. Scroll your X.com timeline to see stats!</p>
                 </div>
             </section>
 
             <!-- Alarms tab -->
             <section id="content-alarms" class="tab-content" role="tabpanel" hidden>
                 <div class="section-heading">
-                    <h2>Keyword & User Alarms</h2>
+                    <h2>Create Alarm</h2>
                 </div>
                 <form id="alarm-form" class="create-form">
-                    <input type="text" id="alarm-name" placeholder="Alarm name" required class="input" />
-                    <select id="alarm-type" class="input" required>
-                        <option value="keyword">Keyword</option>
-                        <option value="user">User</option>
-                        <option value="mention">Mention</option>
-                        <option value="engagement">Engagement</option>
+                    <input type="text" id="alarm-name" placeholder="Alarm Name (e.g. AI News)" required class="input" />
+                    <select id="alarm-type" class="input">
+                        <option value="Keyword">Keyword Match</option>
+                        <option value="User">User Match</option>
                     </select>
-                    <input type="text" id="alarm-pattern" placeholder="Keyword or @username" required class="input" />
-                    <button type="submit" class="btn btn-primary">Create Alarm</button>
+                    <input type="text" id="alarm-pattern" placeholder="Pattern (e.g. #LLM, @openai)" required class="input" />
+                    <button type="submit" class="btn btn-primary">Add Alarm</button>
                 </form>
+
+                <div class="section-heading">
+                    <h2>Active Alarms</h2>
+                </div>
                 <div id="alarms-list" class="items-list">
                     <p class="empty-state">No alarms configured yet.</p>
                 </div>
@@ -144,6 +154,13 @@
                     <h2>Settings</h2>
                 </div>
                 <div class="settings-group">
+                    <label class="setting-item">
+                        <span class="setting-label">Auto read on app start</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="auto-read-startup-toggle">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
                     <label class="setting-item">
                         <span class="setting-label">Interceptor Active</span>
                         <span id="interceptor-status" class="setting-badge badge-active">Active</span>

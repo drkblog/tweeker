@@ -119,11 +119,23 @@ pub fn delete_scheduled_tweet(state: tauri::State<'_, AppState>, id: String) -> 
     Ok(())
 }
 
-// ── Overlay toggle ──
+// ── Overlay toggle & Auto read ──
 
 #[tauri::command]
 pub fn toggle_overlay(state: tauri::State<'_, AppState>) -> bool {
     let mut visible = state.overlay_visible.lock().unwrap();
     *visible = !*visible;
     *visible
+}
+
+#[tauri::command]
+pub fn get_auto_read(state: tauri::State<'_, AppState>) -> bool {
+    *state.auto_read.lock().unwrap()
+}
+
+#[tauri::command]
+pub fn set_auto_read(state: tauri::State<'_, AppState>, enabled: bool) -> bool {
+    let mut auto_read = state.auto_read.lock().unwrap();
+    *auto_read = enabled;
+    *auto_read
 }

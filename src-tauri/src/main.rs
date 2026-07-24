@@ -27,6 +27,8 @@ fn main() {
             commands::create_scheduled_tweet,
             commands::delete_scheduled_tweet,
             commands::toggle_overlay,
+            commands::get_auto_read,
+            commands::set_auto_read,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

@@ -22,6 +22,8 @@ const emit = (window.__TAURI__ && window.__TAURI__.event)
 const state = {
     panelOpen: false,
     activeTab: 'stats',
+    autoRead: false,
+    autoReadOnStart: false,
     stats: null,
     alarms: [],
     scheduledTweets: [],
@@ -43,9 +45,11 @@ const dom = {
     copyUrlToast: document.getElementById('copy-url-toast'),
     appVersion: document.getElementById('app-version'),
 
-    // Status
+    // Status & Auto read
     statusDot: document.getElementById('status-dot'),
     statusText: document.getElementById('status-text'),
+    autoReadToggle: document.getElementById('auto-read-toggle'),
+    autoReadStartupToggle: document.getElementById('auto-read-startup-toggle'),
 
     // Tabs
     tabs: document.querySelectorAll('.tab'),
@@ -565,7 +569,46 @@ function initDraggableToggle() {
     });
 }
 
+// ── Auto Read Management ──
+
+function setAutoReadState(enabled) {
+    state.autoRead = !!enabled;
+    if (dom.autoReadToggle) {
+        dom.autoReadToggle.checked = state.autoRead;
+    }
+    
+    // Notify injected interceptor script via postMessage
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_auto_read',
+            enabled: state.autoRead
+        }, '*');
+    } catch (e) {}
+
+    // Update Rust backend if connected
+    invoke('set_auto_read', { enabled: state.autoRead }).catch(() => {});
+}
+
 // ── Event Listeners ──
+
+// Auto read toggles
+if (dom.autoReadToggle) {
+    dom.autoReadToggle.addEventListener('change', (e) => {
+        setAutoReadState(e.target.checked);
+    });
+}
+
+if (dom.autoReadStartupToggle) {
+    dom.autoReadStartupToggle.addEventListener('change', (e) => {
+        const startupEnabled = e.target.checked;
+        localStorage.setItem('tweeker_autoread_on_start', startupEnabled ? 'true' : 'false');
+        state.autoReadOnStart = startupEnabled;
+        if (startupEnabled) {
+            setAutoReadState(true);
+        }
+    });
+}
 
 // Copy URL button
 if (dom.copyUrlBtn) {
@@ -704,6 +747,16 @@ async function init() {
     now.setHours(now.getHours() + 1);
     const localIso = now.toISOString().slice(0, 16);
     dom.scheduleDatetime.value = localIso;
+
+    // Restore Auto read startup setting
+    const autoReadStartup = localStorage.getItem('tweeker_autoread_on_start') === 'true';
+    state.autoReadOnStart = autoReadStartup;
+    if (dom.autoReadStartupToggle) {
+        dom.autoReadStartupToggle.checked = autoReadStartup;
+    }
+
+    // Set initial Auto read state
+    setAutoReadState(autoReadStartup);
 
     // Initial data load
     await refreshConnectionStatus();

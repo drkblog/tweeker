@@ -7,6 +7,7 @@ use std::collections::HashMap;
 /// All fields are wrapped in Mutex for thread-safe interior mutability.
 pub struct AppState {
     pub overlay_visible: Mutex<bool>,
+    pub auto_read: Mutex<bool>,
     pub connection: Mutex<ConnectionState>,
     pub tweets: Mutex<Vec<InterceptedTweet>>,
     pub alarms: Mutex<Vec<Alarm>>,
@@ -24,6 +25,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             overlay_visible: Mutex::new(false),
+            auto_read: Mutex::new(false),
             connection: Mutex::new(ConnectionState {
                 x_webview_loaded: false,
                 interceptor_active: false,
