@@ -4,61 +4,68 @@
 
 ## Technology Stack & Architecture
 
-- **Frontend**: Vanilla HTML5, CSS3, JavaScript (ES6+). The control panel is an overlay drawer that slides over the X.com webview.
-- **Backend**: Rust with Tauri v2 (`src-tauri`), Tokio async runtime, SQLite via `rusqlite` for persistence.
-- **X.com Integration**: Native Tauri webview loading X.com as an external URL. JavaScript injection via `initialization_script` intercepts `fetch`/`XHR` API calls and uses `MutationObserver` for DOM monitoring.
-- **Multi-Webview**: Single window with two webviews — a local control panel overlay and the X.com webview. Uses Tauri v2's unstable `add_child` API.
+- **Frontend**: Vanilla HTML5, CSS3, JavaScript (ES6+). The control panel is a floating glassmorphism overlay drawer injected directly over the X.com webview.
+- **Backend**: Rust with Tauri v2 (`src-tauri`), Tokio async runtime (`tauri::async_runtime`), SQLite via `rusqlite` for persistence.
+- **X.com Integration**: Native Tauri `WebviewWindow` loading X.com directly as an external URL. JavaScript injection via `initialization_script` bundles:
+  - `bridge.js` (message channel: webview → Rust backend / local listeners)
+  - `interceptor.js` (fetch/XHR monkey-patch + debounced DOM MutationObserver)
+  - `style.css` (overlay styling scoped strictly to `#tweeker-overlay-container`)
+  - `index.html` overlay DOM elements & `app.js` (control panel state manager)
 
 ## Project Structure
 
 ```
 src-tauri/src/
-├── main.rs           # Entry point, Tauri builder, webview setup
+├── main.rs           # Entry point, Tauri builder, WebviewWindow setup
 ├── commands.rs       # All #[tauri::command] IPC handlers
 ├── state.rs          # Shared AppState with Mutex-wrapped fields
 ├── models.rs         # Serde-serializable data models
 ├── storage.rs        # SQLite persistence (migrations, CRUD)
-├── scheduler.rs      # Tokio-based tweet scheduler & alarms
-└── interceptor.rs    # JS injection script generator (reads src-inject/)
+├── scheduler.rs      # Async tweet scheduler & heartbeat monitor
+└── interceptor.rs    # Bundles injected scripts + overlay DOM/CSS/JS
 
 src-inject/           # JS scripts injected into X.com webview
-├── interceptor.js    # fetch/XHR monkey-patch + MutationObserver
-└── bridge.js         # Message bridge: X.com webview → Rust backend
+├── interceptor.js    # fetch/XHR monkey-patch + debounced DOM MutationObserver
+└── bridge.js         # Message bridge via window.postMessage
 
-src-frontend/         # Local control panel overlay UI
-├── index.html
-├── style.css
-└── app.js
+src-frontend/         # Local control panel overlay UI & styling
+├── index.html        # Overlay panel template
+├── style.css         # Design system & widget styles
+└── app.js            # Overlay state management, tab logic & IPC handlers
 ```
+
+## Versioning & Releases
+
+- **Current Version**: `1.0.0`
+- **Single Source of Truth**: The app version is set in `src-tauri/Cargo.toml` (`version = "1.0.0"`) and mirrored in `src-tauri/tauri.conf.json`.
+- **Incrementing Version**: To increment the version, edit `version` in `Cargo.toml` and `tauri.conf.json`. The backend `get_app_version()` command uses `env!("CARGO_PKG_VERSION")` and updates automatically across the app.
 
 ## Code Style & Guidelines
 
 ### Frontend (HTML / CSS / JS)
-- Keep CSS clean, modern, and modular in `src-frontend/style.css`.
-- Use CSS custom properties (tokens) defined in `:root` for colors, shadows, radii, and transitions.
-- Keep `src-frontend/app.js` organized into modular sections (State, DOM Elements, Event Handlers, UI Renderers).
-- The control panel is an **overlay drawer** — it slides in/out over X.com. Do not use `iframe` or separate windows.
+- All CSS in `src-frontend/style.css` **MUST be scoped strictly** to `#tweeker-overlay-container` (e.g. `#tweeker-overlay-container *, #tweeker-overlay-container .class`).
+- **NEVER** apply `pointer-events: none`, `overflow: hidden`, or global resets (`* { margin: 0 }`) directly to `body` or X.com elements.
+- The control panel is a **floating glass drawer** with inset margins (`top: 16px; right: 16px; bottom: 16px; height: calc(100vh - 32px)`), rounded corners (`border-radius: 16px`), and width `380px`.
+- The floating toggle button (`.overlay-toggle`) is **draggable by the user** so they can uncover UI elements behind it. Drag position is saved in `localStorage` (`tweeker_toggle_pos`).
+- Header includes a **Copy URL button** (`#copy-url-btn`) that copies `window.location.href` to clipboard with a visual feedback toast (`#copy-url-toast`).
 
-### Backend (Rust / Tauri)
+### Backend (Rust / Tauri v2)
 - Retain proper error handling (`Result<T, String>`) for all `#[tauri::command]` handlers.
-- Keep modules small and focused. Each file in `src-tauri/src/` has a single responsibility.
+- Background async tasks started in `setup()` **MUST use `tauri::async_runtime::spawn`**, NEVER direct `tokio::spawn` (which causes Tokio reactor panics on the GUI thread).
 - Use `AppState` in `state.rs` as the single shared state managed by Tauri.
 - All database operations go through `storage.rs`. Do not use raw SQL in command handlers.
-- Scheduler tasks in `scheduler.rs` use Tokio timers, never `std::thread::sleep`.
 
 ### Injected Scripts (src-inject/)
-- These scripts run in the X.com webview context. They have NO access to Tauri IPC.
-- Communication from injected scripts to Rust goes via `window.postMessage` → Rust event listener.
-- Keep injection scripts minimal and defensive — X.com can change their DOM/API at any time.
-- Use `MutationObserver` for DOM changes, monkey-patched `fetch` for API interception.
+- Keep injection scripts minimal, defensive, and non-blocking.
+- The DOM `MutationObserver` **MUST be debounced** (300ms queue) and ignore nodes inside `#tweeker-overlay-container`.
+- Parsed tweet elements **MUST be deduplicated** via `dataset.tweekerParsed = 'true'` markers so elements are parsed at most once.
 
 ### Security
-- The X.com webview must NOT have Tauri IPC capabilities (isolated by capabilities config).
-- Only the control panel webview (`main`) has IPC access to Rust commands.
-- Navigation in the X.com webview is locked to `x.com` / `twitter.com` domains via `on_navigation`.
-- Never expose sensitive data (auth tokens, cookies) to the control panel webview.
+- Navigation in the X.com webview is locked to `x.com`, `twitter.com`, and related CDN/API domains via `on_navigation`.
+- Never expose sensitive authentication data or cookies.
 
 ## Build & Verification Commands
 - Frontend & Desktop Dev: `cargo tauri dev`
 - Rust Typecheck / Lint: `cd src-tauri && cargo check`
-- Production Build: `cargo tauri build`
+- Production Build (macOS): `./package/macos/package.sh`
+- Production Build (Windows): `powershell -ExecutionPolicy Bypass -File .\package\windows\package.ps1`
