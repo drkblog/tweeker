@@ -360,9 +360,25 @@
             const handle = userLink.getAttribute('href')?.replace('/', '') || '';
             const content = textEl.textContent || '';
 
+            // Extract actual numeric tweet ID from status permalink link (e.g. /username/status/18123456789)
+            let tweetId = '';
+            const statusLinks = articleEl.querySelectorAll('a[href*="/status/"]');
+            for (const sLink of statusLinks) {
+                const href = sLink.getAttribute('href') || '';
+                const match = href.match(/\/status\/(\d+)/);
+                if (match && match[1]) {
+                    tweetId = match[1];
+                    break;
+                }
+            }
+
+            if (!tweetId) {
+                tweetId = 'dom-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+            }
+
             if (handle && content) {
                 window.__tweeker.sendTweets([{
-                    tweet_id: 'dom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                    tweet_id: tweetId,
                     author_handle: handle,
                     author_name: handle,
                     content: content,

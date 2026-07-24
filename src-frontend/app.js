@@ -577,13 +577,18 @@ function addLogEntry(entry) {
 
     const type = entry.type || 'system';
     const text = entry.text || '';
-    const tweetId = entry.tweetId || null;
+    const rawTweetId = entry.tweetId || null;
     const authorHandle = entry.authorHandle || null;
+
+    // Filter out synthetic fallback IDs (e.g. dom-...) for URL generation
+    const isNumericId = rawTweetId && /^\d+$/.test(rawTweetId);
+    const tweetId = rawTweetId;
     let tweetUrl = entry.tweetUrl || null;
 
-    if (!tweetUrl && tweetId) {
-        tweetUrl = authorHandle 
-            ? `https://x.com/${authorHandle.replace(/^@/, '')}/status/${tweetId}`
+    if (!tweetUrl && isNumericId) {
+        const cleanHandle = authorHandle ? authorHandle.replace(/^@/, '') : '';
+        tweetUrl = cleanHandle 
+            ? `https://x.com/${cleanHandle}/status/${tweetId}`
             : `https://x.com/i/status/${tweetId}`;
     }
 
@@ -654,15 +659,22 @@ function getLogItemInnerHtml(item) {
     }
 
     let linksHtml = '';
-    if (item.tweetId) {
-        const url = item.tweetUrl || `https://x.com/i/status/${item.tweetId}`;
+    const isRealNumericId = item.tweetId && /^\d+$/.test(item.tweetId);
+
+    if (isRealNumericId) {
+        const handle = (item.authorHandle || '').replace(/^@/, '');
+        const url = item.tweetUrl || (handle ? `https://x.com/${handle}/status/${item.tweetId}` : `https://x.com/i/status/${item.tweetId}`);
         linksHtml = `
             <a class="log-id-link" data-copy-id="${escapeHtml(item.tweetId)}" title="Click to copy Tweet ID">ID: ${escapeHtml(item.tweetId)}</a>
             <a class="log-url-link" data-copy-url="${escapeHtml(url)}" title="Click to copy Tweet URL">🔗 URL</a>
         `;
-    } else if (item.tweetUrl) {
+    } else if (item.tweetUrl && /^https?:\/\//i.test(item.tweetUrl)) {
         linksHtml = `
             <a class="log-url-link" data-copy-url="${escapeHtml(item.tweetUrl)}" title="Click to copy Tweet URL">🔗 URL</a>
+        `;
+    } else if (item.tweetId && !item.tweetId.startsWith('dom-')) {
+        linksHtml = `
+            <a class="log-id-link" data-copy-id="${escapeHtml(item.tweetId)}" title="Click to copy ID">ID: ${escapeHtml(item.tweetId)}</a>
         `;
     }
 
