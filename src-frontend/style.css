@@ -846,6 +846,33 @@
     transform: scale(0.95) !important;
 }
 
+/* ── Form Checkbox Row ── */
+#tweeker-overlay-container .form-checkbox-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 4px 0 !important;
+}
+
+#tweeker-overlay-container .form-checkbox-label {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: var(--tw-text-secondary) !important;
+}
+
+#tweeker-overlay-container .alarm-notify-control {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: var(--tw-text-muted) !important;
+}
+
+#tweeker-overlay-container .alarm-notify-control.active {
+    color: var(--tw-accent) !important;
+}
+
 /* ── Toggle Switch ── */
 #tweeker-overlay-container .toggle-switch {
     position: relative !important;

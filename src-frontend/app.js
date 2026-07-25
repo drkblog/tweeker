@@ -88,6 +88,7 @@ const dom = {
     alarmName: document.getElementById('alarm-name'),
     alarmType: document.getElementById('alarm-type'),
     alarmPattern: document.getElementById('alarm-pattern'),
+    alarmNotifyToggle: document.getElementById('alarm-notify-toggle'),
     alarmsList: document.getElementById('alarms-list'),
 
     // Scheduler
@@ -220,6 +221,7 @@ function renderAlarms(alarms) {
                 ? alarm.alarm_type 
                 : (Object.keys(alarm.alarm_type || {})[0] || 'keyword');
             const typeLabel = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+            const isNotify = !!alarm.notify;
 
             return `
                 <div class="list-item" data-alarm-id="${alarm.id}">
@@ -228,7 +230,14 @@ function renderAlarms(alarms) {
                         <div class="list-item-subtitle">${typeLabel}: ${escapeHtml(alarm.pattern)}</div>
                     </div>
                     <div class="list-item-actions">
-                        <label class="toggle-switch">
+                        <div class="alarm-notify-control ${isNotify ? 'active' : ''}" title="Screen popup notification on/off (default off)">
+                            <label class="toggle-switch" style="transform: scale(0.85);">
+                                <input type="checkbox" class="alarm-notify-input" ${isNotify ? 'checked' : ''} />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span>Notify</span>
+                        </div>
+                        <label class="toggle-switch" title="Enable/disable alarm">
                             <input type="checkbox" class="alarm-toggle-input" ${alarm.enabled ? 'checked' : ''} />
                             <span class="toggle-slider"></span>
                         </label>
@@ -364,6 +373,7 @@ async function handleCreateAlarm(e) {
     const name = dom.alarmName.value.trim();
     const rawType = (dom.alarmType.value || 'keyword').toLowerCase();
     const pattern = dom.alarmPattern.value.trim();
+    const notify = dom.alarmNotifyToggle ? dom.alarmNotifyToggle.checked : false;
 
     if (!name || !pattern) return;
 
@@ -373,6 +383,7 @@ async function handleCreateAlarm(e) {
         alarm_type: rawType,
         pattern,
         enabled: true,
+        notify: notify,
         created_at: new Date().toISOString(),
         last_triggered: null,
     };
@@ -383,6 +394,7 @@ async function handleCreateAlarm(e) {
                 name: name,
                 alarm_type: rawType,
                 pattern: pattern,
+                notify: notify,
             },
         });
 
@@ -399,11 +411,12 @@ async function handleCreateAlarm(e) {
 
     addLogEntry({
         type: 'system',
-        text: `Created alarm '${name}' (${rawType}: ${pattern})`
+        text: `Created alarm '${name}' (${rawType}: ${pattern}, notify: ${notify ? 'ON' : 'OFF'})`
     });
 
     dom.alarmName.value = '';
     dom.alarmPattern.value = '';
+    if (dom.alarmNotifyToggle) dom.alarmNotifyToggle.checked = false;
     renderAlarms(state.alarms);
 }
 
@@ -436,6 +449,22 @@ async function handleToggleAlarm(id, enabled) {
         });
     }
     try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+}
+
+async function handleToggleAlarmNotify(id, notify) {
+    try {
+        await invoke('toggle_alarm_notify', { id, notify }).catch(() => {});
+    } catch (err) {}
+    const alarm = (state.alarms || []).find(a => a.id === id);
+    if (alarm) {
+        alarm.notify = notify;
+        addLogEntry({
+            type: 'system',
+            text: `Alarm '${alarm.name}' screen notification ${notify ? 'enabled' : 'disabled'}`
+        });
+    }
+    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    renderAlarms(state.alarms);
 }
 
 async function handleScheduleTweet(e) {
@@ -1212,7 +1241,16 @@ if (dom.alarmsList) {
     });
 
     dom.alarmsList.addEventListener('change', (e) => {
-        const toggleInput = e.target.closest('.alarm-toggle-input') || e.target.closest('input[type="checkbox"]');
+        const notifyInput = e.target.closest('.alarm-notify-input');
+        if (notifyInput) {
+            const item = notifyInput.closest('.list-item');
+            if (item && item.dataset.alarmId) {
+                handleToggleAlarmNotify(item.dataset.alarmId, notifyInput.checked);
+            }
+            return;
+        }
+
+        const toggleInput = e.target.closest('.alarm-toggle-input');
         if (toggleInput) {
             const item = toggleInput.closest('.list-item');
             if (item && item.dataset.alarmId) {
@@ -1417,7 +1455,12 @@ function checkAlarmsForTweet(tweet) {
 
         if (matched) {
             alarm.last_triggered = new Date().toISOString();
-            showAlarmToast(alarm, tweet);
+
+            // ONLY show on-screen popup toast IF alarm.notify is true (default is off/false)
+            if (alarm.notify) {
+                showAlarmToast(alarm, tweet);
+            }
+
             renderAlarms(state.alarms);
             try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
 

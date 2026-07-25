@@ -41,6 +41,7 @@ pub fn create_alarm(
         alarm_type: request.alarm_type,
         pattern: request.pattern,
         enabled: true,
+        notify: request.notify.unwrap_or(false),
         created_at: Utc::now(),
         last_triggered: None,
     };
@@ -69,6 +70,21 @@ pub fn toggle_alarm(
     let mut alarms = state.alarms.lock().unwrap();
     if let Some(alarm) = alarms.iter_mut().find(|a| a.id == id) {
         alarm.enabled = enabled;
+        Ok(())
+    } else {
+        Err(format!("Alarm not found: {}", id))
+    }
+}
+
+#[tauri::command]
+pub fn toggle_alarm_notify(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    notify: bool,
+) -> Result<(), String> {
+    let mut alarms = state.alarms.lock().unwrap();
+    if let Some(alarm) = alarms.iter_mut().find(|a| a.id == id) {
+        alarm.notify = notify;
         Ok(())
     } else {
         Err(format!("Alarm not found: {}", id))

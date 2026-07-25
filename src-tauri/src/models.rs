@@ -48,6 +48,7 @@ pub struct Alarm {
     pub alarm_type: AlarmType,
     pub pattern: String, // keyword, username, or regex
     pub enabled: bool,
+    pub notify: bool,
     pub created_at: DateTime<Utc>,
     pub last_triggered: Option<DateTime<Utc>>,
 }
@@ -70,6 +71,7 @@ pub struct CreateAlarmRequest {
     pub name: String,
     pub alarm_type: AlarmType,
     pub pattern: String,
+    pub notify: Option<bool>,
 }
 
 // ── Scheduled tweets ──

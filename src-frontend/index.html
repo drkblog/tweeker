@@ -146,6 +146,13 @@
                         <option value="engagement">Engagement Threshold</option>
                     </select>
                     <input type="text" id="alarm-pattern" placeholder="Pattern (e.g. #LLM, @openai)" required class="input" />
+                    <div class="form-checkbox-row" title="Show on-screen popup notification when triggered (default off)">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="alarm-notify-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="form-checkbox-label">Screen Notification (Notify)</span>
+                    </div>
                     <button type="submit" class="btn btn-primary">Add Alarm</button>
                 </form>
 

@@ -23,6 +23,7 @@ fn main() {
             commands::create_alarm,
             commands::delete_alarm,
             commands::toggle_alarm,
+            commands::toggle_alarm_notify,
             commands::get_scheduled_tweets,
             commands::create_scheduled_tweet,
             commands::delete_scheduled_tweet,

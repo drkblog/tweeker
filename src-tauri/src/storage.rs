@@ -52,6 +52,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
             alarm_type TEXT NOT NULL,
             pattern TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
+            notify INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             last_triggered TEXT
         );
@@ -70,6 +71,9 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
         ",
     )
     .map_err(|e| format!("Migration failed: {}", e))?;
+
+    // Auto-migrate column for existing databases
+    conn.execute_batch("ALTER TABLE alarms ADD COLUMN notify INTEGER NOT NULL DEFAULT 0;").ok();
 
     Ok(())
 }
@@ -101,7 +105,7 @@ pub fn insert_tweet(conn: &Connection, tweet: &InterceptedTweet) -> Result<(), S
 
 pub fn load_alarms(conn: &Connection) -> Result<Vec<Alarm>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name, alarm_type, pattern, enabled, created_at, last_triggered FROM alarms ORDER BY created_at DESC")
+        .prepare("SELECT id, name, alarm_type, pattern, enabled, notify, created_at, last_triggered FROM alarms ORDER BY created_at DESC")
         .map_err(|e| format!("Failed to prepare alarm query: {}", e))?;
 
     let alarms = stmt
@@ -116,8 +120,9 @@ pub fn load_alarms(conn: &Connection) -> Result<Vec<Alarm>, String> {
             };
 
             let enabled_int: i32 = row.get(4)?;
-            let created_str: String = row.get(5)?;
-            let triggered_str: Option<String> = row.get(6)?;
+            let notify_int: i32 = row.get(5).unwrap_or(0);
+            let created_str: String = row.get(6)?;
+            let triggered_str: Option<String> = row.get(7)?;
 
             Ok(Alarm {
                 id: row.get(0)?,
@@ -125,6 +130,7 @@ pub fn load_alarms(conn: &Connection) -> Result<Vec<Alarm>, String> {
                 alarm_type,
                 pattern: row.get(3)?,
                 enabled: enabled_int != 0,
+                notify: notify_int != 0,
                 created_at: chrono::DateTime::parse_from_rfc3339(&created_str)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
@@ -151,13 +157,14 @@ pub fn insert_alarm(conn: &Connection, alarm: &Alarm) -> Result<(), String> {
     };
 
     conn.execute(
-        "INSERT INTO alarms (id, name, alarm_type, pattern, enabled, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO alarms (id, name, alarm_type, pattern, enabled, notify, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             alarm.id,
             alarm.name,
             alarm_type_str,
             alarm.pattern,
             alarm.enabled as i32,
+            alarm.notify as i32,
             alarm.created_at.to_rfc3339(),
         ],
     )
@@ -177,6 +184,15 @@ pub fn toggle_alarm_by_id(conn: &Connection, id: &str, enabled: bool) -> Result<
         params![enabled as i32, id],
     )
     .map_err(|e| format!("Failed to toggle alarm: {}", e))?;
+    Ok(())
+}
+
+pub fn toggle_alarm_notify_by_id(conn: &Connection, id: &str, notify: bool) -> Result<(), String> {
+    conn.execute(
+        "UPDATE alarms SET notify = ?1 WHERE id = ?2",
+        params![notify as i32, id],
+    )
+    .map_err(|e| format!("Failed to toggle alarm notify: {}", e))?;
     Ok(())
 }
 
