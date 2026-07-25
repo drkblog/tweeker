@@ -261,8 +261,17 @@ function renderScheduledTweets(tweets) {
 
     dom.scheduledList.innerHTML = tweets
         .map(tweet => {
-            const isSent = tweet.status === 'Sent';
+            const isSent = tweet.status === 'Sent' || tweet.status === 'sent';
             const statusClass = isSent ? 'badge-active' : 'badge-inactive';
+
+            // Build URL copy button if tweet is sent and has a numeric tweet ID
+            let urlBtnHtml = '';
+            const numericId = (tweet.tweet_id && /^\d+$/.test(tweet.tweet_id)) ? tweet.tweet_id : null;
+            if (isSent && numericId) {
+                const tweetUrl = `https://x.com/i/status/${numericId}`;
+                urlBtnHtml = `<button type="button" class="btn btn-secondary schedule-url-btn" data-url="${tweetUrl}" title="Copy Tweet URL">🔗 URL</button>`;
+            }
+
             return `
                 <div class="list-item" data-tweet-id="${tweet.id}">
                     <div class="list-item-info">
@@ -270,6 +279,7 @@ function renderScheduledTweets(tweets) {
                         <div class="list-item-subtitle">${formatDate(tweet.scheduled_for)} · <span class="${statusClass}" style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${tweet.status}</span></div>
                     </div>
                     <div class="list-item-actions">
+                        ${urlBtnHtml}
                         <button type="button" class="btn btn-danger schedule-delete-btn" title="Delete scheduled tweet">×</button>
                     </div>
                 </div>
@@ -1215,6 +1225,22 @@ if (dom.alarmsList) {
 // Scheduled tweets list event delegation
 if (dom.scheduledList) {
     dom.scheduledList.addEventListener('click', (e) => {
+        const urlBtn = e.target.closest('.schedule-url-btn');
+        if (urlBtn) {
+            const targetUrl = urlBtn.dataset.url;
+            if (targetUrl) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(targetUrl).catch(() => {});
+                }
+                showToastMessage('Tweet URL copied!');
+                addLogEntry({
+                    type: 'system',
+                    text: `Copied scheduled tweet URL to clipboard: ${targetUrl}`
+                });
+            }
+            return;
+        }
+
         const deleteBtn = e.target.closest('.schedule-delete-btn') || e.target.closest('.btn-danger');
         if (deleteBtn) {
             const item = deleteBtn.closest('.list-item');
@@ -1435,7 +1461,7 @@ function showAlarmToast(alarm, tweet) {
 }
 
 async function postTweetToX(content) {
-    if (!content) return false;
+    if (!content) return { success: false };
 
     try {
         // 1. Check if composer is already visible
@@ -1450,7 +1476,7 @@ async function postTweetToX(content) {
             
             if (composeBtn) {
                 composeBtn.click();
-                await new Promise(r => setTimeout(r, 450));
+                await new Promise(r => setTimeout(r, 600));
                 composer = document.querySelector('[data-testid="tweetTextarea_0"]') 
                     || document.querySelector('[role="textbox"][contenteditable="true"]');
             }
@@ -1470,7 +1496,7 @@ async function postTweetToX(content) {
             composer.dispatchEvent(new Event('input', { bubbles: true }));
             composer.dispatchEvent(new Event('change', { bubbles: true }));
 
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 600));
 
             // 4. Click the Post button
             const postBtn = document.querySelector('[data-testid="tweetButtonInline"]')
@@ -1479,14 +1505,58 @@ async function postTweetToX(content) {
 
             if (postBtn && !postBtn.disabled && postBtn.getAttribute('aria-disabled') !== 'true') {
                 postBtn.click();
-                console.log('[Tweeker] Successfully posted scheduled tweet to X.com!');
-                return true;
+                console.log('[Tweeker] Successfully clicked Post button in UI composer!');
+                await new Promise(r => setTimeout(r, 1200));
+
+                // 5. Try finding newly posted tweet numeric ID from DOM status links
+                let capturedId = null;
+                const statusLinks = document.querySelectorAll('a[href*="/status/"]');
+                if (statusLinks && statusLinks.length > 0) {
+                    for (const link of Array.from(statusLinks)) {
+                        const href = link.getAttribute('href') || '';
+                        const match = href.match(/\/status\/(\d+)/);
+                        if (match && match[1]) {
+                            capturedId = match[1];
+                            break;
+                        }
+                    }
+                }
+
+                return { success: true, tweet_id: capturedId };
             }
         }
     } catch (err) {
         console.error('[Tweeker] Automatic tweet post error:', err);
     }
-    return false;
+    return { success: false };
+}
+
+function postTweetViaXApi(content) {
+    return new Promise((resolve) => {
+        const requestId = 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+
+        const timeoutTimer = setTimeout(() => {
+            window.removeEventListener('message', responseHandler);
+            resolve({ success: false, error: 'API timeout' });
+        }, 8000);
+
+        function responseHandler(event) {
+            if (event.data && event.data.__tweeker && event.data.type === 'post_tweet_api_response' && event.data.requestId === requestId) {
+                clearTimeout(timeoutTimer);
+                window.removeEventListener('message', responseHandler);
+                resolve(event.data.result || { success: false });
+            }
+        }
+
+        window.addEventListener('message', responseHandler);
+
+        window.postMessage({
+            __tweeker: true,
+            type: 'post_tweet_api',
+            requestId: requestId,
+            content: content
+        }, '*');
+    });
 }
 
 async function checkScheduledTweets() {
@@ -1509,17 +1579,40 @@ async function checkScheduledTweets() {
                 navigator.clipboard.writeText(tweet.content).catch(() => {});
             }
 
-            // Post tweet live to X.com
-            const posted = await postTweetToX(tweet.content);
+            // 1. Try sending tweet directly via X.com API (bypassing UI)
+            const apiResult = await postTweetViaXApi(tweet.content);
+            let posted = false;
+            let realTweetId = null;
+
+            if (apiResult && apiResult.success && apiResult.tweet_id && /^\d+$/.test(apiResult.tweet_id)) {
+                posted = true;
+                realTweetId = apiResult.tweet_id;
+                tweet.tweet_id = realTweetId;
+                addLogEntry({
+                    type: 'schedule',
+                    text: `Scheduled tweet posted live via X.com API: "${truncate(tweet.content, 60)}"`,
+                    tweetId: realTweetId
+                });
+            } else {
+                console.warn('[Tweeker] Direct API tweet post failed or returned no numeric ID. Triggering UI composer fallback...');
+                // 2. Fallback to UI composer automation if direct API post failed
+                const uiResult = await postTweetToX(tweet.content);
+                posted = !!(uiResult && uiResult.success);
+
+                if (uiResult && uiResult.tweet_id && /^\d+$/.test(uiResult.tweet_id)) {
+                    realTweetId = uiResult.tweet_id;
+                    tweet.tweet_id = realTweetId;
+                }
+
+                addLogEntry({
+                    type: 'schedule',
+                    text: `Scheduled tweet ${posted ? 'posted live to X.com (UI fallback)' : 'triggered'}: "${truncate(tweet.content, 60)}"`,
+                    tweetId: realTweetId || tweet.id
+                });
+            }
 
             // Show Toast Notification
             showScheduledTweetToast(tweet, posted);
-
-            addLogEntry({
-                type: 'schedule',
-                text: `Scheduled tweet ${posted ? 'posted live to X.com' : 'triggered'}: "${truncate(tweet.content, 60)}"`,
-                tweetId: tweet.id
-            });
         }
     }
 

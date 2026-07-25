@@ -820,6 +820,32 @@
     flex-shrink: 0 !important;
 }
 
+#tweeker-overlay-container .schedule-url-btn {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    height: 24px !important;
+    line-height: 1 !important;
+    border-radius: 6px !important;
+    background: hsla(199, 89%, 48%, 0.15) !important;
+    color: var(--tw-accent) !important;
+    border: 1px solid hsla(199, 89%, 48%, 0.35) !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 100ms ease !important;
+}
+
+#tweeker-overlay-container .schedule-url-btn:hover {
+    background: hsla(199, 89%, 48%, 0.3) !important;
+    border-color: var(--tw-accent) !important;
+    color: #ffffff !important;
+}
+
+#tweeker-overlay-container .schedule-url-btn:active {
+    transform: scale(0.95) !important;
+}
+
 /* ── Toggle Switch ── */
 #tweeker-overlay-container .toggle-switch {
     position: relative !important;

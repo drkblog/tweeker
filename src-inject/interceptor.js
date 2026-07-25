@@ -11,12 +11,52 @@
 (function() {
     'use strict';
 
-    // ── Fetch interceptor ──
-    // Monkey-patch window.fetch to intercept timeline API responses.
+    // Token & QueryId storage for direct X.com API operations
+    let capturedAuthToken = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAn%2Bx1%2Bq%2B4t7D43W5a%2F4%2B15DII5w%3D930W2AuSilKhBmAhx526gWgjTZRBBBmoP9GczOfLhWY';
+    let capturedCsrfToken = '';
+    let capturedCreateTweetQueryId = '5V8HGy9ykoGDjDxTy8HUAQ';
+
+    function getHeaderValue(headers, name) {
+        if (!headers) return null;
+        if (typeof headers.get === 'function') {
+            return headers.get(name) || headers.get(name.toLowerCase());
+        }
+        if (typeof headers === 'object') {
+            for (const key of Object.keys(headers)) {
+                if (key.toLowerCase() === name.toLowerCase()) {
+                    return headers[key];
+                }
+            }
+        }
+        return null;
+    }
 
     const originalFetch = window.fetch;
 
     window.fetch = async function(...args) {
+        try {
+            const options = args[1] || {};
+            const headers = options.headers || (args[0] && typeof args[0] === 'object' ? args[0].headers : null);
+            if (headers) {
+                const auth = getHeaderValue(headers, 'authorization');
+                if (auth && auth.startsWith('Bearer ')) {
+                    capturedAuthToken = auth;
+                }
+                const csrf = getHeaderValue(headers, 'x-csrf-token');
+                if (csrf) {
+                    capturedCsrfToken = csrf;
+                }
+            }
+
+            const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+            if (url.includes('/CreateTweet')) {
+                const match = url.match(/\/graphql\/([^\/]+)\/CreateTweet/);
+                if (match && match[1]) {
+                    capturedCreateTweetQueryId = match[1];
+                }
+            }
+        } catch (e) {}
+
         const response = await originalFetch.apply(this, args);
         
         try {
@@ -232,12 +272,146 @@
         }
     }
 
-    // Listen for Auto Read toggle events from overlay app.js
-    window.addEventListener('message', function(event) {
-        if (event.data && event.data.__tweeker && event.data.type === 'set_auto_read') {
+    // Listen for Auto Read toggle & Direct API Tweet events from overlay app.js
+    window.addEventListener('message', async function(event) {
+        if (!event.data || !event.data.__tweeker) return;
+
+        if (event.data.type === 'set_auto_read') {
             updateAutoReadState(event.data.enabled);
         }
+
+        if (event.data.type === 'post_tweet_api') {
+            const requestId = event.data.requestId;
+            const content = event.data.content;
+            const result = await postTweetViaApi(content);
+
+            window.postMessage({
+                __tweeker: true,
+                type: 'post_tweet_api_response',
+                requestId: requestId,
+                result: result
+            }, '*');
+        }
     });
+
+    /**
+     * Post a tweet directly using X.com's native CreateTweet GraphQL endpoint.
+     */
+    async function postTweetViaApi(content) {
+        if (!content) return { success: false, error: 'Empty content' };
+
+        // Ensure CSRF token is available
+        let csrf = capturedCsrfToken;
+        if (!csrf) {
+            const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);
+            if (match && match[1]) csrf = match[1];
+        }
+
+        if (!csrf) {
+            console.warn('[Tweeker Interceptor] CSRF token (ct0 cookie) not found for API tweet');
+            return { success: false, error: 'CSRF token not found' };
+        }
+
+        const queryId = capturedCreateTweetQueryId || '5V8HGy9ykoGDjDxTy8HUAQ';
+        const endpointUrl = `https://x.com/i/api/graphql/${queryId}/CreateTweet`;
+
+        const payload = {
+            variables: {
+                tweet_text: content,
+                dark_request: false,
+                media: {
+                    media_entities: [],
+                    possibly_sensitive: false
+                },
+                semantic_annotation_ids: []
+            },
+            features: {
+                tweetypie_unmention_optimization_enabled: true,
+                responsive_web_edit_tweet_api_enabled: true,
+                graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+                view_counts_everywhere_api_enabled: true,
+                longform_notetweets_consumption_enabled: true,
+                responsive_web_twitter_article_tweet_consumption_enabled: true,
+                tweet_awards_web_tipping_enabled: false,
+                responsive_web_graphql_exclude_directive_enabled: true,
+                verified_phone_label_enabled: false,
+                freedom_of_speech_not_reach_fetch_enabled: true,
+                standardized_nudges_misinfo: true,
+                tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+                responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+                responsive_web_graphql_timeline_navigation_enabled: true,
+                responsive_web_enhance_cards_enabled: false
+            },
+            queryId: queryId
+        };
+
+        try {
+            console.log('[Tweeker Interceptor] Posting tweet via X.com API...');
+            const res = await originalFetch(endpointUrl, {
+                method: 'POST',
+                headers: {
+                    'authorization': capturedAuthToken,
+                    'x-csrf-token': csrf,
+                    'x-twitter-auth-type': 'OAuth2Session',
+                    'x-twitter-active-user': 'yes',
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+
+            if (res.ok) {
+                const json = await res.json().catch(() => ({}));
+                if (!json.errors || json.errors.length === 0) {
+                    const tweetResult = json?.data?.create_tweet?.tweet_results?.result;
+                    const restId = tweetResult?.rest_id || tweetResult?.legacy?.id_str;
+                    if (restId && /^\d+$/.test(restId)) {
+                        console.log('[Tweeker Interceptor] Direct X.com API Tweet successfully posted! ID:', restId);
+                        return { success: true, tweet_id: restId };
+                    }
+                }
+                console.warn('[Tweeker Interceptor] GraphQL CreateTweet response contained errors or missing numeric ID:', json);
+            } else {
+                console.warn('[Tweeker Interceptor] GraphQL CreateTweet HTTP ' + res.status);
+            }
+        } catch (err) {
+            console.error('[Tweeker Interceptor] Direct API Tweet exception:', err);
+        }
+
+        return await postTweetViaRestApiFallback(content, csrf);
+    }
+
+    async function postTweetViaRestApiFallback(content, csrf) {
+        try {
+            const fallbackUrl = 'https://x.com/1.1/statuses/update.json';
+            const bodyParams = new URLSearchParams();
+            bodyParams.append('status', content);
+
+            const res = await originalFetch(fallbackUrl, {
+                method: 'POST',
+                headers: {
+                    'authorization': capturedAuthToken,
+                    'x-csrf-token': csrf,
+                    'x-twitter-auth-type': 'OAuth2Session',
+                    'x-twitter-active-user': 'yes',
+                    'content-type': 'application/x-www-form-urlencoded'
+                },
+                body: bodyParams.toString(),
+                credentials: 'include'
+            });
+
+            if (res.ok) {
+                const json = await res.json().catch(() => ({}));
+                const idStr = json.id_str || json.id;
+                if (idStr && /^\d+$/.test(String(idStr))) {
+                    console.log('[Tweeker Interceptor] REST v1.1 Tweet successfully posted! ID:', idStr);
+                    return { success: true, tweet_id: String(idStr) };
+                }
+            }
+        } catch (e) {}
+
+        return { success: false, error: 'Direct API posting failed' };
+    }
 
     // ── Helper functions ──
 
