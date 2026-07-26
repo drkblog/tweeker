@@ -163,18 +163,21 @@
             
             // Intercept timeline and tweet-related API endpoints
             if (isTimelineEndpoint(url)) {
+                const opName = url.split('/graphql/')[1]?.split('?')[0] || url.split('/').pop()?.split('?')[0] || 'Unknown';
+                window.__tweeker.sendMessage('log', { type: 'debug', text: `Intercepted GraphQL request: ${opName}` });
+
                 // Clone the response so we don't consume it
                 const clone = response.clone();
                 
                 clone.json().then(function(data) {
+                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Parsed JSON for operation: ${opName}` });
                     try {
                         const tweets = parseApiResponse(data);
                         if (tweets.length > 0) {
                             window.__tweeker.sendTweets(tweets);
                         }
                     } catch (e) {
-                        // Silently ignore parse errors — X.com API format may change
-                        console.debug('[Tweeker Interceptor] Parse error:', e.message);
+                        window.__tweeker.sendMessage('log', { type: 'error', text: `Parse error for ${opName}: ${e.message}` });
                     }
 
                     try {
@@ -182,17 +185,19 @@
                         extractUsersFromJSON(data, users);
                         if (Object.keys(users).length > 0) {
                             window.__tweeker.sendMessage('add_users', { users: users });
-                            window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from network response` });
+                            window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from operation ${opName}` });
                             for (const [h, counts] of Object.entries(users)) {
                                 window.__tweeker.userCache[h] = counts;
                                 updateStatsForAuthor(h);
                             }
+                        } else {
+                            window.__tweeker.sendMessage('log', { type: 'debug', text: `No user profiles found in JSON of operation ${opName}` });
                         }
                     } catch (e) {
-                        console.debug('[Tweeker Interceptor] User extract error:', e.message);
+                        window.__tweeker.sendMessage('log', { type: 'error', text: `User extract error for ${opName}: ${e.message}` });
                     }
-                }).catch(function() {
-                    // Response wasn't JSON, ignore
+                }).catch(function(err) {
+                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Failed to parse response body as JSON for operation ${opName}: ${err.message}` });
                 });
             }
         } catch (e) {
@@ -216,9 +221,14 @@
 
     XMLHttpRequest.prototype.send = function(...args) {
         if (this._tweeker_url && isTimelineEndpoint(this._tweeker_url)) {
+            const url = this._tweeker_url;
+            const opName = url.split('/graphql/')[1]?.split('?')[0] || url.split('/').pop()?.split('?')[0] || 'Unknown';
+            window.__tweeker.sendMessage('log', { type: 'debug', text: `Intercepted GraphQL XHR: ${opName}` });
+
             this.addEventListener('load', function() {
                 try {
                     const data = JSON.parse(this.responseText);
+                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Parsed XHR JSON for operation: ${opName}` });
                     const tweets = parseApiResponse(data);
                     if (tweets.length > 0) {
                         window.__tweeker.sendTweets(tweets);
@@ -228,14 +238,16 @@
                     extractUsersFromJSON(data, users);
                     if (Object.keys(users).length > 0) {
                         window.__tweeker.sendMessage('add_users', { users: users });
-                        window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from XHR response` });
+                        window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from XHR operation ${opName}` });
                         for (const [h, counts] of Object.entries(users)) {
                             window.__tweeker.userCache[h] = counts;
                             updateStatsForAuthor(h);
                         }
+                    } else {
+                        window.__tweeker.sendMessage('log', { type: 'debug', text: `No user profiles found in XHR JSON of operation ${opName}` });
                     }
                 } catch (e) {
-                    // Silently ignore
+                    window.__tweeker.sendMessage('log', { type: 'error', text: `XHR parse/extract error for ${opName}: ${e.message}` });
                 }
             });
         }
