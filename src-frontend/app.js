@@ -1725,6 +1725,13 @@ window.addEventListener('message', (event) => {
         renderConnectionStatus(state.connectionStatus);
     }
 
+    if (type === 'log' && payload && payload.text) {
+        addLogEntry({
+            type: payload.type || 'system',
+            text: `[Interceptor] ${payload.text}`
+        });
+    }
+
     if (type === 'tweet_data' && payload && payload.tweets) {
         processIncomingTweets(payload.tweets);
     }

@@ -36,26 +36,30 @@
     function extractUsersFromJSON(obj, usersMap) {
         if (!obj || typeof obj !== 'object') return;
 
-        if (typeof obj.screen_name === 'string' &&
-            (typeof obj.followers_count === 'number' || typeof obj.followers_count === 'string') &&
-            (typeof obj.friends_count === 'number' || typeof obj.friends_count === 'string')) {
+        if (typeof obj.screen_name === 'string') {
             const handle = obj.screen_name.toLowerCase();
-            usersMap[handle] = {
-                following: parseInt(obj.friends_count, 10) || 0,
-                followers: parseInt(obj.followers_count, 10) || 0
-            };
+            const followers = (obj.followers_count !== undefined && obj.followers_count !== null) ? parseInt(obj.followers_count, 10) : null;
+            const following = (obj.friends_count !== undefined && obj.friends_count !== null) ? parseInt(obj.friends_count, 10) : null;
+            if (followers !== null || following !== null) {
+                usersMap[handle] = {
+                    following: following || 0,
+                    followers: followers || 0
+                };
+            }
         }
 
         if (obj.legacy && typeof obj.legacy === 'object') {
             const leg = obj.legacy;
-            if (typeof leg.screen_name === 'string' &&
-                (typeof leg.followers_count === 'number' || typeof leg.followers_count === 'string') &&
-                (typeof leg.friends_count === 'number' || typeof leg.friends_count === 'string')) {
+            if (typeof leg.screen_name === 'string') {
                 const handle = leg.screen_name.toLowerCase();
-                usersMap[handle] = {
-                    following: parseInt(leg.friends_count, 10) || 0,
-                    followers: parseInt(leg.followers_count, 10) || 0
-                };
+                const followers = (leg.followers_count !== undefined && leg.followers_count !== null) ? parseInt(leg.followers_count, 10) : null;
+                const following = (leg.friends_count !== undefined && leg.friends_count !== null) ? parseInt(leg.friends_count, 10) : null;
+                if (followers !== null || following !== null) {
+                    usersMap[handle] = {
+                        following: following || 0,
+                        followers: followers || 0
+                    };
+                }
             }
         }
 
@@ -178,6 +182,7 @@
                         extractUsersFromJSON(data, users);
                         if (Object.keys(users).length > 0) {
                             window.__tweeker.sendMessage('add_users', { users: users });
+                            window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from network response` });
                             for (const [h, counts] of Object.entries(users)) {
                                 window.__tweeker.userCache[h] = counts;
                                 updateStatsForAuthor(h);
@@ -223,6 +228,7 @@
                     extractUsersFromJSON(data, users);
                     if (Object.keys(users).length > 0) {
                         window.__tweeker.sendMessage('add_users', { users: users });
+                        window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from XHR response` });
                         for (const [h, counts] of Object.entries(users)) {
                             window.__tweeker.userCache[h] = counts;
                             updateStatsForAuthor(h);
@@ -311,9 +317,6 @@
             }
         }, 1000);
     }
-
-    // Start the observer after a delay to let X.com render
-    setTimeout(startDOMObserver, 2000);
 
     // ── Auto Read feature ──
     // Automatically clicks X.com "New Tweets" pill when visible and processes all timeline messages.
@@ -405,6 +408,7 @@
                 const lowerHandle = handle.toLowerCase();
                 window.__tweeker.pendingUserRequests.delete(lowerHandle);
                 if (counts) {
+                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Found cached stats in database for @${lowerHandle}: ${counts.followers} followers, ${counts.following} following` });
                     window.__tweeker.userCache[lowerHandle] = counts;
                     updateStatsForAuthor(lowerHandle);
                 }
@@ -551,13 +555,7 @@
      */
     function isTimelineEndpoint(url) {
         if (!url) return false;
-        return url.includes('/api/graphql') &&
-            (url.includes('HomeTimeline') ||
-             url.includes('HomeLatestTimeline') ||
-             url.includes('TweetDetail') ||
-             url.includes('UserTweets') ||
-             url.includes('SearchTimeline') ||
-             url.includes('ListLatestTweetsTimeline'));
+        return url.includes('/graphql/') || url.includes('/api/graphql');
     }
 
     /**
@@ -647,6 +645,81 @@
         }
     }
 
+    function addInfoButtonToHeader(tweetEl, handle, lowerHandle) {
+        try {
+            const userNameContainer = tweetEl.querySelector('[data-testid="User-Name"]');
+            if (!userNameContainer) return;
+
+            if (userNameContainer.querySelector('.tweeker-user-info-btn')) return;
+
+            const links = userNameContainer.querySelectorAll('a[role="link"]');
+            let handleEl = null;
+            for (const link of links) {
+                if (link.textContent.includes('@')) {
+                    handleEl = link;
+                    break;
+                }
+            }
+
+            if (!handleEl) return;
+
+            const infoBtn = document.createElement('button');
+            infoBtn.className = 'tweeker-user-info-btn';
+            infoBtn.style.background = 'none';
+            infoBtn.style.border = 'none';
+            infoBtn.style.padding = '0 2px';
+            infoBtn.style.cursor = 'pointer';
+            infoBtn.style.display = 'inline-flex';
+            infoBtn.style.alignItems = 'center';
+            infoBtn.style.color = '#71767b';
+            infoBtn.style.marginLeft = '6px';
+            infoBtn.style.transition = 'color 0.2s';
+            infoBtn.style.verticalAlign = 'middle';
+            infoBtn.title = 'Dump user info to log';
+
+            infoBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+            `;
+
+            infoBtn.addEventListener('mouseenter', () => {
+                infoBtn.style.color = '#1d9bf0';
+            });
+            infoBtn.addEventListener('mouseleave', () => {
+                infoBtn.style.color = '#71767b';
+            });
+
+            infoBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const stats = window.__tweeker.userCache[lowerHandle];
+                const nameEl = userNameContainer.querySelector('span');
+                const displayName = nameEl ? nameEl.textContent.trim() : "Unknown";
+
+                let text = `User Info for @${handle} (${displayName}): `;
+                if (stats) {
+                    text += `${stats.followers.toLocaleString()} followers, ${stats.following.toLocaleString()} following`;
+                } else {
+                    text += `No stats cached yet.`;
+                }
+
+                console.log(`[Tweeker] ${text}`);
+                window.__tweeker.sendMessage('log', {
+                    type: 'info',
+                    text: text
+                });
+            });
+
+            handleEl.parentNode.insertBefore(infoBtn, handleEl.nextSibling);
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Error adding info button:', e);
+        }
+    }
+
     /**
      * Parse a tweet directly from the DOM when the API interceptor misses it.
      * This is a fallback and less reliable than API interception.
@@ -656,16 +729,27 @@
             if (!articleEl || articleEl.dataset.tweekerParsed) return;
             articleEl.dataset.tweekerParsed = 'true';
 
-            // Extract basic info from DOM structure
-            const userLink = articleEl.querySelector('a[role="link"][href^="/"]');
+            // Extract basic info from DOM structure, prioritizing specific user containers
+            const userLink = articleEl.querySelector('[data-testid="User-Name"] a[role="link"]') ||
+                             articleEl.querySelector('[data-testid="Tweet-User-Avatar"] a[role="link"]') ||
+                             articleEl.querySelector('a[role="link"]');
             if (userLink) {
                 const href = userLink.getAttribute('href') || '';
-                const handle = href.replace('/', '');
+                let handle = '';
+                try {
+                    const urlPath = href.startsWith('http') ? new URL(href).pathname : href;
+                    const parts = urlPath.split('/').filter(Boolean);
+                    if (parts.length > 0) {
+                        handle = parts[0];
+                    }
+                } catch (e) {}
+
                 if (handle && 
-                    !handle.includes('/') && 
-                    !['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'compose', 'trends', 'tos', 'privacy'].includes(handle.toLowerCase())) {
+                    !['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'compose', 'trends', 'tos', 'privacy', 'hashtag', 'intent', 'share'].includes(handle.toLowerCase())) {
                     const lowerHandle = handle.toLowerCase();
                     articleEl.dataset.tweekerAuthor = lowerHandle;
+
+                    addInfoButtonToHeader(articleEl, handle, lowerHandle);
 
                     if (window.__tweeker.userCache[lowerHandle]) {
                         const c = window.__tweeker.userCache[lowerHandle];
@@ -719,6 +803,26 @@
             // DOM structure changed, fail silently
         }
     }
+
+    // Start the observer after a delay to let X.com render
+    setTimeout(startDOMObserver, 2000);
+
+    // Periodic scanner to scan initially present tweets and ensure no tweets are missed
+    setInterval(function() {
+        try {
+            const timeline = document.querySelector('[data-testid="primaryColumn"]') ||
+                             document.querySelector('main[role="main"]') ||
+                             document.querySelector('main');
+            if (timeline) {
+                const articles = timeline.querySelectorAll('[data-testid="tweet"]:not([data-tweeker-parsed="true"])');
+                for (const article of articles) {
+                    parseDOMTweet(article);
+                }
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Periodic scanner error:', e);
+        }
+    }, 2000);
 
     console.log('[Tweeker Interceptor] Network interceptors and DOM observer initialized');
 })();
