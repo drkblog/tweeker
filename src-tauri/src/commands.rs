@@ -155,3 +155,76 @@ pub fn set_auto_read(state: tauri::State<'_, AppState>, enabled: bool) -> bool {
     *auto_read = enabled;
     *auto_read
 }
+
+// ── Twitter User Cache commands ──
+
+#[tauri::command]
+pub fn get_user_cache_limit(state: tauri::State<'_, AppState>) -> usize {
+    *state.user_cache_limit.lock().unwrap()
+}
+
+#[tauri::command]
+pub fn set_user_cache_limit(state: tauri::State<'_, AppState>, limit: usize) {
+    let mut cache_limit = state.user_cache_limit.lock().unwrap();
+    *cache_limit = limit;
+
+    // If limit decreased, evict excess elements
+    let mut cache = state.user_cache.lock().unwrap();
+    let now = Utc::now();
+    while cache.len() > limit {
+        let oldest_key = cache
+            .iter()
+            .min_by_key(|(_, user)| user.last_accessed.unwrap_or(now))
+            .map(|(key, _)| key.clone());
+
+        if let Some(key) = oldest_key {
+            cache.remove(&key);
+        } else {
+            break;
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_cached_user(
+    state: tauri::State<'_, AppState>,
+    handle: String,
+) -> Option<TwitterUser> {
+    let mut cache = state.user_cache.lock().unwrap();
+    if let Some(user) = cache.get_mut(&handle.to_lowercase()) {
+        user.last_accessed = Some(Utc::now());
+        Some(user.clone())
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+pub fn add_multiple_to_user_cache(
+    state: tauri::State<'_, AppState>,
+    users: std::collections::HashMap<String, TwitterUser>,
+) {
+    let mut cache = state.user_cache.lock().unwrap();
+    let limit = *state.user_cache_limit.lock().unwrap();
+    let now = Utc::now();
+
+    for (handle, mut user) in users {
+        user.last_accessed = Some(now);
+        cache.insert(handle.to_lowercase(), user);
+    }
+
+    // Evict if limit exceeded
+    while cache.len() > limit {
+        let oldest_key = cache
+            .iter()
+            .min_by_key(|(_, user)| user.last_accessed.unwrap_or(now))
+            .map(|(key, _)| key.clone());
+
+        if let Some(key) = oldest_key {
+            cache.remove(&key);
+        } else {
+            break;
+        }
+    }
+}
+

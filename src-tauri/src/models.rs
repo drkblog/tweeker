@@ -112,3 +112,14 @@ pub enum InterceptorMessage {
     Heartbeat,
     Error { message: String },
 }
+
+// ── Twitter user details for in-memory cache ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TwitterUser {
+    pub following: u64,
+    pub followers: u64,
+    #[serde(skip)]
+    pub last_accessed: Option<chrono::DateTime<Utc>>,
+}
+

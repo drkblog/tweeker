@@ -30,6 +30,10 @@ fn main() {
             commands::toggle_overlay,
             commands::get_auto_read,
             commands::set_auto_read,
+            commands::get_user_cache_limit,
+            commands::set_user_cache_limit,
+            commands::get_cached_user,
+            commands::add_multiple_to_user_cache,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

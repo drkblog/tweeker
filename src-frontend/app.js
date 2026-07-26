@@ -105,6 +105,7 @@ const dom = {
 
     // Settings
     maxLogLinesInput: document.getElementById('max-log-lines-input'),
+    userCacheLimitInput: document.getElementById('user-cache-limit-input'),
     interceptorStatus: document.getElementById('interceptor-status'),
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
@@ -1344,6 +1345,23 @@ if (dom.maxLogLinesInput) {
     });
 }
 
+// Twitter user cache limit setting input
+if (dom.userCacheLimitInput) {
+    dom.userCacheLimitInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 10) val = 10000;
+        e.target.value = val;
+        try { localStorage.setItem('tweeker_user_cache_limit', val.toString()); } catch (err) {}
+        invoke('set_user_cache_limit', { limit: val }).catch((err) => {
+            console.error('[Tweeker App] Failed to set user cache limit:', err);
+        });
+        addLogEntry({
+            type: 'system',
+            text: `Twitter user cache limit updated to ${val}`
+        });
+    });
+}
+
 // Log container click delegation for Tweet ID & URL copy links
 if (dom.logOutputContainer) {
     dom.logOutputContainer.addEventListener('click', (e) => {
@@ -1710,6 +1728,25 @@ window.addEventListener('message', (event) => {
     if (type === 'tweet_data' && payload && payload.tweets) {
         processIncomingTweets(payload.tweets);
     }
+
+    if (type === 'add_users' && payload && payload.users) {
+        invoke('add_multiple_to_user_cache', { users: payload.users }).catch((e) => {
+            console.error('[Tweeker App] Failed to add users to cache:', e);
+        });
+    }
+
+    if (type === 'get_user_counts' && payload && payload.handle) {
+        const handle = payload.handle;
+        invoke('get_cached_user', { handle }).then((counts) => {
+            window.postMessage({
+                __tweeker: true,
+                type: 'user_counts_response',
+                payload: { handle, counts }
+            }, '*');
+        }).catch((e) => {
+            console.error('[Tweeker App] Failed to get user counts:', e);
+        });
+    }
 });
 
 // ── Tauri Event Listeners ──
@@ -1760,6 +1797,18 @@ async function init() {
     }
     if (dom.maxLogLinesInput) {
         dom.maxLogLinesInput.value = state.maxLogLines;
+    }
+
+    // Restore saved user cache limit setting
+    const savedCacheLimit = parseInt(localStorage.getItem('tweeker_user_cache_limit'), 10);
+    const cacheLimit = (!isNaN(savedCacheLimit) && savedCacheLimit >= 10) ? savedCacheLimit : 10000;
+    try {
+        await invoke('set_user_cache_limit', { limit: cacheLimit });
+    } catch (e) {
+        console.error('[Tweeker App] Failed to set user cache limit in backend:', e);
+    }
+    if (dom.userCacheLimitInput) {
+        dom.userCacheLimitInput.value = cacheLimit;
     }
 
     // Restore saved log entries

@@ -16,6 +16,101 @@
     let capturedCsrfToken = '';
     let capturedCreateTweetQueryId = '5V8HGy9ykoGDjDxTy8HUAQ';
 
+    window.__tweeker = window.__tweeker || {};
+    window.__tweeker.userCache = window.__tweeker.userCache || {};
+    window.__tweeker.pendingUserRequests = window.__tweeker.pendingUserRequests || new Set();
+
+    function formatCount(num) {
+        if (num === undefined || num === null) return '?';
+        const n = Number(num);
+        if (isNaN(n)) return '?';
+        if (n >= 1e6) {
+            return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+        }
+        if (n >= 1e3) {
+            return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+        }
+        return n.toString();
+    }
+
+    function extractUsersFromJSON(obj, usersMap) {
+        if (!obj || typeof obj !== 'object') return;
+
+        if (typeof obj.screen_name === 'string' &&
+            (typeof obj.followers_count === 'number' || typeof obj.followers_count === 'string') &&
+            (typeof obj.friends_count === 'number' || typeof obj.friends_count === 'string')) {
+            const handle = obj.screen_name.toLowerCase();
+            usersMap[handle] = {
+                following: parseInt(obj.friends_count, 10) || 0,
+                followers: parseInt(obj.followers_count, 10) || 0
+            };
+        }
+
+        if (obj.legacy && typeof obj.legacy === 'object') {
+            const leg = obj.legacy;
+            if (typeof leg.screen_name === 'string' &&
+                (typeof leg.followers_count === 'number' || typeof leg.followers_count === 'string') &&
+                (typeof leg.friends_count === 'number' || typeof leg.friends_count === 'string')) {
+                const handle = leg.screen_name.toLowerCase();
+                usersMap[handle] = {
+                    following: parseInt(leg.friends_count, 10) || 0,
+                    followers: parseInt(leg.followers_count, 10) || 0
+                };
+            }
+        }
+
+        if (Array.isArray(obj)) {
+            for (const item of obj) {
+                extractUsersFromJSON(item, usersMap);
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                if (key !== 'legacy') {
+                    extractUsersFromJSON(obj[key], usersMap);
+                }
+            }
+        }
+    }
+
+    function renderStatsBelowAvatar(tweetEl, following, followers) {
+        const avatar = tweetEl.querySelector('[data-testid="Tweet-User-Avatar"]');
+        if (!avatar) return;
+
+        let statsEl = tweetEl.querySelector('.tweeker-tweet-user-stats');
+        if (!statsEl) {
+            statsEl = document.createElement('div');
+            statsEl.className = 'tweeker-tweet-user-stats';
+            statsEl.style.fontSize = '9px';
+            statsEl.style.lineHeight = '11px';
+            statsEl.style.textAlign = 'center';
+            statsEl.style.marginTop = '4px';
+            statsEl.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+            statsEl.style.display = 'block';
+            statsEl.style.width = '100%';
+            statsEl.style.whiteSpace = 'nowrap';
+            statsEl.style.overflow = 'hidden';
+            statsEl.style.textOverflow = 'ellipsis';
+
+            avatar.parentNode.insertBefore(statsEl, avatar.nextSibling);
+        }
+
+        const formattedFollowing = formatCount(following);
+        const formattedFollowers = formatCount(followers);
+
+        statsEl.innerHTML = `<span style="color: #71767b;">${formattedFollowing}</span>/<span style="color: #1d9bf0; font-weight: bold;">${formattedFollowers}</span>`;
+    }
+
+    function updateStatsForAuthor(handle) {
+        const lowerHandle = handle.toLowerCase();
+        const stats = window.__tweeker.userCache[lowerHandle];
+        if (!stats) return;
+
+        const tweets = document.querySelectorAll(`article[data-testid="tweet"][data-tweeker-author="${lowerHandle}"]`);
+        for (const tweet of tweets) {
+            renderStatsBelowAvatar(tweet, stats.following, stats.followers);
+        }
+    }
+
     function getHeaderValue(headers, name) {
         if (!headers) return null;
         if (typeof headers.get === 'function') {
@@ -77,6 +172,20 @@
                         // Silently ignore parse errors — X.com API format may change
                         console.debug('[Tweeker Interceptor] Parse error:', e.message);
                     }
+
+                    try {
+                        const users = {};
+                        extractUsersFromJSON(data, users);
+                        if (Object.keys(users).length > 0) {
+                            window.__tweeker.sendMessage('add_users', { users: users });
+                            for (const [h, counts] of Object.entries(users)) {
+                                window.__tweeker.userCache[h] = counts;
+                                updateStatsForAuthor(h);
+                            }
+                        }
+                    } catch (e) {
+                        console.debug('[Tweeker Interceptor] User extract error:', e.message);
+                    }
                 }).catch(function() {
                     // Response wasn't JSON, ignore
                 });
@@ -108,6 +217,16 @@
                     const tweets = parseApiResponse(data);
                     if (tweets.length > 0) {
                         window.__tweeker.sendTweets(tweets);
+                    }
+
+                    const users = {};
+                    extractUsersFromJSON(data, users);
+                    if (Object.keys(users).length > 0) {
+                        window.__tweeker.sendMessage('add_users', { users: users });
+                        for (const [h, counts] of Object.entries(users)) {
+                            window.__tweeker.userCache[h] = counts;
+                            updateStatsForAuthor(h);
+                        }
                     }
                 } catch (e) {
                     // Silently ignore
@@ -278,6 +397,18 @@
 
         if (event.data.type === 'set_auto_read') {
             updateAutoReadState(event.data.enabled);
+        }
+
+        if (event.data.type === 'user_counts_response') {
+            const { handle, counts } = event.data.payload;
+            if (handle) {
+                const lowerHandle = handle.toLowerCase();
+                window.__tweeker.pendingUserRequests.delete(lowerHandle);
+                if (counts) {
+                    window.__tweeker.userCache[lowerHandle] = counts;
+                    updateStatsForAuthor(lowerHandle);
+                }
+            }
         }
 
         if (event.data.type === 'post_tweet_api') {
@@ -527,8 +658,28 @@
 
             // Extract basic info from DOM structure
             const userLink = articleEl.querySelector('a[role="link"][href^="/"]');
-            const textEl = articleEl.querySelector('[data-testid="tweetText"]');
+            if (userLink) {
+                const href = userLink.getAttribute('href') || '';
+                const handle = href.replace('/', '');
+                if (handle && 
+                    !handle.includes('/') && 
+                    !['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'compose', 'trends', 'tos', 'privacy'].includes(handle.toLowerCase())) {
+                    const lowerHandle = handle.toLowerCase();
+                    articleEl.dataset.tweekerAuthor = lowerHandle;
 
+                    if (window.__tweeker.userCache[lowerHandle]) {
+                        const c = window.__tweeker.userCache[lowerHandle];
+                        renderStatsBelowAvatar(articleEl, c.following, c.followers);
+                    } else {
+                        if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
+                            window.__tweeker.pendingUserRequests.add(lowerHandle);
+                            window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
+                        }
+                    }
+                }
+            }
+
+            const textEl = articleEl.querySelector('[data-testid="tweetText"]');
             if (!userLink || !textEl) return;
 
             const handle = userLink.getAttribute('href')?.replace('/', '') || '';

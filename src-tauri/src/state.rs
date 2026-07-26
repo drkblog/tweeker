@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use chrono::{DateTime, Utc};
-use crate::models::{InterceptedTweet, Alarm, ScheduledTweet, TimelineStats, AuthorCount};
+use crate::models::{InterceptedTweet, Alarm, ScheduledTweet, TimelineStats, AuthorCount, TwitterUser};
 use std::collections::HashMap;
 
 /// Central application state managed by Tauri.
@@ -13,6 +13,8 @@ pub struct AppState {
     pub alarms: Mutex<Vec<Alarm>>,
     pub scheduled_tweets: Mutex<Vec<ScheduledTweet>>,
     pub session_start: Mutex<Option<DateTime<Utc>>>,
+    pub user_cache: Mutex<HashMap<String, TwitterUser>>,
+    pub user_cache_limit: Mutex<usize>,
 }
 
 pub struct ConnectionState {
@@ -35,6 +37,8 @@ impl AppState {
             alarms: Mutex::new(Vec::new()),
             scheduled_tweets: Mutex::new(Vec::new()),
             session_start: Mutex::new(None),
+            user_cache: Mutex::new(HashMap::new()),
+            user_cache_limit: Mutex::new(10000),
         }
     }
 
