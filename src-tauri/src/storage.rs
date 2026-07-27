@@ -363,10 +363,22 @@ pub fn get_db_stats(app: &tauri::AppHandle, conn: &Connection) -> Result<crate::
     let db_path_str = db_p.to_string_lossy().to_string();
     let db_size_bytes = std::fs::metadata(&db_p).map(|m| m.len()).unwrap_or(0);
 
-    let total_tweets: u64 = conn.query_row("SELECT COUNT(*) FROM tweets", [], |r| r.get(0)).unwrap_or(0);
-    let total_alarms: u64 = conn.query_row("SELECT COUNT(*) FROM alarms", [], |r| r.get(0)).unwrap_or(0);
-    let total_scheduled_tweets: u64 = conn.query_row("SELECT COUNT(*) FROM scheduled_tweets", [], |r| r.get(0)).unwrap_or(0);
-    let cached_users_count: u64 = conn.query_row("SELECT COUNT(*) FROM user_cache", [], |r| r.get(0)).unwrap_or(0);
+    let total_tweets: u64 = conn
+        .query_row("SELECT COUNT(*) FROM tweets", [], |r| r.get::<_, i64>(0))
+        .map(|v| v as u64)
+        .unwrap_or(0);
+    let total_alarms: u64 = conn
+        .query_row("SELECT COUNT(*) FROM alarms", [], |r| r.get::<_, i64>(0))
+        .map(|v| v as u64)
+        .unwrap_or(0);
+    let total_scheduled_tweets: u64 = conn
+        .query_row("SELECT COUNT(*) FROM scheduled_tweets", [], |r| r.get::<_, i64>(0))
+        .map(|v| v as u64)
+        .unwrap_or(0);
+    let cached_users_count: u64 = conn
+        .query_row("SELECT COUNT(*) FROM user_cache", [], |r| r.get::<_, i64>(0))
+        .map(|v| v as u64)
+        .unwrap_or(0);
 
     Ok(crate::models::DbStats {
         db_path: db_path_str,

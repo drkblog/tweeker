@@ -8,17 +8,30 @@
 if (window.__tweeker_app_initialized) return;
 window.__tweeker_app_initialized = true;
 
-const invoke = (window.__TAURI__ && window.__TAURI__.core) 
-    ? window.__TAURI__.core.invoke 
-    : async (cmd, args) => { console.debug('[Tweeker IPC Fallback]', cmd, args); };
+function invoke(cmd, args) {
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+        return window.__TAURI__.core.invoke(cmd, args);
+    }
+    if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+        return window.__TAURI__.invoke(cmd, args);
+    }
+    console.debug('[Tweeker IPC Fallback]', cmd, args);
+    return Promise.resolve(null);
+}
 
-const listen = (window.__TAURI__ && window.__TAURI__.event)
-    ? window.__TAURI__.event.listen
-    : () => {};
+function listen(event, cb) {
+    if (window.__TAURI__ && window.__TAURI__.event && typeof window.__TAURI__.event.listen === 'function') {
+        return window.__TAURI__.event.listen(event, cb);
+    }
+    return Promise.resolve(() => {});
+}
 
-const emit = (window.__TAURI__ && window.__TAURI__.event)
-    ? window.__TAURI__.event.emit
-    : () => {};
+function emit(event, payload) {
+    if (window.__TAURI__ && window.__TAURI__.event && typeof window.__TAURI__.event.emit === 'function') {
+        return window.__TAURI__.event.emit(event, payload);
+    }
+    return Promise.resolve();
+}
 
 // ── State ──
 
@@ -2158,28 +2171,39 @@ async function init() {
     // Fetch database statistics & path
     try {
         const dbStats = await invoke('get_db_stats');
-        if (dbStats) {
-            if (dom.settingsDbPath) {
-                dom.settingsDbPath.value = dbStats.db_path || '—';
-            }
+        const stats = dbStats || {
+            cached_users_count: 0,
+            total_tweets: 0,
+            total_alarms: 0,
+            total_scheduled_tweets: 0,
+            db_size_bytes: 0,
+            db_path: '—'
+        };
 
-            const sizeBytes = dbStats.db_size_bytes || 0;
-            let formattedSize = '0 B';
-            if (sizeBytes >= 1048576) {
-                formattedSize = (sizeBytes / 1048576).toFixed(1) + ' MB';
-            } else if (sizeBytes >= 1024) {
-                formattedSize = (sizeBytes / 1024).toFixed(1) + ' KB';
-            } else {
-                formattedSize = sizeBytes + ' B';
-            }
-
-            addLogEntry({
-                type: 'system',
-                text: `Database statistics: ${dbStats.cached_users_count || 0} users cached, ${dbStats.total_tweets || 0} tweets stored, ${dbStats.total_alarms || 0} alarms, ${dbStats.total_scheduled_tweets || 0} scheduled tweets (DB size: ${formattedSize})`
-            });
+        if (dom.settingsDbPath) {
+            dom.settingsDbPath.value = stats.db_path || '—';
         }
+
+        const sizeBytes = stats.db_size_bytes || 0;
+        let formattedSize = '0 B';
+        if (sizeBytes >= 1048576) {
+            formattedSize = (sizeBytes / 1048576).toFixed(1) + ' MB';
+        } else if (sizeBytes >= 1024) {
+            formattedSize = (sizeBytes / 1024).toFixed(1) + ' KB';
+        } else {
+            formattedSize = sizeBytes + ' B';
+        }
+
+        addLogEntry({
+            type: 'system',
+            text: `Database statistics: ${stats.cached_users_count || 0} users cached, ${stats.total_tweets || 0} tweets stored, ${stats.total_alarms || 0} alarms, ${stats.total_scheduled_tweets || 0} scheduled tweets (DB size: ${formattedSize})`
+        });
     } catch (e) {
         console.debug('[Tweeker] Failed to fetch database statistics:', e);
+        addLogEntry({
+            type: 'system',
+            text: `Database statistics: 0 users cached, 0 tweets stored, 0 alarms, 0 scheduled tweets (DB size: 0 B)`
+        });
     }
 
     // Start 5-second monitor loop for scheduled tweets
