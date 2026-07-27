@@ -30,6 +30,7 @@
     "allow-delete-scheduled-tweet",
     "allow-toggle-overlay",
     "allow-get-auto-read",
-    "allow-set-auto-read"
+    "allow-set-auto-read",
+    "window-state:default"
   ]
 }

@@ -14,6 +14,7 @@ fn main() {
     let app_state = AppState::new();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::get_app_version,
