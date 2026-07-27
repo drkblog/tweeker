@@ -2203,29 +2203,44 @@ async function fetchDbStats() {
         stats = await invoke('get_db_stats');
     } catch (e) {}
 
-    if (stats && (stats.cached_users_count || stats.total_tweets || stats.total_alarms || stats.total_scheduled_tweets || (stats.db_size_bytes && stats.db_size_bytes > 0))) {
-        return stats;
+    if (!stats || typeof stats !== 'object') {
+        if (window.__TWEEKER_DB_STATS__ && typeof window.__TWEEKER_DB_STATS__ === 'object') {
+            stats = window.__TWEEKER_DB_STATS__;
+        }
     }
 
-    const usersCount = (window._tweeker_user_cache ? Object.keys(window._tweeker_user_cache).length : 0) ||
-                       (window._tweeker_author_map ? window._tweeker_author_map.size : 0);
-    const tweetsCount = (state.stats ? state.stats.total_tweets_seen : 0) ||
-                        (window._tweeker_seen_tweets ? window._tweeker_seen_tweets.size : 0);
-    const alarmsCount = Array.isArray(state.alarms) ? state.alarms.length : 0;
-    const scheduledCount = Array.isArray(state.scheduledTweets) ? state.scheduledTweets.length : 0;
+    const dbPathStr = (stats && stats.db_path)
+        ? stats.db_path
+        : (window.__TWEEKER_DB_PATH__ || '—');
 
-    let storageBytes = 0;
-    try {
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('tweeker_')) {
-                const val = localStorage.getItem(key) || '';
-                storageBytes += (key.length + val.length) * 2;
+    const usersCount = (stats && typeof stats.cached_users_count === 'number' && stats.cached_users_count > 0)
+        ? stats.cached_users_count
+        : ((window._tweeker_user_cache ? Object.keys(window._tweeker_user_cache).length : 0) || (window._tweeker_author_map ? window._tweeker_author_map.size : 0));
+
+    const tweetsCount = (stats && typeof stats.total_tweets === 'number' && stats.total_tweets > 0)
+        ? stats.total_tweets
+        : ((state.stats ? state.stats.total_tweets_seen : 0) || (window._tweeker_seen_tweets ? window._tweeker_seen_tweets.size : 0));
+
+    const alarmsCount = (stats && typeof stats.total_alarms === 'number' && stats.total_alarms > 0)
+        ? stats.total_alarms
+        : (Array.isArray(state.alarms) ? state.alarms.length : 0);
+
+    const scheduledCount = (stats && typeof stats.total_scheduled_tweets === 'number' && stats.total_scheduled_tweets > 0)
+        ? stats.total_scheduled_tweets
+        : (Array.isArray(state.scheduledTweets) ? state.scheduledTweets.length : 0);
+
+    let storageBytes = (stats && typeof stats.db_size_bytes === 'number') ? stats.db_size_bytes : 0;
+    if (!storageBytes) {
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('tweeker_')) {
+                    const val = localStorage.getItem(key) || '';
+                    storageBytes += (key.length + val.length) * 2;
+                }
             }
-        }
-    } catch (e) {}
-
-    const dbPathStr = (stats && stats.db_path) ? stats.db_path : 'Webview LocalStorage & Memory Cache';
+        } catch (e) {}
+    }
 
     return {
         cached_users_count: usersCount,

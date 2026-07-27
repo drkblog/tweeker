@@ -6,11 +6,20 @@
 /// 2. The interceptor module (fetch/XHR monkey-patch + DOM MutationObserver)
 /// 3. The control panel overlay CSS & DOM elements
 /// 4. The control panel application logic
-pub fn build_injection_script() -> String {
+pub fn build_injection_script(app: &tauri::AppHandle) -> String {
     let bridge_js = include_str!("../../src-inject/bridge.js");
     let interceptor_js = include_str!("../../src-inject/interceptor.js");
     let style_css = include_str!("../../src-frontend/style.css");
     let app_js = include_str!("../../src-frontend/app.js");
+
+    let db_path = crate::storage::db_path_string(app);
+    let db_stats = if let Ok(conn) = crate::storage::open_db(app) {
+        crate::storage::get_db_stats(app, &conn).ok()
+    } else {
+        None
+    };
+
+    let db_stats_json = serde_json::to_string(&db_stats).unwrap_or_else(|_| "null".to_string());
 
     // Extract the HTML content inside <body> from index.html
     let index_html = include_str!("../../src-frontend/index.html");
@@ -34,6 +43,9 @@ pub fn build_injection_script() -> String {
     // Prevent double-injection
     if (window.__tweeker_injected) return;
     window.__tweeker_injected = true;
+
+    window.__TWEEKER_DB_PATH__ = `{db_path}`;
+    window.__TWEEKER_DB_STATS__ = {db_stats_json};
 
     // ── Inject CSS ──
     function injectStyles() {{
@@ -85,6 +97,8 @@ pub fn build_injection_script() -> String {
     console.log('[Tweeker] Injection scripts & overlay UI loaded successfully');
 }})();
 "#,
+        db_path = db_path.replace('\\', "\\\\").replace('`', "\\`").replace('$', "\\$"),
+        db_stats_json = db_stats_json,
         style_css = style_css.replace('\\', "\\\\").replace('`', "\\`").replace('$', "\\$"),
         body_html = body_html.replace('\\', "\\\\").replace('`', "\\`").replace('$', "\\$"),
         bridge_js = bridge_js,

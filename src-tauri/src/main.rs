@@ -68,7 +68,7 @@ fn main() {
             }
 
             // ── Create the main WebviewWindow loading X.com with injected scripts ──
-            let injection_script = interceptor::build_injection_script();
+            let injection_script = interceptor::build_injection_script(&handle);
 
             let _main_window = tauri::WebviewWindowBuilder::new(
                 app,
