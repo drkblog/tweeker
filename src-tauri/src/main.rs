@@ -34,7 +34,10 @@ fn main() {
             commands::get_user_cache_limit,
             commands::set_user_cache_limit,
             commands::get_cached_user,
+            commands::get_all_cached_users,
             commands::add_multiple_to_user_cache,
+            commands::get_db_path,
+            commands::get_db_stats,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -43,6 +46,22 @@ fn main() {
             if let Ok(conn) = storage::open_db(&handle) {
                 if let Err(e) = storage::run_migrations(&conn) {
                     eprintln!("[Tweeker] Database migration failed: {}", e);
+                }
+
+                // Load persisted user cache from SQLite into in-memory HashMap
+                match storage::load_user_cache(&conn) {
+                    Ok(cached_users) => {
+                        if !cached_users.is_empty() {
+                            let count = cached_users.len();
+                            let state = app.state::<AppState>();
+                            let mut cache = state.user_cache.lock().unwrap();
+                            *cache = cached_users;
+                            println!("[Tweeker] Loaded {} users from persistent cache", count);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Tweeker] Failed to load user cache: {}", e);
+                    }
                 }
             } else {
                 eprintln!("[Tweeker] Failed to open database");

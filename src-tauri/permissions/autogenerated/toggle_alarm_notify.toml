@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-toggle-alarm-notify"
+description = "Enables the toggle_alarm_notify command without any pre-configured scope."
+commands.allow = ["toggle_alarm_notify"]
+
+[[permission]]
+identifier = "deny-toggle-alarm-notify"
+description = "Denies the toggle_alarm_notify command without any pre-configured scope."
+commands.deny = ["toggle_alarm_notify"]

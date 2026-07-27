@@ -177,6 +177,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the add_multiple_to_user_cache command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-add-multiple-to-user-cache",
+          "markdownDescription": "Enables the add_multiple_to_user_cache command without any pre-configured scope."
+        },
+        {
           "description": "Enables the create_alarm command without any pre-configured scope.",
           "type": "string",
           "const": "allow-create-alarm",
@@ -207,6 +213,12 @@
           "markdownDescription": "Enables the get_alarms command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_all_cached_users command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-all-cached-users",
+          "markdownDescription": "Enables the get_all_cached_users command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_app_version command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-app-version",
@@ -219,10 +231,28 @@
           "markdownDescription": "Enables the get_auto_read command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_cached_user command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-cached-user",
+          "markdownDescription": "Enables the get_cached_user command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_connection_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-connection-status",
           "markdownDescription": "Enables the get_connection_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_db_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-db-path",
+          "markdownDescription": "Enables the get_db_path command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_db_stats command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-db-stats",
+          "markdownDescription": "Enables the get_db_stats command without any pre-configured scope."
         },
         {
           "description": "Enables the get_scheduled_tweets command without any pre-configured scope.",
@@ -237,10 +267,22 @@
           "markdownDescription": "Enables the get_timeline_stats command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_user_cache_limit command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-user-cache-limit",
+          "markdownDescription": "Enables the get_user_cache_limit command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_auto_read command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-auto-read",
           "markdownDescription": "Enables the set_auto_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_user_cache_limit command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-user-cache-limit",
+          "markdownDescription": "Enables the set_user_cache_limit command without any pre-configured scope."
         },
         {
           "description": "Enables the toggle_alarm command without any pre-configured scope.",
@@ -249,10 +291,22 @@
           "markdownDescription": "Enables the toggle_alarm command without any pre-configured scope."
         },
         {
+          "description": "Enables the toggle_alarm_notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-alarm-notify",
+          "markdownDescription": "Enables the toggle_alarm_notify command without any pre-configured scope."
+        },
+        {
           "description": "Enables the toggle_overlay command without any pre-configured scope.",
           "type": "string",
           "const": "allow-toggle-overlay",
           "markdownDescription": "Enables the toggle_overlay command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_multiple_to_user_cache command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-add-multiple-to-user-cache",
+          "markdownDescription": "Denies the add_multiple_to_user_cache command without any pre-configured scope."
         },
         {
           "description": "Denies the create_alarm command without any pre-configured scope.",
@@ -285,6 +339,12 @@
           "markdownDescription": "Denies the get_alarms command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_all_cached_users command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-all-cached-users",
+          "markdownDescription": "Denies the get_all_cached_users command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_app_version command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-app-version",
@@ -297,10 +357,28 @@
           "markdownDescription": "Denies the get_auto_read command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_cached_user command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-cached-user",
+          "markdownDescription": "Denies the get_cached_user command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_connection_status command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-connection-status",
           "markdownDescription": "Denies the get_connection_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_db_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-db-path",
+          "markdownDescription": "Denies the get_db_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_db_stats command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-db-stats",
+          "markdownDescription": "Denies the get_db_stats command without any pre-configured scope."
         },
         {
           "description": "Denies the get_scheduled_tweets command without any pre-configured scope.",
@@ -315,16 +393,34 @@
           "markdownDescription": "Denies the get_timeline_stats command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_user_cache_limit command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-user-cache-limit",
+          "markdownDescription": "Denies the get_user_cache_limit command without any pre-configured scope."
+        },
+        {
           "description": "Denies the set_auto_read command without any pre-configured scope.",
           "type": "string",
           "const": "deny-set-auto-read",
           "markdownDescription": "Denies the set_auto_read command without any pre-configured scope."
         },
         {
+          "description": "Denies the set_user_cache_limit command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-user-cache-limit",
+          "markdownDescription": "Denies the set_user_cache_limit command without any pre-configured scope."
+        },
+        {
           "description": "Denies the toggle_alarm command without any pre-configured scope.",
           "type": "string",
           "const": "deny-toggle-alarm",
           "markdownDescription": "Denies the toggle_alarm command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_alarm_notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-alarm-notify",
+          "markdownDescription": "Denies the toggle_alarm_notify command without any pre-configured scope."
         },
         {
           "description": "Denies the toggle_overlay command without any pre-configured scope.",

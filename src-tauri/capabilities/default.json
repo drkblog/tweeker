@@ -31,6 +31,14 @@
     "allow-toggle-overlay",
     "allow-get-auto-read",
     "allow-set-auto-read",
+    "allow-toggle-alarm-notify",
+    "allow-get-user-cache-limit",
+    "allow-set-user-cache-limit",
+    "allow-get-cached-user",
+    "allow-get-all-cached-users",
+    "allow-add-multiple-to-user-cache",
+    "allow-get-db-path",
+    "allow-get-db-stats",
     "window-state:default"
   ]
 }

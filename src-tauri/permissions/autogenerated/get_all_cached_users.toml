@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-get-all-cached-users"
+description = "Enables the get_all_cached_users command without any pre-configured scope."
+commands.allow = ["get_all_cached_users"]
+
+[[permission]]
+identifier = "deny-get-all-cached-users"
+description = "Denies the get_all_cached_users command without any pre-configured scope."
+commands.deny = ["get_all_cached_users"]

@@ -65,6 +65,19 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS user_cache (
+            handle TEXT PRIMARY KEY,
+            following INTEGER NOT NULL DEFAULT 0,
+            followers INTEGER NOT NULL DEFAULT 0,
+            name TEXT,
+            description TEXT,
+            location TEXT,
+            verified INTEGER,
+            tweet_count INTEGER,
+            created_at TEXT,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_tweets_author ON tweets(author_handle);
         CREATE INDEX IF NOT EXISTS idx_tweets_timestamp ON tweets(timestamp);
         CREATE INDEX IF NOT EXISTS idx_scheduled_for ON scheduled_tweets(scheduled_for);
@@ -72,8 +85,16 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|e| format!("Migration failed: {}", e))?;
 
-    // Auto-migrate column for existing databases
+    // Auto-migrate columns for existing databases
     conn.execute_batch("ALTER TABLE alarms ADD COLUMN notify INTEGER NOT NULL DEFAULT 0;").ok();
+    conn.execute_batch("
+        ALTER TABLE user_cache ADD COLUMN name TEXT;
+        ALTER TABLE user_cache ADD COLUMN description TEXT;
+        ALTER TABLE user_cache ADD COLUMN location TEXT;
+        ALTER TABLE user_cache ADD COLUMN verified INTEGER;
+        ALTER TABLE user_cache ADD COLUMN tweet_count INTEGER;
+        ALTER TABLE user_cache ADD COLUMN created_at TEXT;
+    ").ok();
 
     Ok(())
 }
@@ -255,4 +276,104 @@ pub fn delete_scheduled_tweet_by_id(conn: &Connection, id: &str) -> Result<(), S
     conn.execute("DELETE FROM scheduled_tweets WHERE id = ?1", params![id])
         .map_err(|e| format!("Failed to delete scheduled tweet: {}", e))?;
     Ok(())
+}
+
+// ── User cache persistence ──
+
+pub fn load_user_cache(conn: &Connection) -> Result<std::collections::HashMap<String, crate::models::TwitterUser>, String> {
+    let mut stmt = conn
+        .prepare("SELECT handle, following, followers, name, description, location, verified, tweet_count, created_at, updated_at FROM user_cache")
+        .map_err(|e| format!("Failed to prepare user_cache query: {}", e))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let handle: String = row.get(0)?;
+            let following: u64 = row.get::<_, i64>(1).map(|v| v as u64)?;
+            let followers: u64 = row.get::<_, i64>(2).map(|v| v as u64)?;
+            let name: Option<String> = row.get(3)?;
+            let description: Option<String> = row.get(4)?;
+            let location: Option<String> = row.get(5)?;
+            let verified_int: Option<i32> = row.get(6)?;
+            let tweet_count: Option<u64> = row.get::<_, Option<i64>>(7)?.map(|v| v as u64);
+            let created_at: Option<String> = row.get(8)?;
+            let updated_at: Option<String> = row.get(9)?;
+
+            Ok((handle, crate::models::TwitterUser {
+                following,
+                followers,
+                name,
+                description,
+                location,
+                verified: verified_int.map(|v| v != 0),
+                tweet_count,
+                created_at,
+                updated_at,
+                last_accessed: Some(Utc::now()),
+            }))
+        })
+        .map_err(|e| format!("Failed to query user_cache: {}", e))?;
+
+    let mut map = std::collections::HashMap::new();
+    for row in rows {
+        if let Ok((handle, user)) = row {
+            map.insert(handle, user);
+        }
+    }
+
+    Ok(map)
+}
+
+pub fn save_user_cache_batch(
+    conn: &Connection,
+    users: &std::collections::HashMap<String, crate::models::TwitterUser>,
+) -> Result<usize, String> {
+    let now = Utc::now().to_rfc3339();
+    let mut count = 0usize;
+
+    for (handle, user) in users {
+        let updated_time = user.updated_at.clone().unwrap_or_else(|| now.clone());
+        conn.execute(
+            "INSERT OR REPLACE INTO user_cache (handle, following, followers, name, description, location, verified, tweet_count, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                handle,
+                user.following as i64,
+                user.followers as i64,
+                user.name,
+                user.description,
+                user.location,
+                user.verified.map(|v| if v { 1i32 } else { 0i32 }),
+                user.tweet_count.map(|v| v as i64),
+                user.created_at,
+                updated_time,
+            ],
+        )
+        .map_err(|e| format!("Failed to upsert user_cache for {}: {}", handle, e))?;
+        count += 1;
+    }
+
+    Ok(count)
+}
+
+pub fn db_path_string(app: &tauri::AppHandle) -> String {
+    db_path(app).to_string_lossy().to_string()
+}
+
+pub fn get_db_stats(app: &tauri::AppHandle, conn: &Connection) -> Result<crate::models::DbStats, String> {
+    let db_p = db_path(app);
+    let db_path_str = db_p.to_string_lossy().to_string();
+    let db_size_bytes = std::fs::metadata(&db_p).map(|m| m.len()).unwrap_or(0);
+
+    let total_tweets: u64 = conn.query_row("SELECT COUNT(*) FROM tweets", [], |r| r.get(0)).unwrap_or(0);
+    let total_alarms: u64 = conn.query_row("SELECT COUNT(*) FROM alarms", [], |r| r.get(0)).unwrap_or(0);
+    let total_scheduled_tweets: u64 = conn.query_row("SELECT COUNT(*) FROM scheduled_tweets", [], |r| r.get(0)).unwrap_or(0);
+    let cached_users_count: u64 = conn.query_row("SELECT COUNT(*) FROM user_cache", [], |r| r.get(0)).unwrap_or(0);
+
+    Ok(crate::models::DbStats {
+        db_path: db_path_str,
+        db_size_bytes,
+        total_tweets,
+        total_alarms,
+        total_scheduled_tweets,
+        cached_users_count,
+    })
 }

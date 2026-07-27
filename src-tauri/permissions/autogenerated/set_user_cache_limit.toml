@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-set-user-cache-limit"
+description = "Enables the set_user_cache_limit command without any pre-configured scope."
+commands.allow = ["set_user_cache_limit"]
+
+[[permission]]
+identifier = "deny-set-user-cache-limit"
+description = "Denies the set_user_cache_limit command without any pre-configured scope."
+commands.deny = ["set_user_cache_limit"]

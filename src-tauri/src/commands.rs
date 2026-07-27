@@ -1,5 +1,6 @@
 use crate::models::*;
 use crate::state::AppState;
+use crate::storage;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -18,12 +19,12 @@ pub fn get_connection_status(state: tauri::State<'_, AppState>) -> ConnectionSta
     }
 }
 
+// ── Alarm commands ──
+
 #[tauri::command]
 pub fn get_timeline_stats(state: tauri::State<'_, AppState>) -> TimelineStats {
     state.compute_stats()
 }
-
-// ── Alarm commands ──
 
 #[tauri::command]
 pub fn get_alarms(state: tauri::State<'_, AppState>) -> Vec<Alarm> {
@@ -200,7 +201,16 @@ pub fn get_cached_user(
 }
 
 #[tauri::command]
+pub fn get_all_cached_users(
+    state: tauri::State<'_, AppState>,
+) -> std::collections::HashMap<String, TwitterUser> {
+    let cache = state.user_cache.lock().unwrap();
+    cache.clone()
+}
+
+#[tauri::command]
 pub fn add_multiple_to_user_cache(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     users: std::collections::HashMap<String, TwitterUser>,
 ) {
@@ -208,9 +218,14 @@ pub fn add_multiple_to_user_cache(
     let limit = *state.user_cache_limit.lock().unwrap();
     let now = Utc::now();
 
+    // Collect the new/updated entries for DB persistence
+    let mut to_persist = std::collections::HashMap::new();
+
     for (handle, mut user) in users {
         user.last_accessed = Some(now);
-        cache.insert(handle.to_lowercase(), user);
+        let lh = handle.to_lowercase();
+        to_persist.insert(lh.clone(), user.clone());
+        cache.insert(lh, user);
     }
 
     // Evict if limit exceeded
@@ -226,5 +241,25 @@ pub fn add_multiple_to_user_cache(
             break;
         }
     }
+
+    // Write-through: persist new entries to SQLite
+    drop(cache); // release lock before DB I/O
+    if let Ok(conn) = storage::open_db(&app) {
+        if let Err(e) = storage::save_user_cache_batch(&conn, &to_persist) {
+            eprintln!("[Tweeker] Failed to persist user cache batch: {}", e);
+        }
+    }
 }
 
+// ── Database Statistics commands ──
+
+#[tauri::command]
+pub fn get_db_path(app: tauri::AppHandle) -> String {
+    storage::db_path_string(&app)
+}
+
+#[tauri::command]
+pub fn get_db_stats(app: tauri::AppHandle) -> Result<DbStats, String> {
+    let conn = storage::open_db(&app)?;
+    storage::get_db_stats(&app, &conn)
+}

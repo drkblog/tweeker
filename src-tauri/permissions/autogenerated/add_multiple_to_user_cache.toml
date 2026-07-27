@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-add-multiple-to-user-cache"
+description = "Enables the add_multiple_to_user_cache command without any pre-configured scope."
+commands.allow = ["add_multiple_to_user_cache"]
+
+[[permission]]
+identifier = "deny-add-multiple-to-user-cache"
+description = "Denies the add_multiple_to_user_cache command without any pre-configured scope."
+commands.deny = ["add_multiple_to_user_cache"]

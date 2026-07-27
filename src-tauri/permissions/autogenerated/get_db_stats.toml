@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-get-db-stats"
+description = "Enables the get_db_stats command without any pre-configured scope."
+commands.allow = ["get_db_stats"]
+
+[[permission]]
+identifier = "deny-get-db-stats"
+description = "Denies the get_db_stats command without any pre-configured scope."
+commands.deny = ["get_db_stats"]

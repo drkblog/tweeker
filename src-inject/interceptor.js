@@ -44,48 +44,66 @@
     function extractUsersFromJSON(obj, usersMap) {
         if (!obj || typeof obj !== 'object') return;
 
-        // 1. Sibling merging check: handle is in core, counts are in relationship_counts (modern X.com format)
-        if (obj.core && typeof obj.core === 'object' && obj.relationship_counts && typeof obj.relationship_counts === 'object') {
-            const handle = obj.core.screen_name;
-            if (typeof handle === 'string') {
-                const lowerHandle = handle.toLowerCase();
-                const followers = (obj.relationship_counts.followers !== undefined && obj.relationship_counts.followers !== null) ? parseInt(obj.relationship_counts.followers, 10) : null;
-                const following = (obj.relationship_counts.following !== undefined && obj.relationship_counts.following !== null) ? parseInt(obj.relationship_counts.following, 10) : null;
-                if (followers !== null || following !== null) {
-                    usersMap[lowerHandle] = {
-                        following: following || 0,
-                        followers: followers || 0
-                    };
-                }
-            }
-        }
+        let handle = null;
+        let name = null;
+        let followers = null;
+        let following = null;
+        let description = null;
+        let location = null;
+        let verified = null;
+        let tweetCount = null;
+        let createdAt = null;
 
-        // 2. Sibling merging check: handle is in core, counts are in legacy (alternate/older format)
-        if (obj.core && typeof obj.core === 'object' && obj.legacy && typeof obj.legacy === 'object') {
-            const handle = obj.core.screen_name || obj.legacy.screen_name;
-            if (typeof handle === 'string') {
-                const lowerHandle = handle.toLowerCase();
-                const followers = (obj.legacy.followers_count !== undefined && obj.legacy.followers_count !== null) ? parseInt(obj.legacy.followers_count, 10) : null;
-                const following = (obj.legacy.friends_count !== undefined && obj.legacy.friends_count !== null) ? parseInt(obj.legacy.friends_count, 10) : null;
-                if (followers !== null || following !== null) {
-                    usersMap[lowerHandle] = {
-                        following: following || 0,
-                        followers: followers || 0
-                    };
-                }
-            }
+        // Modern X.com format
+        if (obj.core && typeof obj.core === 'object') {
+            handle = obj.core.screen_name || (obj.legacy && obj.legacy.screen_name);
+            name = obj.core.name || (obj.legacy && obj.legacy.name);
+        }
+        if (obj.legacy && typeof obj.legacy === 'object') {
+            if (!handle) handle = obj.legacy.screen_name;
+            if (!name) name = obj.legacy.name;
+            if (obj.legacy.description) description = obj.legacy.description;
+            if (obj.legacy.location) location = obj.legacy.location;
+            if (obj.legacy.verified !== undefined) verified = !!obj.legacy.verified;
+            if (obj.legacy.statuses_count !== undefined) tweetCount = parseInt(obj.legacy.statuses_count, 10);
+            if (obj.legacy.created_at) createdAt = obj.legacy.created_at;
+            if (obj.legacy.followers_count !== undefined) followers = parseInt(obj.legacy.followers_count, 10);
+            if (obj.legacy.friends_count !== undefined) following = parseInt(obj.legacy.friends_count, 10);
+        }
+        if (obj.relationship_counts && typeof obj.relationship_counts === 'object') {
+            if (obj.relationship_counts.followers !== undefined) followers = parseInt(obj.relationship_counts.followers, 10);
+            if (obj.relationship_counts.following !== undefined) following = parseInt(obj.relationship_counts.following, 10);
         }
 
         if (typeof obj.screen_name === 'string') {
-            const handle = obj.screen_name.toLowerCase();
-            const followers = (obj.followers_count !== undefined && obj.followers_count !== null) ? parseInt(obj.followers_count, 10) : null;
-            const following = (obj.friends_count !== undefined && obj.friends_count !== null) ? parseInt(obj.friends_count, 10) : null;
-            if (followers !== null || following !== null) {
-                usersMap[handle] = {
-                    following: following || 0,
-                    followers: followers || 0
-                };
-            }
+            if (!handle) handle = obj.screen_name;
+            if (!name && obj.name) name = obj.name;
+            if (description === null && obj.description) description = obj.description;
+            if (location === null && obj.location) location = obj.location;
+            if (verified === null && obj.verified !== undefined) verified = !!obj.verified;
+            if (tweetCount === null && obj.statuses_count !== undefined) tweetCount = parseInt(obj.statuses_count, 10);
+            if (createdAt === null && obj.created_at) createdAt = obj.created_at;
+            if (followers === null && obj.followers_count !== undefined) followers = parseInt(obj.followers_count, 10);
+            if (following === null && obj.friends_count !== undefined) following = parseInt(obj.friends_count, 10);
+        }
+        if (obj.is_blue_verified !== undefined && verified === null) {
+            verified = !!obj.is_blue_verified;
+        }
+
+        if (typeof handle === 'string' && (followers !== null || following !== null || name !== null)) {
+            const lowerHandle = handle.toLowerCase();
+            const existing = usersMap[lowerHandle] || {};
+            usersMap[lowerHandle] = {
+                following: following !== null && !isNaN(following) ? following : (existing.following || 0),
+                followers: followers !== null && !isNaN(followers) ? followers : (existing.followers || 0),
+                name: name || existing.name || null,
+                description: description || existing.description || null,
+                location: location || existing.location || null,
+                verified: verified !== null ? verified : (existing.verified || null),
+                tweet_count: tweetCount !== null && !isNaN(tweetCount) ? tweetCount : (existing.tweet_count || null),
+                created_at: createdAt || existing.created_at || null,
+                updated_at: new Date().toISOString(),
+            };
         }
 
         if (Array.isArray(obj)) {
@@ -502,6 +520,24 @@
             }
         }
 
+        // Bulk-load persisted user cache from SQLite on startup
+        if (event.data.type === 'bulk_user_cache') {
+            const users = event.data.payload && event.data.payload.users;
+            if (users && typeof users === 'object') {
+                let count = 0;
+                for (const [handle, stats] of Object.entries(users)) {
+                    const lh = handle.toLowerCase();
+                    if (!window.__tweeker.userCache[lh]) {
+                        window.__tweeker.userCache[lh] = stats;
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    sendDebugLog(`Bulk-loaded ${count} users from persistent cache`);
+                }
+            }
+        }
+
         if (event.data.type === 'post_tweet_api') {
             const requestId = event.data.requestId;
             const content = event.data.content;
@@ -783,14 +819,24 @@
 
                 const stats = window.__tweeker.userCache[lowerHandle];
                 const nameEl = userNameContainer ? userNameContainer.querySelector('span') : null;
-                const displayName = nameEl ? nameEl.textContent.trim() : "Unknown";
+                const domDisplayName = nameEl ? nameEl.textContent.trim() : null;
+                const displayName = (stats && stats.name) || domDisplayName || handle;
 
-                let text = `User Info for @${handle} (${displayName}): `;
+                let parts = [`[User Info @${handle}] Name: "${displayName}"`];
                 if (stats) {
-                    text += `${stats.followers.toLocaleString()} followers, ${stats.following.toLocaleString()} following`;
+                    if (stats.followers !== undefined) parts.push(`Followers: ${stats.followers.toLocaleString()}`);
+                    if (stats.following !== undefined) parts.push(`Following: ${stats.following.toLocaleString()}`);
+                    if (stats.tweet_count) parts.push(`Posts: ${stats.tweet_count.toLocaleString()}`);
+                    if (stats.verified !== undefined && stats.verified !== null) parts.push(`Verified: ${stats.verified ? 'Yes' : 'No'}`);
+                    if (stats.location) parts.push(`Location: "${stats.location}"`);
+                    if (stats.created_at) parts.push(`Joined: ${stats.created_at}`);
+                    if (stats.description) parts.push(`Bio: "${stats.description}"`);
+                    if (stats.updated_at) parts.push(`Cached at: ${stats.updated_at}`);
                 } else {
-                    text += `No stats cached yet.`;
+                    parts.push('No detailed stats cached yet.');
                 }
+
+                const text = parts.join(' | ');
 
                 console.log(`[Tweeker] ${text}`);
                 window.__tweeker.sendMessage('log', {

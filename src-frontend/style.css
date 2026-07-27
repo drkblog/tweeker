@@ -1181,6 +1181,18 @@
     border: 1px solid hsla(280, 65%, 60%, 0.35) !important;
 }
 
+#tweeker-overlay-container .log-tag-info {
+    background: hsla(210, 80%, 55%, 0.2) !important;
+    color: hsl(210, 90%, 75%) !important;
+    border: 1px solid hsla(210, 80%, 55%, 0.35) !important;
+}
+
+#tweeker-overlay-container .log-tag-error {
+    background: hsla(0, 80%, 55%, 0.2) !important;
+    color: hsl(0, 90%, 75%) !important;
+    border: 1px solid hsla(0, 80%, 55%, 0.35) !important;
+}
+
 #tweeker-overlay-container .log-content {
     flex: 1 !important;
     color: var(--tw-text-primary) !important;

@@ -113,12 +113,31 @@ pub enum InterceptorMessage {
     Error { message: String },
 }
 
-// ── Twitter user details for in-memory cache ──
+// ── Database Statistics ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DbStats {
+    pub db_path: String,
+    pub db_size_bytes: u64,
+    pub total_tweets: u64,
+    pub total_alarms: u64,
+    pub total_scheduled_tweets: u64,
+    pub cached_users_count: u64,
+}
+
+// ── Twitter user details for in-memory & SQLite cache ──
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TwitterUser {
     pub following: u64,
     pub followers: u64,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub verified: Option<bool>,
+    pub tweet_count: Option<u64>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
     #[serde(skip)]
     pub last_accessed: Option<chrono::DateTime<Utc>>,
 }

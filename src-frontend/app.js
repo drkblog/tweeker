@@ -121,6 +121,7 @@ const dom = {
     interceptorStatus: document.getElementById('interceptor-status'),
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
+    settingsDbPath: document.getElementById('settings-db-path'),
 };
 
 // ── Panel Toggle ──
@@ -2129,11 +2130,57 @@ async function init() {
         togglePanel(true);
     }
 
+    // Bulk-load persisted user cache from backend into JS webview cache
+    try {
+        const cachedUsers = await invoke('get_all_cached_users');
+        if (cachedUsers && typeof cachedUsers === 'object') {
+            const count = Object.keys(cachedUsers).length;
+            if (count > 0) {
+                // Push all cached users to the interceptor's JS cache
+                window.postMessage({
+                    __tweeker: true,
+                    type: 'bulk_user_cache',
+                    payload: { users: cachedUsers }
+                }, '*');
+                console.log(`[Tweeker] Loaded ${count} users from persistent cache into webview`);
+            }
+        }
+    } catch (e) {
+        console.debug('[Tweeker] Failed to load persisted user cache:', e);
+    }
+
     // Log session startup
     addLogEntry({
         type: 'system',
         text: `Tweeker control panel session initialized`
     });
+
+    // Fetch database statistics & path
+    try {
+        const dbStats = await invoke('get_db_stats');
+        if (dbStats) {
+            if (dom.settingsDbPath) {
+                dom.settingsDbPath.value = dbStats.db_path || '—';
+            }
+
+            const sizeBytes = dbStats.db_size_bytes || 0;
+            let formattedSize = '0 B';
+            if (sizeBytes >= 1048576) {
+                formattedSize = (sizeBytes / 1048576).toFixed(1) + ' MB';
+            } else if (sizeBytes >= 1024) {
+                formattedSize = (sizeBytes / 1024).toFixed(1) + ' KB';
+            } else {
+                formattedSize = sizeBytes + ' B';
+            }
+
+            addLogEntry({
+                type: 'system',
+                text: `Database statistics: ${dbStats.cached_users_count || 0} users cached, ${dbStats.total_tweets || 0} tweets stored, ${dbStats.total_alarms || 0} alarms, ${dbStats.total_scheduled_tweets || 0} scheduled tweets (DB size: ${formattedSize})`
+            });
+        }
+    } catch (e) {
+        console.debug('[Tweeker] Failed to fetch database statistics:', e);
+    }
 
     // Start 5-second monitor loop for scheduled tweets
     setInterval(checkScheduledTweets, 5000);
