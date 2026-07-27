@@ -58,9 +58,10 @@ A cross-platform desktop application that wraps X.com (Twitter) with power-user 
 └─────────────────────────────────────────────────────────┘
 ```
 
-*   **Frontend (Control Panel)**: Vanilla HTML5, CSS3, JavaScript (ES6+). A glassmorphism overlay drawer that slides over X.com when toggled.
+*   **Frontend (Control Panel)**: Vanilla HTML5, CSS3, JavaScript (ES6+). A glassmorphism overlay drawer that slides over X.com when toggled. The overlay's open/closed state is persisted in `localStorage` across app restarts.
 *   **Backend (Rust / Tauri v2)**: Modular Rust backend with SQLite persistence, tokio-based scheduler, and JavaScript injection engine.
 *   **X.com Integration**: The X.com webview loads the real site. Injected JavaScript intercepts `fetch`/`XHR` API responses and uses `MutationObserver` to capture tweet data, which is relayed to the Rust backend.
+*   **Info-widget** (`tweeker-tweet-user-stats`): A compact following/followers stats widget injected below the user avatar in each tweet. Below it, an info button (ℹ) dumps cached user stats to the Logs console.
 
 ### Project Structure
 ```

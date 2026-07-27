@@ -47,6 +47,7 @@ src-frontend/         # Local control panel overlay UI & styling
 - **NEVER** apply `pointer-events: none`, `overflow: hidden`, or global resets (`* { margin: 0 }`) directly to `body` or X.com elements.
 - The control panel is a **floating glass drawer** with inset margins (`top: 16px; right: 16px; bottom: 16px; height: calc(100vh - 32px)`), rounded corners (`border-radius: 16px`), and width `380px`.
 - The floating toggle button (`.overlay-toggle`) is **draggable by the user** so they can uncover UI elements behind it. Drag position is saved in `localStorage` (`tweeker_toggle_pos`).
+- The **overlay panel open/closed state** is persisted in `localStorage` (`tweeker_panel_open`) and automatically restored when the app restarts.
 - Header includes a **Copy URL button** (`#copy-url-btn`) that copies `window.location.href` to clipboard with a visual feedback toast (`#copy-url-toast`).
 - The status bar contains an **Auto read toggle** (`#auto-read-toggle`), off by default. A startup setting in Settings ("Auto read on app start", stored in `localStorage` as `tweeker_autoread_on_start`) automatically activates Auto read when the app opens.
 - When **Auto read** is enabled, `interceptor.js` automatically clicks X.com floating "New Tweets" pill buttons as they appear and processes all incoming timeline messages immediately.
@@ -61,6 +62,7 @@ src-frontend/         # Local control panel overlay UI & styling
 - Keep injection scripts minimal, defensive, and non-blocking.
 - The DOM `MutationObserver` **MUST be debounced** (300ms queue) and ignore nodes inside `#tweeker-overlay-container`.
 - Parsed tweet elements **MUST be deduplicated** via `dataset.tweekerParsed = 'true'` markers so elements are parsed at most once.
+- **Info-widget** (`tweeker-tweet-user-stats`): A compact following/followers stats widget rendered below the user avatar in each tweet's DOM. It is injected by `renderStatsBelowAvatar()` in `interceptor.js`. Below the info-widget, an **info button** (`.tweeker-user-info-btn`, ℹ icon) dumps cached user stats to the Logs console.
 
 ### Security
 - Navigation in the X.com webview is locked to `x.com`, `twitter.com`, and related CDN/API domains via `on_navigation`.

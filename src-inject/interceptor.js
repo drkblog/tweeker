@@ -735,34 +735,31 @@
 
     function addInfoButtonToHeader(tweetEl, handle, lowerHandle) {
         try {
+            // Place the info button below the info-widget (tweeker-tweet-user-stats)
+            // which is rendered under the user avatar column
+            const avatar = tweetEl.querySelector('[data-testid="Tweet-User-Avatar"]');
+            if (!avatar) return;
+
+            const parentCol = avatar.parentNode;
+            if (!parentCol) return;
+
+            if (parentCol.querySelector('.tweeker-user-info-btn')) return;
+
             const userNameContainer = tweetEl.querySelector('[data-testid="User-Name"]');
-            if (!userNameContainer) return;
-
-            if (userNameContainer.querySelector('.tweeker-user-info-btn')) return;
-
-            const links = userNameContainer.querySelectorAll('a[role="link"]');
-            let handleEl = null;
-            for (const link of links) {
-                if (link.textContent.includes('@')) {
-                    handleEl = link;
-                    break;
-                }
-            }
-
-            if (!handleEl) return;
 
             const infoBtn = document.createElement('button');
             infoBtn.className = 'tweeker-user-info-btn';
             infoBtn.style.background = 'none';
             infoBtn.style.border = 'none';
-            infoBtn.style.padding = '0 2px';
+            infoBtn.style.padding = '2px 0';
             infoBtn.style.cursor = 'pointer';
-            infoBtn.style.display = 'inline-flex';
+            infoBtn.style.display = 'flex';
             infoBtn.style.alignItems = 'center';
+            infoBtn.style.justifyContent = 'center';
             infoBtn.style.color = '#71767b';
-            infoBtn.style.marginLeft = '6px';
+            infoBtn.style.marginTop = '2px';
             infoBtn.style.transition = 'color 0.2s';
-            infoBtn.style.verticalAlign = 'middle';
+            infoBtn.style.width = '100%';
             infoBtn.title = 'Dump user info to log';
 
             infoBtn.innerHTML = `
@@ -785,7 +782,7 @@
                 e.stopPropagation();
 
                 const stats = window.__tweeker.userCache[lowerHandle];
-                const nameEl = userNameContainer.querySelector('span');
+                const nameEl = userNameContainer ? userNameContainer.querySelector('span') : null;
                 const displayName = nameEl ? nameEl.textContent.trim() : "Unknown";
 
                 let text = `User Info for @${handle} (${displayName}): `;
@@ -802,7 +799,14 @@
                 });
             });
 
-            handleEl.parentNode.insertBefore(infoBtn, handleEl.nextSibling);
+            // Insert after the info-widget (tweeker-tweet-user-stats) if it exists,
+            // otherwise after the avatar itself
+            const statsWidget = parentCol.querySelector('.tweeker-tweet-user-stats');
+            if (statsWidget) {
+                statsWidget.parentNode.insertBefore(infoBtn, statsWidget.nextSibling);
+            } else {
+                avatar.parentNode.insertBefore(infoBtn, avatar.nextSibling);
+            }
         } catch (e) {
             console.debug('[Tweeker Interceptor] Error adding info button:', e);
         }

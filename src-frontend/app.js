@@ -129,6 +129,9 @@ function togglePanel(forceState) {
     const newState = forceState !== undefined ? forceState : !state.panelOpen;
     state.panelOpen = newState;
 
+    // Persist open/closed state across app restarts
+    try { localStorage.setItem('tweeker_panel_open', newState ? 'true' : 'false'); } catch (e) {}
+
     if (newState) {
         dom.overlayPanel.classList.add('open');
         dom.overlayPanel.setAttribute('aria-hidden', 'false');
@@ -2119,6 +2122,12 @@ async function init() {
     await refreshConnectionStatus();
     await refreshAlarms();
     await refreshScheduledTweets();
+
+    // Restore overlay panel open/closed state from previous session
+    const savedPanelOpen = localStorage.getItem('tweeker_panel_open');
+    if (savedPanelOpen === 'true') {
+        togglePanel(true);
+    }
 
     // Log session startup
     addLogEntry({
