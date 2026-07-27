@@ -1251,3 +1251,31 @@
     padding: 8px 12px !important;
 }
 
+#tweeker-overlay-container .log-copy-btn {
+    background: none !important;
+    border: none !important;
+    padding: 2px !important;
+    margin: 0 0 0 auto !important;
+    cursor: pointer !important;
+    color: var(--tw-text-muted) !important;
+    flex-shrink: 0 !important;
+    border-radius: 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: color 120ms ease, background-color 120ms ease !important;
+    align-self: flex-start !important;
+}
+
+#tweeker-overlay-container .log-copy-btn:hover {
+    color: var(--tw-text-primary) !important;
+    background-color: hsla(220, 15%, 30%, 0.4) !important;
+}
+
+#tweeker-overlay-container .log-copy-icon {
+    width: 12px !important;
+    height: 12px !important;
+    pointer-events: none !important;
+}
+
+

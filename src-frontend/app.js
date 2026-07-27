@@ -711,7 +711,13 @@ function getLogItemInnerHtml(item) {
     const type = item.type || 'system';
     const tagLabel = type.toUpperCase();
     
-    let contentHtml = escapeHtml(item.text);
+    let rawText = item.text || '';
+    let displayText = rawText;
+    if (displayText.length > 256) {
+        displayText = displayText.substring(0, 256) + '...';
+    }
+    
+    let contentHtml = escapeHtml(displayText);
 
     if (item.authorHandle) {
         const handleText = '@' + item.authorHandle.replace(/^@/, '');
@@ -741,10 +747,20 @@ function getLogItemInnerHtml(item) {
         `;
     }
 
+    const copyBtnHtml = `
+        <button class="log-copy-btn" data-log-text="${escapeHtml(rawText)}" title="Copy full log entry">
+            <svg class="log-copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+        </button>
+    `;
+
     return `
         <span class="log-timestamp">${escapeHtml(item.timestamp)}</span>
         <span class="log-tag log-tag-${type}">${tagLabel}</span>
         <span class="log-content">${contentHtml}${linksHtml}</span>
+        ${copyBtnHtml}
     `;
 }
 
@@ -1507,6 +1523,15 @@ if (dom.userCacheLimitInput) {
 // Log container click delegation for Tweet ID & URL copy links
 if (dom.logOutputContainer) {
     dom.logOutputContainer.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('.log-copy-btn');
+        if (copyBtn) {
+            const logText = copyBtn.dataset.logText;
+            if (logText) {
+                copyToClipboard(logText, 'Log entry copied!');
+            }
+            return;
+        }
+
         const idLink = e.target.closest('.log-id-link');
         if (idLink) {
             const copyId = idLink.dataset.copyId;
@@ -1563,6 +1588,15 @@ if (dom.maxDebugLinesInput) {
 // Debug container click delegation
 if (dom.debugOutputContainer) {
     dom.debugOutputContainer.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('.log-copy-btn');
+        if (copyBtn) {
+            const logText = copyBtn.dataset.logText;
+            if (logText) {
+                copyToClipboard(logText, 'Log entry copied!');
+            }
+            return;
+        }
+
         const idLink = e.target.closest('.log-id-link');
         if (idLink) {
             const copyId = idLink.dataset.copyId;
