@@ -143,14 +143,13 @@
         if (!statsEl) {
             statsEl = document.createElement('div');
             statsEl.className = 'tweeker-tweet-user-stats';
-            statsEl.style.fontSize = '9px';
-            statsEl.style.lineHeight = '11px';
+            statsEl.style.fontSize = '10px';
+            statsEl.style.lineHeight = '13px';
             statsEl.style.textAlign = 'center';
             statsEl.style.marginTop = '4px';
             statsEl.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
             statsEl.style.display = 'block';
             statsEl.style.width = '100%';
-            statsEl.style.whiteSpace = 'nowrap';
             statsEl.style.overflow = 'hidden';
             statsEl.style.textOverflow = 'ellipsis';
 
@@ -160,7 +159,10 @@
         const formattedFollowing = formatCount(following);
         const formattedFollowers = formatCount(followers);
 
-        statsEl.innerHTML = `<span style="color: #71767b;">${formattedFollowing}</span>/<span style="color: #1d9bf0; font-weight: bold;">${formattedFollowers}</span>`;
+        statsEl.innerHTML = `
+            <div style="color: #71767b; white-space: nowrap;" title="Following: ${following}">${formattedFollowing}</div>
+            <div style="color: #1d9bf0; font-weight: bold; white-space: nowrap;" title="Followers: ${followers}">${formattedFollowers}</div>
+        `;
     }
 
     function updateStatsForAuthor(handle) {
