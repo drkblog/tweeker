@@ -44,6 +44,38 @@
     function extractUsersFromJSON(obj, usersMap) {
         if (!obj || typeof obj !== 'object') return;
 
+        // 1. Sibling merging check: handle is in core, counts are in relationship_counts (modern X.com format)
+        if (obj.core && typeof obj.core === 'object' && obj.relationship_counts && typeof obj.relationship_counts === 'object') {
+            const handle = obj.core.screen_name;
+            if (typeof handle === 'string') {
+                const lowerHandle = handle.toLowerCase();
+                const followers = (obj.relationship_counts.followers !== undefined && obj.relationship_counts.followers !== null) ? parseInt(obj.relationship_counts.followers, 10) : null;
+                const following = (obj.relationship_counts.following !== undefined && obj.relationship_counts.following !== null) ? parseInt(obj.relationship_counts.following, 10) : null;
+                if (followers !== null || following !== null) {
+                    usersMap[lowerHandle] = {
+                        following: following || 0,
+                        followers: followers || 0
+                    };
+                }
+            }
+        }
+
+        // 2. Sibling merging check: handle is in core, counts are in legacy (alternate/older format)
+        if (obj.core && typeof obj.core === 'object' && obj.legacy && typeof obj.legacy === 'object') {
+            const handle = obj.core.screen_name || obj.legacy.screen_name;
+            if (typeof handle === 'string') {
+                const lowerHandle = handle.toLowerCase();
+                const followers = (obj.legacy.followers_count !== undefined && obj.legacy.followers_count !== null) ? parseInt(obj.legacy.followers_count, 10) : null;
+                const following = (obj.legacy.friends_count !== undefined && obj.legacy.friends_count !== null) ? parseInt(obj.legacy.friends_count, 10) : null;
+                if (followers !== null || following !== null) {
+                    usersMap[lowerHandle] = {
+                        following: following || 0,
+                        followers: followers || 0
+                    };
+                }
+            }
+        }
+
         if (typeof obj.screen_name === 'string') {
             const handle = obj.screen_name.toLowerCase();
             const followers = (obj.followers_count !== undefined && obj.followers_count !== null) ? parseInt(obj.followers_count, 10) : null;
@@ -56,30 +88,49 @@
             }
         }
 
-        if (obj.legacy && typeof obj.legacy === 'object') {
-            const leg = obj.legacy;
-            if (typeof leg.screen_name === 'string') {
-                const handle = leg.screen_name.toLowerCase();
-                const followers = (leg.followers_count !== undefined && leg.followers_count !== null) ? parseInt(leg.followers_count, 10) : null;
-                const following = (leg.friends_count !== undefined && leg.friends_count !== null) ? parseInt(leg.friends_count, 10) : null;
-                if (followers !== null || following !== null) {
-                    usersMap[handle] = {
-                        following: following || 0,
-                        followers: followers || 0
-                    };
-                }
-            }
-        }
-
         if (Array.isArray(obj)) {
             for (const item of obj) {
                 extractUsersFromJSON(item, usersMap);
             }
         } else {
             for (const key of Object.keys(obj)) {
-                if (key !== 'legacy') {
-                    extractUsersFromJSON(obj[key], usersMap);
+                extractUsersFromJSON(obj[key], usersMap);
+            }
+        }
+    }
+
+    function findScreenNamePaths(obj, path, parentObj) {
+        if (!obj || typeof obj !== 'object') return;
+        path = path || 'root';
+
+        if (typeof obj.screen_name === 'string') {
+            const keys = Object.keys(obj);
+            let parentMsg = '';
+            if (parentObj) {
+                const parentKeys = Object.keys(parentObj);
+                parentMsg = `. Parent keys: ${parentKeys.join(', ')}`;
+                if (parentObj.legacy && typeof parentObj.legacy === 'object') {
+                    const legacyKeys = Object.keys(parentObj.legacy);
+                    parentMsg += `. Parent.legacy keys: ${legacyKeys.join(', ')}`;
                 }
+                if (parentObj.relationship_counts && typeof parentObj.relationship_counts === 'object') {
+                    const relKeys = Object.keys(parentObj.relationship_counts);
+                    parentMsg += `. Parent.relationship_counts: ${JSON.stringify(parentObj.relationship_counts)}`;
+                }
+                if (parentObj.tweet_counts && typeof parentObj.tweet_counts === 'object') {
+                    parentMsg += `. Parent.tweet_counts: ${JSON.stringify(parentObj.tweet_counts)}`;
+                }
+            }
+            sendDebugLog(`Found screen_name at: ${path}. Sibling keys: ${keys.join(', ')}${parentMsg}`);
+        }
+
+        if (Array.isArray(obj)) {
+            for (let i = 0; i < obj.length; i++) {
+                findScreenNamePaths(obj[i], `${path}[${i}]`, obj);
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                findScreenNamePaths(obj[key], `${path}.${key}`, obj);
             }
         }
     }
@@ -172,7 +223,7 @@
             // Intercept timeline and tweet-related API endpoints
             if (isTimelineEndpoint(url)) {
                 const opName = url.split('/graphql/')[1]?.split('?')[0] || url.split('/').pop()?.split('?')[0] || 'Unknown';
-                sendDebugLog(`Intercepted GraphQL request: ${opName}`);
+                sendDebugLog(`Intercepted GraphQL request: ${opName} (URL: ${url})`);
 
                 // Clone the response so we don't consume it
                 const clone = response.clone();
@@ -188,6 +239,10 @@
                     } catch (e) {
                         sendDebugLog(`Parse error for ${opName}: ${e.message}`);
                     }
+
+                    try {
+                        findScreenNamePaths(data);
+                    } catch (e) {}
 
                     try {
                         const users = {};
@@ -232,7 +287,7 @@
         if (this._tweeker_url && isTimelineEndpoint(this._tweeker_url)) {
             const url = this._tweeker_url;
             const opName = url.split('/graphql/')[1]?.split('?')[0] || url.split('/').pop()?.split('?')[0] || 'Unknown';
-            sendDebugLog(`Intercepted GraphQL XHR: ${opName}`);
+            sendDebugLog(`Intercepted GraphQL XHR: ${opName} (URL: ${url})`);
 
             this.addEventListener('load', function() {
                 try {
@@ -243,6 +298,10 @@
                         window.__tweeker.sendTweets(tweets);
                         sendDebugLog(`Extracted ${tweets.length} tweet(s) from XHR operation ${opName}`);
                     }
+
+                    try {
+                        findScreenNamePaths(data);
+                    } catch (e) {}
 
                     const users = {};
                     extractUsersFromJSON(data, users);
@@ -581,6 +640,7 @@
      */
     function isTimelineEndpoint(url) {
         if (!url) return false;
+        if (url.includes('viewer_context')) return false;
         return url.includes('/graphql/') || url.includes('/api/graphql');
     }
 
