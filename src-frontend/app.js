@@ -39,6 +39,9 @@ const state = {
         last_heartbeat: null,
     },
     statsRefreshInterval: null,
+    debugTwitter: false,
+    maxDebugLines: 2000,
+    debugLogs: [],
 };
 
 // ── DOM Elements ──
@@ -74,6 +77,7 @@ const dom = {
         scheduler: document.getElementById('content-scheduler'),
         logs: document.getElementById('content-logs'),
         settings: document.getElementById('content-settings'),
+        debug: document.getElementById('content-debug'),
     },
 
     // Stats
@@ -102,6 +106,14 @@ const dom = {
     logCountText: document.getElementById('log-count-text'),
     clearLogsBtn: document.getElementById('clear-logs-btn'),
     logOutputContainer: document.getElementById('log-output-container'),
+
+    // Debug
+    debugTab: document.getElementById('tab-debug'),
+    debugCountText: document.getElementById('debug-count-text'),
+    clearDebugBtn: document.getElementById('clear-debug-btn'),
+    debugOutputContainer: document.getElementById('debug-output-container'),
+    debugTwitterToggle: document.getElementById('debug-twitter-toggle'),
+    maxDebugLinesInput: document.getElementById('max-debug-lines-input'),
 
     // Settings
     maxLogLinesInput: document.getElementById('max-log-lines-input'),
@@ -159,6 +171,7 @@ function switchTab(tabName) {
     if (tabName === 'scheduler') refreshScheduledTweets();
     if (tabName === 'logs') refreshLogsView();
     if (tabName === 'settings') refreshSettings();
+    if (tabName === 'debug') refreshDebugView();
 }
 
 // ── Data Rendering ──
@@ -764,6 +777,135 @@ function clearLogs() {
         type: 'system',
         text: 'Log output cleared'
     });
+}
+
+
+// ── Debug Logs Management ──
+
+function addDebugLogEntry(text) {
+    if (!state.debugTwitter) return;
+
+    const timestamp = new Date().toLocaleTimeString([], { hour12: false });
+    const logItem = {
+        id: 'debug-log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        type: 'debug',
+        text: text,
+        timestamp: timestamp
+    };
+
+    if (!Array.isArray(state.debugLogs)) state.debugLogs = [];
+    state.debugLogs.push(logItem);
+    pruneDebugLogs();
+
+    if (state.activeTab === 'debug' && state.panelOpen) {
+        refreshDebugView();
+    } else {
+        renderDebugLogItem(logItem);
+    }
+}
+
+function pruneDebugLogs() {
+    if (!state.debugLogs) state.debugLogs = [];
+    if (state.debugLogs.length > state.maxDebugLines) {
+        state.debugLogs = state.debugLogs.slice(-state.maxDebugLines);
+    }
+}
+
+function renderDebugLogItem(item) {
+    if (!dom.debugOutputContainer || !state.debugTwitter) return;
+
+    // Remove empty state if present
+    const emptyState = dom.debugOutputContainer.querySelector('.log-empty-state');
+    if (emptyState) emptyState.remove();
+
+    const entryDiv = document.createElement('div');
+    entryDiv.className = `log-entry log-entry-debug`;
+    entryDiv.dataset.logId = item.id;
+    entryDiv.innerHTML = getLogItemInnerHtml(item);
+
+    dom.debugOutputContainer.appendChild(entryDiv);
+
+    // Prune DOM elements if DOM child count exceeds maxDebugLines
+    const entries = dom.debugOutputContainer.querySelectorAll('.log-entry');
+    if (entries.length > state.maxDebugLines) {
+        const toRemove = entries.length - state.maxDebugLines;
+        for (let i = 0; i < toRemove; i++) {
+            entries[i].remove();
+        }
+    }
+
+    // Autoscroll to bottom
+    dom.debugOutputContainer.scrollTop = dom.debugOutputContainer.scrollHeight;
+    updateDebugCountText();
+}
+
+function refreshDebugView() {
+    if (!dom.debugOutputContainer) return;
+    updateDebugCountText();
+
+    if (!state.debugLogs || state.debugLogs.length === 0) {
+        dom.debugOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No debug logs recorded yet. Enable "Debug Twitter" setting to start capturing.</p>';
+        return;
+    }
+
+    dom.debugOutputContainer.innerHTML = state.debugLogs.map(item => `
+        <div class="log-entry log-entry-debug" data-log-id="${item.id}">
+            ${getLogItemInnerHtml(item)}
+        </div>
+    `).join('');
+
+    dom.debugOutputContainer.scrollTop = dom.debugOutputContainer.scrollHeight;
+}
+
+function clearDebugLogs() {
+    state.debugLogs = [];
+    try { localStorage.removeItem('tweeker_debug_logs'); } catch (e) {}
+    updateDebugCountText();
+    if (dom.debugOutputContainer) {
+        dom.debugOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No debug logs recorded yet. Enable "Debug Twitter" setting to start capturing.</p>';
+    }
+    addDebugLogEntry('Debug log output cleared');
+}
+
+function updateDebugCountText() {
+    if (dom.debugCountText) {
+        const count = state.debugLogs ? state.debugLogs.length : 0;
+        dom.debugCountText.textContent = `${count} / ${state.maxDebugLines} lines`;
+    }
+}
+
+function setDebugTwitterState(enabled) {
+    state.debugTwitter = !!enabled;
+    if (dom.debugTwitterToggle) {
+        dom.debugTwitterToggle.checked = state.debugTwitter;
+    }
+    
+    // Toggle debug tab button visibility
+    if (dom.debugTab) {
+        if (state.debugTwitter) {
+            dom.debugTab.style.display = 'flex';
+        } else {
+            dom.debugTab.style.display = 'none';
+            // If active tab was debug and we turned it off, switch to stats
+            if (state.activeTab === 'debug') {
+                switchTab('stats');
+            }
+        }
+    }
+    
+    // Persist to local storage
+    try {
+        localStorage.setItem('tweeker_debug_twitter', state.debugTwitter ? 'true' : 'false');
+    } catch (e) {}
+
+    // Notify injected script
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_debug_twitter',
+            enabled: state.debugTwitter
+        }, '*');
+    } catch (e) {}
 }
 
 function copyToClipboard(text, successMessage = 'Copied!') {
@@ -1385,6 +1527,62 @@ if (dom.logOutputContainer) {
     });
 }
 
+// Clear debug logs button
+if (dom.clearDebugBtn) {
+    dom.clearDebugBtn.addEventListener('click', clearDebugLogs);
+}
+
+// Debug Twitter setting toggle
+if (dom.debugTwitterToggle) {
+    dom.debugTwitterToggle.addEventListener('change', (e) => {
+        setDebugTwitterState(e.target.checked);
+        addLogEntry({
+            type: 'system',
+            text: `Debug Twitter ${state.debugTwitter ? 'enabled' : 'disabled'}`
+        });
+    });
+}
+
+// Max debug log lines setting input
+if (dom.maxDebugLinesInput) {
+    dom.maxDebugLinesInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 10) val = 2000;
+        state.maxDebugLines = val;
+        e.target.value = val;
+        try { localStorage.setItem('tweeker_max_debug_lines', val.toString()); } catch (err) {}
+        pruneDebugLogs();
+        refreshDebugView();
+        addLogEntry({
+            type: 'system',
+            text: `Maximum debug log lines limit updated to ${val}`
+        });
+    });
+}
+
+// Debug container click delegation
+if (dom.debugOutputContainer) {
+    dom.debugOutputContainer.addEventListener('click', (e) => {
+        const idLink = e.target.closest('.log-id-link');
+        if (idLink) {
+            const copyId = idLink.dataset.copyId;
+            if (copyId) {
+                copyToClipboard(copyId, 'Tweet ID copied!');
+            }
+            return;
+        }
+
+        const urlLink = e.target.closest('.log-url-link');
+        if (urlLink) {
+            const copyUrl = urlLink.dataset.copyUrl;
+            if (copyUrl) {
+                copyToClipboard(copyUrl, 'Tweet URL copied!');
+            }
+            return;
+        }
+    });
+}
+
 // ── Interceptor Message Handler ──
 function processIncomingTweets(tweets) {
     if (!tweets || !Array.isArray(tweets)) return;
@@ -1723,6 +1921,17 @@ window.addEventListener('message', (event) => {
         state.connectionStatus.interceptor_active = true;
         state.connectionStatus.last_heartbeat = new Date();
         renderConnectionStatus(state.connectionStatus);
+
+        // Sync debug setting on heartbeat
+        if (type === 'heartbeat') {
+            try {
+                window.postMessage({
+                    __tweeker: true,
+                    type: 'set_debug_twitter',
+                    enabled: state.debugTwitter
+                }, '*');
+            } catch (e) {}
+        }
     }
 
     if (type === 'log' && payload && payload.text) {
@@ -1730,6 +1939,10 @@ window.addEventListener('message', (event) => {
             type: payload.type || 'system',
             text: `[Interceptor] ${payload.text}`
         });
+    }
+
+    if (type === 'debug_log' && payload && payload.text) {
+        addDebugLogEntry(`[Interceptor] ${payload.text}`);
     }
 
     if (type === 'tweet_data' && payload && payload.tweets) {
@@ -1824,6 +2037,32 @@ async function init() {
         if (savedLogs) {
             state.logs = JSON.parse(savedLogs);
             pruneLogs();
+        }
+    } catch (e) {}
+
+    // Restore saved Debug Twitter setting
+    const debugTwitterStartup = localStorage.getItem('tweeker_debug_twitter') === 'true';
+    state.debugTwitter = debugTwitterStartup;
+    if (dom.debugTwitterToggle) {
+        dom.debugTwitterToggle.checked = debugTwitterStartup;
+    }
+    setDebugTwitterState(debugTwitterStartup);
+
+    // Restore saved max debug log lines setting
+    const savedMaxDebugLines = parseInt(localStorage.getItem('tweeker_max_debug_lines'), 10);
+    if (!isNaN(savedMaxDebugLines) && savedMaxDebugLines >= 10) {
+        state.maxDebugLines = savedMaxDebugLines;
+    }
+    if (dom.maxDebugLinesInput) {
+        dom.maxDebugLinesInput.value = state.maxDebugLines;
+    }
+
+    // Restore saved debug logs
+    try {
+        const savedDebugLogs = localStorage.getItem('tweeker_debug_logs');
+        if (savedDebugLogs) {
+            state.debugLogs = JSON.parse(savedDebugLogs);
+            pruneDebugLogs();
         }
     } catch (e) {}
 

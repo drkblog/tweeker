@@ -20,6 +20,14 @@
     window.__tweeker.userCache = window.__tweeker.userCache || {};
     window.__tweeker.pendingUserRequests = window.__tweeker.pendingUserRequests || new Set();
 
+    let debugTwitterEnabled = false;
+
+    function sendDebugLog(text) {
+        if (debugTwitterEnabled) {
+            window.__tweeker.sendMessage('debug_log', { text: text });
+        }
+    }
+
     function formatCount(num) {
         if (num === undefined || num === null) return '?';
         const n = Number(num);
@@ -164,20 +172,21 @@
             // Intercept timeline and tweet-related API endpoints
             if (isTimelineEndpoint(url)) {
                 const opName = url.split('/graphql/')[1]?.split('?')[0] || url.split('/').pop()?.split('?')[0] || 'Unknown';
-                window.__tweeker.sendMessage('log', { type: 'debug', text: `Intercepted GraphQL request: ${opName}` });
+                sendDebugLog(`Intercepted GraphQL request: ${opName}`);
 
                 // Clone the response so we don't consume it
                 const clone = response.clone();
                 
                 clone.json().then(function(data) {
-                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Parsed JSON for operation: ${opName}` });
+                    sendDebugLog(`Parsed JSON for operation: ${opName}`);
                     try {
                         const tweets = parseApiResponse(data);
                         if (tweets.length > 0) {
                             window.__tweeker.sendTweets(tweets);
+                            sendDebugLog(`Extracted ${tweets.length} tweet(s) from operation ${opName}`);
                         }
                     } catch (e) {
-                        window.__tweeker.sendMessage('log', { type: 'error', text: `Parse error for ${opName}: ${e.message}` });
+                        sendDebugLog(`Parse error for ${opName}: ${e.message}`);
                     }
 
                     try {
@@ -185,19 +194,19 @@
                         extractUsersFromJSON(data, users);
                         if (Object.keys(users).length > 0) {
                             window.__tweeker.sendMessage('add_users', { users: users });
-                            window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from operation ${opName}` });
+                            sendDebugLog(`Extracted ${Object.keys(users).length} user(s) stats from operation ${opName}`);
                             for (const [h, counts] of Object.entries(users)) {
                                 window.__tweeker.userCache[h] = counts;
                                 updateStatsForAuthor(h);
                             }
                         } else {
-                            window.__tweeker.sendMessage('log', { type: 'debug', text: `No user profiles found in JSON of operation ${opName}` });
+                            sendDebugLog(`No user profiles found in JSON of operation ${opName}`);
                         }
                     } catch (e) {
-                        window.__tweeker.sendMessage('log', { type: 'error', text: `User extract error for ${opName}: ${e.message}` });
+                        sendDebugLog(`User extract error for ${opName}: ${e.message}`);
                     }
                 }).catch(function(err) {
-                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Failed to parse response body as JSON for operation ${opName}: ${err.message}` });
+                    sendDebugLog(`Failed to parse response body as JSON for operation ${opName}: ${err.message}`);
                 });
             }
         } catch (e) {
@@ -223,31 +232,32 @@
         if (this._tweeker_url && isTimelineEndpoint(this._tweeker_url)) {
             const url = this._tweeker_url;
             const opName = url.split('/graphql/')[1]?.split('?')[0] || url.split('/').pop()?.split('?')[0] || 'Unknown';
-            window.__tweeker.sendMessage('log', { type: 'debug', text: `Intercepted GraphQL XHR: ${opName}` });
+            sendDebugLog(`Intercepted GraphQL XHR: ${opName}`);
 
             this.addEventListener('load', function() {
                 try {
                     const data = JSON.parse(this.responseText);
-                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Parsed XHR JSON for operation: ${opName}` });
+                    sendDebugLog(`Parsed XHR JSON for operation: ${opName}`);
                     const tweets = parseApiResponse(data);
                     if (tweets.length > 0) {
                         window.__tweeker.sendTweets(tweets);
+                        sendDebugLog(`Extracted ${tweets.length} tweet(s) from XHR operation ${opName}`);
                     }
 
                     const users = {};
                     extractUsersFromJSON(data, users);
                     if (Object.keys(users).length > 0) {
                         window.__tweeker.sendMessage('add_users', { users: users });
-                        window.__tweeker.sendMessage('log', { type: 'debug', text: `Extracted ${Object.keys(users).length} user(s) stats from XHR operation ${opName}` });
+                        sendDebugLog(`Extracted ${Object.keys(users).length} user(s) stats from XHR operation ${opName}`);
                         for (const [h, counts] of Object.entries(users)) {
                             window.__tweeker.userCache[h] = counts;
                             updateStatsForAuthor(h);
                         }
                     } else {
-                        window.__tweeker.sendMessage('log', { type: 'debug', text: `No user profiles found in XHR JSON of operation ${opName}` });
+                        sendDebugLog(`No user profiles found in XHR JSON of operation ${opName}`);
                     }
                 } catch (e) {
-                    window.__tweeker.sendMessage('log', { type: 'error', text: `XHR parse/extract error for ${opName}: ${e.message}` });
+                    sendDebugLog(`XHR parse/extract error for ${opName}: ${e.message}`);
                 }
             });
         }
@@ -414,13 +424,17 @@
             updateAutoReadState(event.data.enabled);
         }
 
+        if (event.data.type === 'set_debug_twitter') {
+            debugTwitterEnabled = !!event.data.enabled;
+        }
+
         if (event.data.type === 'user_counts_response') {
             const { handle, counts } = event.data.payload;
             if (handle) {
                 const lowerHandle = handle.toLowerCase();
                 window.__tweeker.pendingUserRequests.delete(lowerHandle);
                 if (counts) {
-                    window.__tweeker.sendMessage('log', { type: 'debug', text: `Found cached stats in database for @${lowerHandle}: ${counts.followers} followers, ${counts.following} following` });
+                    sendDebugLog(`Found cached stats in database for @${lowerHandle}: ${counts.followers} followers, ${counts.following} following`);
                     window.__tweeker.userCache[lowerHandle] = counts;
                     updateStatsForAuthor(lowerHandle);
                 }
@@ -769,6 +783,7 @@
                     } else {
                         if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
                             window.__tweeker.pendingUserRequests.add(lowerHandle);
+                            sendDebugLog(`Querying database cache for user stats of @${lowerHandle}`);
                             window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
                         }
                     }

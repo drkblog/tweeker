@@ -99,6 +99,10 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 Settings
             </button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="debug" id="tab-debug" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M6.34 6.34l1.42 1.42M17.66 6.34l-1.42 1.42M19 12h2M3 12h2M12 20v2M16.24 16.24l1.42 1.42M7.76 16.24l-1.42 1.42"/><circle cx="12" cy="12" r="6"/></svg>
+                Debug
+            </button>
         </nav>
 
         <!-- Panel content container -->
@@ -210,6 +214,23 @@
                             <span class="toggle-slider"></span>
                         </div>
                     </label>
+                    <label class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Debug Twitter</span>
+                            <span class="setting-desc">Enable detailed Twitter API interceptor logging</span>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="debug-twitter-toggle">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Max debug log lines</span>
+                            <span class="setting-desc">Discard oldest debug entries when limit is reached</span>
+                        </div>
+                        <input type="number" id="max-debug-lines-input" class="input input-number" min="10" max="100000" step="100" value="2000">
+                    </div>
                     <div class="setting-item">
                         <div class="setting-info">
                             <span class="setting-label">Max log lines</span>
@@ -236,6 +257,21 @@
                         <span class="setting-label">App Version</span>
                         <span id="settings-version" class="setting-value">—</span>
                     </label>
+                </div>
+            </section>
+
+            <!-- Debug tab -->
+            <section id="content-debug" class="tab-content" role="tabpanel" hidden>
+                <div class="logs-header-bar">
+                    <div class="logs-status-info">
+                        <span id="debug-count-text" class="log-count-text">0 / 2000 lines</span>
+                    </div>
+                    <div class="logs-actions">
+                        <button id="clear-debug-btn" type="button" class="btn btn-secondary btn-sm" title="Clear debug output">Clear</button>
+                    </div>
+                </div>
+                <div id="debug-output-container" class="log-output-container" role="log" aria-live="polite">
+                    <p class="empty-state log-empty-state">No debug logs recorded yet. Enable "Debug Twitter" setting to start capturing.</p>
                 </div>
             </section>
         </div>
