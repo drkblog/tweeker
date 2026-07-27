@@ -9,13 +9,17 @@ if (window.__tweeker_app_initialized) return;
 window.__tweeker_app_initialized = true;
 
 function invoke(cmd, args) {
+    const payload = args || {};
     if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
-        return window.__TAURI__.core.invoke(cmd, args);
+        return window.__TAURI__.core.invoke(cmd, payload);
     }
     if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
-        return window.__TAURI__.invoke(cmd, args);
+        return window.__TAURI__.invoke(cmd, payload);
     }
-    console.debug('[Tweeker IPC Fallback]', cmd, args);
+    if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+        return window.__TAURI_INTERNALS__.invoke(cmd, payload);
+    }
+    console.debug('[Tweeker IPC Fallback]', cmd, payload);
     return Promise.resolve(null);
 }
 
@@ -23,12 +27,18 @@ function listen(event, cb) {
     if (window.__TAURI__ && window.__TAURI__.event && typeof window.__TAURI__.event.listen === 'function') {
         return window.__TAURI__.event.listen(event, cb);
     }
+    if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.listen === 'function') {
+        return window.__TAURI_INTERNALS__.listen(event, { type: 'App' }, cb);
+    }
     return Promise.resolve(() => {});
 }
 
 function emit(event, payload) {
     if (window.__TAURI__ && window.__TAURI__.event && typeof window.__TAURI__.event.emit === 'function') {
         return window.__TAURI__.event.emit(event, payload);
+    }
+    if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.emit === 'function') {
+        return window.__TAURI_INTERNALS__.emit(event, payload);
     }
     return Promise.resolve();
 }
@@ -135,6 +145,7 @@ const dom = {
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
     settingsDbPath: document.getElementById('settings-db-path'),
+    dumpDbStatsBtn: document.getElementById('dump-db-stats-btn'),
 };
 
 // ── Panel Toggle ──
@@ -1537,6 +1548,14 @@ if (dom.userCacheLimitInput) {
     });
 }
 
+// Dump database statistics button
+if (dom.dumpDbStatsBtn) {
+    dom.dumpDbStatsBtn.addEventListener('click', async () => {
+        await emitDbStatsLog();
+        showToastMessage('Database statistics dumped to log!');
+    });
+}
+
 // Log container click delegation for Tweet ID & URL copy links
 if (dom.logOutputContainer) {
     dom.logOutputContainer.addEventListener('click', (e) => {
@@ -2168,20 +2187,61 @@ async function init() {
         text: `Tweeker control panel session initialized`
     });
 
-    // Fetch database statistics & path
-    try {
-        const dbStats = await invoke('get_db_stats');
-        const stats = dbStats || {
-            cached_users_count: 0,
-            total_tweets: 0,
-            total_alarms: 0,
-            total_scheduled_tweets: 0,
-            db_size_bytes: 0,
-            db_path: '—'
-        };
+    // Fetch and emit database statistics
+    await emitDbStatsLog();
 
-        if (dom.settingsDbPath) {
-            dom.settingsDbPath.value = stats.db_path || '—';
+    // Start 5-second monitor loop for scheduled tweets
+    setInterval(checkScheduledTweets, 5000);
+    checkScheduledTweets();
+
+    console.log('[Tweeker] Control panel initialized');
+}
+
+async function fetchDbStats() {
+    let stats = null;
+    try {
+        stats = await invoke('get_db_stats');
+    } catch (e) {}
+
+    if (stats && (stats.cached_users_count || stats.total_tweets || stats.total_alarms || stats.total_scheduled_tweets || (stats.db_size_bytes && stats.db_size_bytes > 0))) {
+        return stats;
+    }
+
+    const usersCount = (window._tweeker_user_cache ? Object.keys(window._tweeker_user_cache).length : 0) ||
+                       (window._tweeker_author_map ? window._tweeker_author_map.size : 0);
+    const tweetsCount = (state.stats ? state.stats.total_tweets_seen : 0) ||
+                        (window._tweeker_seen_tweets ? window._tweeker_seen_tweets.size : 0);
+    const alarmsCount = Array.isArray(state.alarms) ? state.alarms.length : 0;
+    const scheduledCount = Array.isArray(state.scheduledTweets) ? state.scheduledTweets.length : 0;
+
+    let storageBytes = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('tweeker_')) {
+                const val = localStorage.getItem(key) || '';
+                storageBytes += (key.length + val.length) * 2;
+            }
+        }
+    } catch (e) {}
+
+    const dbPathStr = (stats && stats.db_path) ? stats.db_path : 'Webview LocalStorage & Memory Cache';
+
+    return {
+        cached_users_count: usersCount,
+        total_tweets: tweetsCount,
+        total_alarms: alarmsCount,
+        total_scheduled_tweets: scheduledCount,
+        db_size_bytes: storageBytes,
+        db_path: dbPathStr
+    };
+}
+
+async function emitDbStatsLog() {
+    try {
+        const stats = await fetchDbStats();
+        if (dom.settingsDbPath && stats.db_path) {
+            dom.settingsDbPath.value = stats.db_path;
         }
 
         const sizeBytes = stats.db_size_bytes || 0;
@@ -2199,18 +2259,8 @@ async function init() {
             text: `Database statistics: ${stats.cached_users_count || 0} users cached, ${stats.total_tweets || 0} tweets stored, ${stats.total_alarms || 0} alarms, ${stats.total_scheduled_tweets || 0} scheduled tweets (DB size: ${formattedSize})`
         });
     } catch (e) {
-        console.debug('[Tweeker] Failed to fetch database statistics:', e);
-        addLogEntry({
-            type: 'system',
-            text: `Database statistics: 0 users cached, 0 tweets stored, 0 alarms, 0 scheduled tweets (DB size: 0 B)`
-        });
+        console.debug('[Tweeker] Failed to emit database statistics:', e);
     }
-
-    // Start 5-second monitor loop for scheduled tweets
-    setInterval(checkScheduledTweets, 5000);
-    checkScheduledTweets();
-
-    console.log('[Tweeker] Control panel initialized');
 }
 
 init();
