@@ -2017,9 +2017,13 @@ window.addEventListener('message', (event) => {
 
     if (type === 'tweet_data' && payload && payload.tweets) {
         processIncomingTweets(payload.tweets);
+        invoke('save_tweets', { tweets: payload.tweets }).catch(() => {});
     }
 
     if (type === 'add_users' && payload && payload.users) {
+        if (!window._tweeker_user_cache) window._tweeker_user_cache = {};
+        Object.assign(window._tweeker_user_cache, payload.users);
+        try { localStorage.setItem('tweeker_user_cache', JSON.stringify(window._tweeker_user_cache)); } catch(e) {}
         invoke('add_multiple_to_user_cache', { users: payload.users }).catch((e) => {
             console.error('[Tweeker App] Failed to add users to cache:', e);
         });

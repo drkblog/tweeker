@@ -263,3 +263,15 @@ pub fn get_db_stats(app: tauri::AppHandle) -> Result<DbStats, String> {
     let conn = storage::open_db(&app)?;
     storage::get_db_stats(&app, &conn)
 }
+
+#[tauri::command]
+pub fn save_tweets(app: tauri::AppHandle, tweets: Vec<InterceptedTweet>) -> Result<usize, String> {
+    let conn = storage::open_db(&app)?;
+    let mut count = 0;
+    for tweet in &tweets {
+        if storage::insert_tweet(&conn, tweet).is_ok() {
+            count += 1;
+        }
+    }
+    Ok(count)
+}

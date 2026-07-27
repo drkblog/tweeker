@@ -5,6 +5,14 @@
   "windows": [
     "main"
   ],
+  "remote": {
+    "urls": [
+      "https://x.com/*",
+      "https://*.x.com/*",
+      "https://twitter.com/*",
+      "https://*.twitter.com/*"
+    ]
+  },
   "permissions": [
     "core:default",
     "core:window:allow-set-size",
@@ -39,6 +47,7 @@
     "allow-add-multiple-to-user-cache",
     "allow-get-db-path",
     "allow-get-db-stats",
+    "allow-save-tweets",
     "window-state:default"
   ]
 }

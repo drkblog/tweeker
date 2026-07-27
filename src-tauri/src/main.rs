@@ -38,6 +38,7 @@ fn main() {
             commands::add_multiple_to_user_cache,
             commands::get_db_path,
             commands::get_db_stats,
+            commands::save_tweets,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

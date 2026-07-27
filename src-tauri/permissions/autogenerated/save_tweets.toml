@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-save-tweets"
+description = "Enables the save_tweets command without any pre-configured scope."
+commands.allow = ["save_tweets"]
+
+[[permission]]
+identifier = "deny-save-tweets"
+description = "Denies the save_tweets command without any pre-configured scope."
+commands.deny = ["save_tweets"]
