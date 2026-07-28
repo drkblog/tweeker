@@ -568,7 +568,14 @@
 #tweeker-overlay-container #stat-likes { border-top: 3px solid var(--tw-stat-likes) !important; }
 #tweeker-overlay-container #stat-retweets { border-top: 3px solid var(--tw-stat-retweets) !important; }
 #tweeker-overlay-container #stat-cached-users { border-top: 3px solid hsla(142, 71%, 45%, 0.9) !important; }
-#tweeker-overlay-container #stat-my-followers { border-top: 3px solid hsla(280, 85%, 65%, 0.9) !important; }
+#tweeker-overlay-container #stat-my-followers {
+    border-top: 3px solid hsla(280, 85%, 65%, 0.9) !important;
+    cursor: pointer !important;
+}
+
+#tweeker-overlay-container #stat-my-followers:hover .stat-value {
+    color: var(--tw-accent) !important;
+}
 
 #tweeker-overlay-container .stat-value {
     font-size: 26px !important;

@@ -205,6 +205,7 @@
     }
 
     function processUserAvatar(avatarContainer, handle) {
+        if (!avatarContainer || !handle) return;
         const lowerHandle = handle.toLowerCase();
         const stats = window.__tweeker.userCache[lowerHandle];
 
@@ -221,12 +222,13 @@
 
         if (isRelevant) {
             const color = relevantHighlightColor;
-            const glowColor = hexToRgba(color, 0.6);
-            avatarContainer.style.boxShadow = `0 0 0 3px ${color}, 0 0 10px ${glowColor}`;
+            avatarContainer.style.outline = `3px solid ${color}`;
+            avatarContainer.style.outlineOffset = '-2px';
             avatarContainer.style.borderRadius = '50%';
-            avatarContainer.style.transition = 'box-shadow 0.2s ease-in-out';
+            avatarContainer.style.boxShadow = 'none';
             avatarContainer.title = `@${handle}: ${stats.followers.toLocaleString()} followers (Relevant User)`;
         } else {
+            avatarContainer.style.outline = 'none';
             avatarContainer.style.boxShadow = 'none';
             avatarContainer.title = `@${handle}: ${(stats.followers || 0).toLocaleString()} followers`;
         }
@@ -234,7 +236,7 @@
 
     function highlightAllAvatars() {
         try {
-            // ── Notification screen avatars ──
+            // ── Notification & UserAvatar containers ──
             const avatarContainers = document.querySelectorAll('[data-testid^="UserAvatar-Container-"]');
             for (const container of avatarContainers) {
                 const testId = container.getAttribute('data-testid') || '';
@@ -255,9 +257,11 @@
                         const handle = parts[0];
                         if (handle && !['home', 'notifications', 'explore', 'messages', 'settings', 'i', 'compose', 'search', 'tos', 'privacy'].includes(handle.toLowerCase())) {
                             const img = link.querySelector('img');
-                            const imgContainer = img ? img.closest('.r-1adg3ll') || img.parentElement : null;
-                            if (imgContainer) {
-                                processUserAvatar(imgContainer, handle);
+                            if (img) {
+                                const imgContainer = img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('.r-1adg3ll') || img.parentElement;
+                                if (imgContainer) {
+                                    processUserAvatar(imgContainer, handle);
+                                }
                             }
                         }
                     }
@@ -272,7 +276,7 @@
                 const avatarLink = tweet.querySelector('[data-testid="Tweet-User-Avatar"]');
                 if (avatarLink) {
                     const img = avatarLink.querySelector('img');
-                    const imgContainer = img ? img.closest('[data-testid^="UserAvatar-Container-"]') || img.parentElement : null;
+                    const imgContainer = img ? (img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('.r-1adg3ll') || img.parentElement) : null;
                     if (imgContainer) {
                         processUserAvatar(imgContainer, author);
                     }

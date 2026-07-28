@@ -110,6 +110,7 @@ const dom = {
     statRetweets: document.querySelector('#stat-retweets .stat-value'),
     statCachedUsers: document.querySelector('#stat-cached-users .stat-value'),
     statMyFollowers: document.querySelector('#stat-my-followers .stat-value'),
+    statMyFollowersCard: document.getElementById('stat-my-followers'),
     topAuthorsList: document.getElementById('top-authors-list'),
 
     // Alarms
@@ -1729,6 +1730,27 @@ if (dom.logOutputContainer) {
                 copyToClipboard(copyUrl, 'Tweet URL copied!');
             }
             return;
+        }
+    });
+}
+
+// My Followers stat card click handler to navigate to user's profile
+if (dom.statMyFollowersCard) {
+    dom.statMyFollowersCard.addEventListener('click', () => {
+        getMyUserFollowersInfo();
+        const handle = window.__tweeker_my_handle;
+        if (handle) {
+            const cleanHandle = handle.trim().replace(/^@/, '');
+            const targetUrl = 'https://x.com/' + cleanHandle;
+            addLogEntry({
+                type: 'system',
+                text: `Navigating to my profile: @${cleanHandle}`
+            });
+            try {
+                window.location.href = targetUrl;
+            } catch (err) {
+                console.error('[Tweeker Navigation Error]', err);
+            }
         }
     });
 }
