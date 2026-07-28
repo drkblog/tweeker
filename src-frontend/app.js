@@ -142,6 +142,7 @@ const dom = {
     maxLogLinesInput: document.getElementById('max-log-lines-input'),
     userCacheLimitInput: document.getElementById('user-cache-limit-input'),
     relevantFollowersLimitInput: document.getElementById('relevant-followers-limit-input'),
+    relevantHighlightColorInput: document.getElementById('relevant-highlight-color-input'),
     interceptorStatus: document.getElementById('interceptor-status'),
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
@@ -1570,14 +1571,33 @@ if (dom.relevantFollowersLimitInput) {
         if (isNaN(val) || val < 0) val = 2500;
         e.target.value = val;
         try { localStorage.setItem('tweeker_relevant_followers_limit', val.toString()); } catch (err) {}
+        const color = dom.relevantHighlightColorInput ? dom.relevantHighlightColorInput.value : '#00ba7c';
         window.postMessage({
             __tweeker: true,
             type: 'set_relevant_followers_limit',
-            limit: val
+            limit: val,
+            color: color
         }, '*');
         addLogEntry({
             type: 'system',
             text: `Followers to be relevant updated to ${val}`
+        });
+    });
+}
+
+// Relevant highlight color picker
+if (dom.relevantHighlightColorInput) {
+    dom.relevantHighlightColorInput.addEventListener('input', (e) => {
+        const color = e.target.value;
+        try { localStorage.setItem('tweeker_relevant_highlight_color', color); } catch (err) {}
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_relevant_highlight_color',
+            color: color
+        }, '*');
+        addLogEntry({
+            type: 'system',
+            text: `Relevant highlight color updated to ${color}`
         });
     });
 }
@@ -2145,10 +2165,18 @@ async function init() {
     if (dom.relevantFollowersLimitInput) {
         dom.relevantFollowersLimitInput.value = relevantLimit;
     }
+
+    // Restore saved relevant highlight color setting
+    const savedHighlightColor = localStorage.getItem('tweeker_relevant_highlight_color') || '#00ba7c';
+    if (dom.relevantHighlightColorInput) {
+        dom.relevantHighlightColorInput.value = savedHighlightColor;
+    }
+
     window.postMessage({
         __tweeker: true,
         type: 'set_relevant_followers_limit',
-        limit: relevantLimit
+        limit: relevantLimit,
+        color: savedHighlightColor
     }, '*');
 
     // Restore saved log entries
