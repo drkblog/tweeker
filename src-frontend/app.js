@@ -300,22 +300,48 @@ function renderStats(stats) {
         }
     }
 
-    // Top authors (max 5)
-    if (stats.top_authors && stats.top_authors.length > 0) {
-        dom.topAuthorsList.innerHTML = stats.top_authors
-            .slice(0, 5)
-            .map(author => `
-                <div class="author-item">
-                    <div class="author-info">
-                        <span class="author-name">${escapeHtml(author.name)}</span>
-                        <span class="author-handle">@${escapeHtml(author.handle)}</span>
+    // Top authors (max 5) based on cached users
+    let topAuthors = [];
+    if (window._tweeker_user_cache && Object.keys(window._tweeker_user_cache).length > 0) {
+        topAuthors = Object.entries(window._tweeker_user_cache)
+            .map(([handle, user]) => {
+                const cleanHandle = handle.trim().replace(/^@/, '').toLowerCase();
+                const followers = (user && typeof user.followers === 'number') ? user.followers : 0;
+                const name = (user && user.name && user.name.trim()) ? user.name : cleanHandle;
+                return {
+                    handle: cleanHandle,
+                    name: name,
+                    count: followers
+                };
+            })
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+    } else if (stats.top_authors && stats.top_authors.length > 0) {
+        topAuthors = stats.top_authors.slice(0, 5);
+    }
+
+    if (topAuthors.length > 0) {
+        dom.topAuthorsList.innerHTML = topAuthors
+            .map(author => {
+                const countNum = parseInt(author.count, 10) || 0;
+                const label = `${formatNumber(countNum)} followers`;
+                const cleanHandle = (author.handle || '').trim().replace(/^@/, '');
+                const cleanName = (author.name && author.name.trim()) ? author.name : cleanHandle;
+                return `
+                    <div class="author-item" data-handle="${escapeHtml(cleanHandle)}">
+                        <div class="author-info">
+                            <a href="https://x.com/${escapeHtml(cleanHandle)}" class="author-link" data-handle="${escapeHtml(cleanHandle)}" title="View @${escapeHtml(cleanHandle)} profile">
+                                <span class="author-name">${escapeHtml(cleanName)}</span>
+                                <span class="author-handle">@${escapeHtml(cleanHandle)}</span>
+                            </a>
+                        </div>
+                        <span class="author-count">${label}</span>
                     </div>
-                    <span class="author-count">${author.count}</span>
-                </div>
-            `)
+                `;
+            })
             .join('');
     } else {
-        dom.topAuthorsList.innerHTML = '<p class="empty-state">No data yet — browse your timeline to start collecting stats.</p>';
+        dom.topAuthorsList.innerHTML = '<p class="empty-state">No cached users found yet.</p>';
     }
 }
 
@@ -1707,6 +1733,30 @@ if (dom.logOutputContainer) {
     });
 }
 
+// Top authors list click delegation to navigate to Twitter user profile
+if (dom.topAuthorsList) {
+    dom.topAuthorsList.addEventListener('click', (e) => {
+        const link = e.target.closest('a.author-link') || e.target.closest('.author-item[data-handle]');
+        if (link) {
+            e.preventDefault();
+            const handle = link.dataset.handle || link.getAttribute('data-handle');
+            if (handle) {
+                const cleanHandle = handle.trim().replace(/^@/, '');
+                const targetUrl = 'https://x.com/' + cleanHandle;
+                addLogEntry({
+                    type: 'system',
+                    text: `Navigating to author profile: @${cleanHandle}`
+                });
+                try {
+                    window.location.href = targetUrl;
+                } catch (err) {
+                    console.error('[Tweeker Navigation Error]', err);
+                }
+            }
+        }
+    });
+}
+
 // Clear debug logs button
 if (dom.clearDebugBtn) {
     dom.clearDebugBtn.addEventListener('click', clearDebugLogs);
@@ -1800,10 +1850,14 @@ function processIncomingTweets(tweets) {
         state.stats.total_retweets += (tweet.retweets || 0);
         state.stats.total_replies += (tweet.replies || 0);
 
-        const handle = tweet.author_handle || 'unknown';
-        const name = tweet.author_name || handle;
+        const rawHandle = tweet.author_handle || 'unknown';
+        const handle = rawHandle.trim().replace(/^@/, '').toLowerCase();
+        const name = (tweet.author_name && tweet.author_name.trim()) ? tweet.author_name : handle;
         const current = window._tweeker_author_map.get(handle) || { name, count: 0 };
         current.count += 1;
+        if (tweet.author_name && tweet.author_name.trim()) {
+            current.name = tweet.author_name;
+        }
         window._tweeker_author_map.set(handle, current);
 
         // Evaluate active alarms against incoming tweet
@@ -1815,7 +1869,7 @@ function processIncomingTweets(tweets) {
     const top = Array.from(window._tweeker_author_map.entries())
         .map(([handle, info]) => ({ handle, name: info.name, count: info.count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+        .slice(0, 5);
 
     state.stats.top_authors = top;
 

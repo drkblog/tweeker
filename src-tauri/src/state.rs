@@ -42,17 +42,10 @@ impl AppState {
         }
     }
 
-    /// Compute timeline statistics from the current tweet buffer.
+    /// Compute timeline statistics from the current tweet buffer & user cache.
     pub fn compute_stats(&self) -> TimelineStats {
         let tweets = self.tweets.lock().unwrap();
         let session_start = self.session_start.lock().unwrap();
-
-        if tweets.is_empty() {
-            return TimelineStats {
-                session_start: *session_start,
-                ..Default::default()
-            };
-        }
 
         let mut author_counts: HashMap<String, (String, u64)> = HashMap::new();
         let mut total_likes: u64 = 0;
@@ -60,10 +53,23 @@ impl AppState {
         let mut total_replies: u64 = 0;
 
         for tweet in tweets.iter() {
+            let handle_clean = tweet.author_handle.trim().trim_start_matches('@').to_lowercase();
+            if handle_clean.is_empty() {
+                continue;
+            }
+            let display_name = if !tweet.author_name.trim().is_empty() {
+                tweet.author_name.clone()
+            } else {
+                handle_clean.clone()
+            };
+
             let entry = author_counts
-                .entry(tweet.author_handle.clone())
-                .or_insert_with(|| (tweet.author_name.clone(), 0));
+                .entry(handle_clean)
+                .or_insert_with(|| (display_name, 0));
             entry.1 += 1;
+            if !tweet.author_name.trim().is_empty() {
+                entry.0 = tweet.author_name.clone();
+            }
 
             total_likes += tweet.likes;
             total_retweets += tweet.retweets;
@@ -72,12 +78,33 @@ impl AppState {
 
         let unique_authors = author_counts.len() as u64;
 
-        let mut top_authors: Vec<AuthorCount> = author_counts
-            .into_iter()
-            .map(|(handle, (name, count))| AuthorCount { handle, name, count })
-            .collect();
-        top_authors.sort_by(|a, b| b.count.cmp(&a.count));
-        top_authors.truncate(5);
+        let cache = self.user_cache.lock().unwrap();
+        let mut top_authors: Vec<AuthorCount> = Vec::new();
+
+        if !cache.is_empty() {
+            let mut cached_users: Vec<AuthorCount> = cache
+                .iter()
+                .map(|(handle, user)| {
+                    let name = user.name.clone().unwrap_or_else(|| handle.clone());
+                    AuthorCount {
+                        handle: handle.clone(),
+                        name,
+                        count: user.followers,
+                    }
+                })
+                .collect();
+            cached_users.sort_by(|a, b| b.count.cmp(&a.count));
+            cached_users.truncate(5);
+            top_authors = cached_users;
+        } else {
+            let mut tweet_authors: Vec<AuthorCount> = author_counts
+                .into_iter()
+                .map(|(handle, (name, count))| AuthorCount { handle, name, count })
+                .collect();
+            tweet_authors.sort_by(|a, b| b.count.cmp(&a.count));
+            tweet_authors.truncate(5);
+            top_authors = tweet_authors;
+        }
 
         TimelineStats {
             total_tweets_seen: tweets.len() as u64,

@@ -633,6 +633,25 @@
     padding-right: 12px !important;
 }
 
+#tweeker-overlay-container .author-link {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    text-decoration: none !important;
+    color: inherit !important;
+    cursor: pointer !important;
+    min-width: 0 !important;
+}
+
+#tweeker-overlay-container .author-link:hover .author-name {
+    color: var(--tw-accent) !important;
+    text-decoration: underline !important;
+}
+
+#tweeker-overlay-container .author-link:hover .author-handle {
+    color: var(--tw-border-focus) !important;
+}
+
 #tweeker-overlay-container .author-name {
     font-size: 13px !important;
     font-weight: 600 !important;
@@ -651,12 +670,12 @@
 }
 
 #tweeker-overlay-container .author-count {
-    font-size: 14px !important;
-    font-weight: 700 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
     color: var(--tw-accent) !important;
-    min-width: 32px !important;
     text-align: right !important;
     flex-shrink: 0 !important;
+    white-space: nowrap !important;
 }
 
 /* ── Empty State ── */
