@@ -77,7 +77,7 @@ impl AppState {
             .map(|(handle, (name, count))| AuthorCount { handle, name, count })
             .collect();
         top_authors.sort_by(|a, b| b.count.cmp(&a.count));
-        top_authors.truncate(10);
+        top_authors.truncate(5);
 
         TimelineStats {
             total_tweets_seen: tweets.len() as u64,

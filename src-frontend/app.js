@@ -108,6 +108,8 @@ const dom = {
     statAuthors: document.querySelector('#stat-authors .stat-value'),
     statLikes: document.querySelector('#stat-likes .stat-value'),
     statRetweets: document.querySelector('#stat-retweets .stat-value'),
+    statCachedUsers: document.querySelector('#stat-cached-users .stat-value'),
+    statMyFollowers: document.querySelector('#stat-my-followers .stat-value'),
     topAuthorsList: document.getElementById('top-authors-list'),
 
     // Alarms
@@ -209,20 +211,25 @@ function switchTab(tabName) {
 async function refreshStats() {
     try {
         const stats = await invoke('get_timeline_stats');
+        const dbStats = await fetchDbStats();
+
+        if (!state.stats) state.stats = {};
+
         if (stats && typeof stats === 'object') {
-            if (!state.stats) {
-                state.stats = stats;
-            } else {
-                state.stats.total_tweets_seen = Math.max(state.stats.total_tweets_seen || 0, stats.total_tweets_seen || 0);
-                state.stats.unique_authors = Math.max(state.stats.unique_authors || 0, stats.unique_authors || 0);
-                state.stats.total_likes = Math.max(state.stats.total_likes || 0, stats.total_likes || 0);
-                state.stats.total_retweets = Math.max(state.stats.total_retweets || 0, stats.total_retweets || 0);
-                state.stats.total_replies = Math.max(state.stats.total_replies || 0, stats.total_replies || 0);
-                if (stats.top_authors && stats.top_authors.length > 0) {
-                    state.stats.top_authors = stats.top_authors;
-                }
+            state.stats.total_tweets_seen = Math.max(state.stats.total_tweets_seen || 0, stats.total_tweets_seen || 0);
+            state.stats.unique_authors = Math.max(state.stats.unique_authors || 0, stats.unique_authors || 0);
+            state.stats.total_likes = Math.max(state.stats.total_likes || 0, stats.total_likes || 0);
+            state.stats.total_retweets = Math.max(state.stats.total_retweets || 0, stats.total_retweets || 0);
+            state.stats.total_replies = Math.max(state.stats.total_replies || 0, stats.total_replies || 0);
+            if (stats.top_authors && stats.top_authors.length > 0) {
+                state.stats.top_authors = stats.top_authors;
             }
         }
+
+        if (dbStats && typeof dbStats.cached_users_count === 'number') {
+            state.stats.cached_users_count = dbStats.cached_users_count;
+        }
+
         renderStats(state.stats || {});
     } catch (e) {
         console.error('[Tweeker] Failed to refresh stats:', e);
@@ -230,15 +237,73 @@ async function refreshStats() {
     }
 }
 
-function renderStats(stats) {
-    dom.statTweets.textContent = formatNumber(stats.total_tweets_seen || 0);
-    dom.statAuthors.textContent = formatNumber(stats.unique_authors || 0);
-    dom.statLikes.textContent = formatNumber(stats.total_likes || 0);
-    dom.statRetweets.textContent = formatNumber(stats.total_retweets || 0);
+function getMyUserFollowersInfo() {
+    let handle = null;
 
-    // Top authors
+    // 1. Try finding profile link in X.com navbar/sidebar
+    const profileLink = document.querySelector('a[aria-label*="Profile" i], a[data-testid="AppTabBar_Profile_Link"]');
+    if (profileLink) {
+        const href = profileLink.getAttribute('href') || '';
+        const parts = href.split('/').filter(Boolean);
+        if (parts.length > 0 && !['home', 'explore', 'notifications', 'messages', 'settings', 'i', 'compose', 'search', 'tos', 'privacy'].includes(parts[0].toLowerCase())) {
+            handle = parts[0].toLowerCase();
+        }
+    }
+
+    // 2. Try account switcher button
+    if (!handle) {
+        const switcher = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]');
+        if (switcher) {
+            const text = switcher.textContent || '';
+            const match = text.match(/@([A-Za-z0-9_]+)/);
+            if (match && match[1]) {
+                handle = match[1].toLowerCase();
+            }
+        }
+    }
+
+    if (!handle && window.__tweeker_my_handle) {
+        handle = window.__tweeker_my_handle;
+    }
+
+    if (handle) {
+        window.__tweeker_my_handle = handle;
+        const userObj = (window._tweeker_user_cache && window._tweeker_user_cache[handle]) ||
+                        (window.__tweeker && window.__tweeker.userCache && window.__tweeker.userCache[handle]);
+        if (userObj && typeof userObj.followers === 'number') {
+            return userObj.followers;
+        }
+    }
+    return null;
+}
+
+function renderStats(stats) {
+    if (dom.statTweets) dom.statTweets.textContent = formatNumber(stats.total_tweets_seen || 0);
+    if (dom.statAuthors) dom.statAuthors.textContent = formatNumber(stats.unique_authors || 0);
+    if (dom.statLikes) dom.statLikes.textContent = formatNumber(stats.total_likes || 0);
+    if (dom.statRetweets) dom.statRetweets.textContent = formatNumber(stats.total_retweets || 0);
+
+    const cachedUsers = (typeof stats.cached_users_count === 'number' && stats.cached_users_count > 0)
+        ? stats.cached_users_count
+        : (window._tweeker_user_cache ? Object.keys(window._tweeker_user_cache).length : 0);
+    if (dom.statCachedUsers) dom.statCachedUsers.textContent = formatNumber(cachedUsers || 0);
+
+    const myFollowers = getMyUserFollowersInfo();
+    if (dom.statMyFollowers) {
+        dom.statMyFollowers.textContent = myFollowers !== null ? formatNumber(myFollowers) : '—';
+        if (window.__tweeker_my_handle && myFollowers === null) {
+            window.postMessage({
+                __tweeker: true,
+                type: 'get_user_counts',
+                handle: window.__tweeker_my_handle
+            }, '*');
+        }
+    }
+
+    // Top authors (max 5)
     if (stats.top_authors && stats.top_authors.length > 0) {
         dom.topAuthorsList.innerHTML = stats.top_authors
+            .slice(0, 5)
             .map(author => `
                 <div class="author-item">
                     <div class="author-info">
