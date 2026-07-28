@@ -141,6 +141,7 @@ const dom = {
     // Settings
     maxLogLinesInput: document.getElementById('max-log-lines-input'),
     userCacheLimitInput: document.getElementById('user-cache-limit-input'),
+    relevantFollowersLimitInput: document.getElementById('relevant-followers-limit-input'),
     interceptorStatus: document.getElementById('interceptor-status'),
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
@@ -207,10 +208,24 @@ function switchTab(tabName) {
 async function refreshStats() {
     try {
         const stats = await invoke('get_timeline_stats');
-        state.stats = stats;
-        renderStats(stats);
+        if (stats && typeof stats === 'object') {
+            if (!state.stats) {
+                state.stats = stats;
+            } else {
+                state.stats.total_tweets_seen = Math.max(state.stats.total_tweets_seen || 0, stats.total_tweets_seen || 0);
+                state.stats.unique_authors = Math.max(state.stats.unique_authors || 0, stats.unique_authors || 0);
+                state.stats.total_likes = Math.max(state.stats.total_likes || 0, stats.total_likes || 0);
+                state.stats.total_retweets = Math.max(state.stats.total_retweets || 0, stats.total_retweets || 0);
+                state.stats.total_replies = Math.max(state.stats.total_replies || 0, stats.total_replies || 0);
+                if (stats.top_authors && stats.top_authors.length > 0) {
+                    state.stats.top_authors = stats.top_authors;
+                }
+            }
+        }
+        renderStats(state.stats || {});
     } catch (e) {
         console.error('[Tweeker] Failed to refresh stats:', e);
+        renderStats(state.stats || {});
     }
 }
 
@@ -1548,6 +1563,25 @@ if (dom.userCacheLimitInput) {
     });
 }
 
+// Followers to be relevant setting input
+if (dom.relevantFollowersLimitInput) {
+    dom.relevantFollowersLimitInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 0) val = 2500;
+        e.target.value = val;
+        try { localStorage.setItem('tweeker_relevant_followers_limit', val.toString()); } catch (err) {}
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_relevant_followers_limit',
+            limit: val
+        }, '*');
+        addLogEntry({
+            type: 'system',
+            text: `Followers to be relevant updated to ${val}`
+        });
+    });
+}
+
 // Dump database statistics button
 if (dom.dumpDbStatsBtn) {
     dom.dumpDbStatsBtn.addEventListener('click', async () => {
@@ -2104,6 +2138,18 @@ async function init() {
     if (dom.userCacheLimitInput) {
         dom.userCacheLimitInput.value = cacheLimit;
     }
+
+    // Restore saved relevant followers limit setting
+    const savedRelevantLimit = parseInt(localStorage.getItem('tweeker_relevant_followers_limit'), 10);
+    const relevantLimit = (!isNaN(savedRelevantLimit) && savedRelevantLimit >= 0) ? savedRelevantLimit : 2500;
+    if (dom.relevantFollowersLimitInput) {
+        dom.relevantFollowersLimitInput.value = relevantLimit;
+    }
+    window.postMessage({
+        __tweeker: true,
+        type: 'set_relevant_followers_limit',
+        limit: relevantLimit
+    }, '*');
 
     // Restore saved log entries
     try {

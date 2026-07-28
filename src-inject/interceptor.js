@@ -21,6 +21,7 @@
     window.__tweeker.pendingUserRequests = window.__tweeker.pendingUserRequests || new Set();
 
     let debugTwitterEnabled = false;
+    let relevantFollowersLimit = 2500;
 
     function sendDebugLog(text) {
         if (debugTwitterEnabled) {
@@ -191,6 +192,69 @@
         const tweets = document.querySelectorAll(`article[data-testid="tweet"][data-tweeker-author="${lowerHandle}"]`);
         for (const tweet of tweets) {
             renderStatsBelowAvatar(tweet, stats.following, stats.followers);
+        }
+        highlightNotificationAvatars();
+    }
+
+    function processNotificationAvatar(avatarContainer, handle) {
+        const lowerHandle = handle.toLowerCase();
+        const stats = window.__tweeker.userCache[lowerHandle];
+
+        if (!stats) {
+            if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
+                window.__tweeker.pendingUserRequests.add(lowerHandle);
+                sendDebugLog(`Querying database cache for notification user @${lowerHandle}`);
+                window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
+            }
+            return;
+        }
+
+        const isRelevant = typeof stats.followers === 'number' && stats.followers >= relevantFollowersLimit;
+
+        if (isRelevant) {
+            avatarContainer.style.boxShadow = '0 0 0 3px #00ba7c, 0 0 10px rgba(0, 186, 124, 0.6)';
+            avatarContainer.style.borderRadius = '50%';
+            avatarContainer.style.transition = 'box-shadow 0.2s ease-in-out';
+            avatarContainer.title = `@${handle}: ${stats.followers.toLocaleString()} followers (Relevant User)`;
+        } else {
+            avatarContainer.style.boxShadow = 'none';
+            avatarContainer.title = `@${handle}: ${(stats.followers || 0).toLocaleString()} followers`;
+        }
+    }
+
+    function highlightNotificationAvatars() {
+        try {
+            // Find all user avatar containers in notifications screen
+            const avatarContainers = document.querySelectorAll('[data-testid^="UserAvatar-Container-"]');
+            for (const container of avatarContainers) {
+                const testId = container.getAttribute('data-testid') || '';
+                const handle = testId.replace('UserAvatar-Container-', '');
+                if (handle) {
+                    processNotificationAvatar(container, handle);
+                }
+            }
+
+            // Fallback for notification links containing user profile hrefs
+            const notifArticles = document.querySelectorAll('article[data-testid="notification"]');
+            for (const notif of notifArticles) {
+                const userLinks = notif.querySelectorAll('a[href^="/"]');
+                for (const link of userLinks) {
+                    const href = link.getAttribute('href') || '';
+                    const parts = href.split('/').filter(Boolean);
+                    if (parts.length === 1) {
+                        const handle = parts[0];
+                        if (handle && !['home', 'notifications', 'explore', 'messages', 'settings', 'i', 'compose', 'search', 'tos', 'privacy'].includes(handle.toLowerCase())) {
+                            const img = link.querySelector('img');
+                            const imgContainer = img ? img.closest('.r-1adg3ll') || img.parentElement : null;
+                            if (imgContainer) {
+                                processNotificationAvatar(imgContainer, handle);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Notification highlight error:', e);
         }
     }
 
@@ -505,6 +569,11 @@
 
         if (event.data.type === 'set_debug_twitter') {
             debugTwitterEnabled = !!event.data.enabled;
+        }
+
+        if (event.data.type === 'set_relevant_followers_limit') {
+            relevantFollowersLimit = typeof event.data.limit === 'number' ? event.data.limit : 2500;
+            highlightNotificationAvatars();
         }
 
         if (event.data.type === 'user_counts_response') {
@@ -958,6 +1027,7 @@
                     parseDOMTweet(article);
                 }
             }
+            highlightNotificationAvatars();
         } catch (e) {
             console.debug('[Tweeker Interceptor] Periodic scanner error:', e);
         }

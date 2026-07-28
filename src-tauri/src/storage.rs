@@ -122,6 +122,44 @@ pub fn insert_tweet(conn: &Connection, tweet: &InterceptedTweet) -> Result<(), S
     Ok(())
 }
 
+pub fn load_all_tweets(conn: &Connection) -> Result<Vec<InterceptedTweet>, String> {
+    let mut stmt = conn
+        .prepare("SELECT tweet_id, author_handle, author_name, content, timestamp, likes, retweets, replies, views, captured_at FROM tweets ORDER BY captured_at DESC LIMIT 5000")
+        .map_err(|e| format!("Failed to prepare tweets query: {}", e))?;
+
+    let tweets = stmt
+        .query_map([], |row| {
+            let ts_str: String = row.get(4)?;
+            let cap_str: String = row.get(9)?;
+            let likes_int: i64 = row.get(5)?;
+            let retweets_int: i64 = row.get(6)?;
+            let replies_int: i64 = row.get(7)?;
+            let views_int: Option<i64> = row.get(8)?;
+
+            Ok(InterceptedTweet {
+                tweet_id: row.get(0)?,
+                author_handle: row.get(1)?,
+                author_name: row.get(2)?,
+                content: row.get(3)?,
+                timestamp: chrono::DateTime::parse_from_rfc3339(&ts_str)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+                likes: likes_int as u64,
+                retweets: retweets_int as u64,
+                replies: replies_int as u64,
+                views: views_int.map(|v| v as u64),
+                captured_at: chrono::DateTime::parse_from_rfc3339(&cap_str)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+            })
+        })
+        .map_err(|e| format!("Failed to query tweets: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect tweets: {}", e))?;
+
+    Ok(tweets)
+}
+
 // ── Alarm CRUD ──
 
 pub fn load_alarms(conn: &Connection) -> Result<Vec<Alarm>, String> {

@@ -64,6 +64,22 @@ fn main() {
                         eprintln!("[Tweeker] Failed to load user cache: {}", e);
                     }
                 }
+
+                // Load persisted tweets from SQLite into AppState
+                match storage::load_all_tweets(&conn) {
+                    Ok(tweets) => {
+                        if !tweets.is_empty() {
+                            let count = tweets.len();
+                            let state = app.state::<AppState>();
+                            let mut state_tweets = state.tweets.lock().unwrap();
+                            *state_tweets = tweets;
+                            println!("[Tweeker] Loaded {} tweets from persistent storage", count);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Tweeker] Failed to load tweets: {}", e);
+                    }
+                }
             } else {
                 eprintln!("[Tweeker] Failed to open database");
             }

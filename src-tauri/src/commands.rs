@@ -265,7 +265,19 @@ pub fn get_db_stats(app: tauri::AppHandle) -> Result<DbStats, String> {
 }
 
 #[tauri::command]
-pub fn save_tweets(app: tauri::AppHandle, tweets: Vec<InterceptedTweet>) -> Result<usize, String> {
+pub fn save_tweets(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    tweets: Vec<InterceptedTweet>,
+) -> Result<usize, String> {
+    let mut state_tweets = state.tweets.lock().unwrap();
+    for tweet in &tweets {
+        if !state_tweets.iter().any(|t| t.tweet_id == tweet.tweet_id) {
+            state_tweets.push(tweet.clone());
+        }
+    }
+    drop(state_tweets);
+
     let conn = storage::open_db(&app)?;
     let mut count = 0;
     for tweet in &tweets {
