@@ -65,6 +65,12 @@ const state = {
     debugTwitter: false,
     maxDebugLines: 2000,
     debugLogs: [],
+    listMinFollowers: 0,
+    listMinRatio: 0.0,
+    listHighlightVerified: false,
+    listVerifiedColor: '#1d9bf0',
+    listHighlightMega: false,
+    listMegaColor: '#a855f7',
 };
 
 // ── DOM Elements ──
@@ -146,6 +152,12 @@ const dom = {
     userCacheLimitInput: document.getElementById('user-cache-limit-input'),
     relevantFollowersLimitInput: document.getElementById('relevant-followers-limit-input'),
     relevantHighlightColorInput: document.getElementById('relevant-highlight-color-input'),
+    listMinFollowersInput: document.getElementById('list-min-followers-input'),
+    listMinRatioInput: document.getElementById('list-min-ratio-input'),
+    listHighlightVerifiedToggle: document.getElementById('list-highlight-verified-toggle'),
+    listVerifiedColorInput: document.getElementById('list-verified-color-input'),
+    listHighlightMegaToggle: document.getElementById('list-highlight-mega-toggle'),
+    listMegaColorInput: document.getElementById('list-mega-color-input'),
     interceptorStatus: document.getElementById('interceptor-status'),
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
@@ -1694,6 +1706,97 @@ if (dom.relevantHighlightColorInput) {
     });
 }
 
+function syncListFilterSettings() {
+    const config = {
+        minFollowers: state.listMinFollowers,
+        minRatio: state.listMinRatio,
+        highlightVerified: state.listHighlightVerified,
+        verifiedColor: state.listVerifiedColor,
+        highlightMega: state.listHighlightMega,
+        megaColor: state.listMegaColor
+    };
+    window.postMessage({
+        __tweeker: true,
+        type: 'set_list_filter_settings',
+        config: config
+    }, '*');
+}
+
+// List Page Filters & Highlights Listeners
+if (dom.listMinFollowersInput) {
+    dom.listMinFollowersInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 0) val = 0;
+        e.target.value = val;
+        state.listMinFollowers = val;
+        try { localStorage.setItem('tweeker_list_min_followers', val.toString()); } catch (err) {}
+        syncListFilterSettings();
+        addLogEntry({
+            type: 'system',
+            text: `List page min followers filter set to ${val}`
+        });
+    });
+}
+
+if (dom.listMinRatioInput) {
+    dom.listMinRatioInput.addEventListener('change', (e) => {
+        let val = parseFloat(e.target.value);
+        if (isNaN(val) || val < 0.0) val = 0.0;
+        e.target.value = val.toFixed(1);
+        state.listMinRatio = val;
+        try { localStorage.setItem('tweeker_list_min_ratio', val.toString()); } catch (err) {}
+        syncListFilterSettings();
+        addLogEntry({
+            type: 'system',
+            text: `List page min ratio filter set to ${val.toFixed(1)}`
+        });
+    });
+}
+
+if (dom.listHighlightVerifiedToggle) {
+    dom.listHighlightVerifiedToggle.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        state.listHighlightVerified = enabled;
+        try { localStorage.setItem('tweeker_list_highlight_verified', enabled ? 'true' : 'false'); } catch (err) {}
+        syncListFilterSettings();
+        addLogEntry({
+            type: 'system',
+            text: `List page verified highlight ${enabled ? 'enabled' : 'disabled'}`
+        });
+    });
+}
+
+if (dom.listVerifiedColorInput) {
+    dom.listVerifiedColorInput.addEventListener('input', (e) => {
+        const color = e.target.value;
+        state.listVerifiedColor = color;
+        try { localStorage.setItem('tweeker_list_verified_color', color); } catch (err) {}
+        syncListFilterSettings();
+    });
+}
+
+if (dom.listHighlightMegaToggle) {
+    dom.listHighlightMegaToggle.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        state.listHighlightMega = enabled;
+        try { localStorage.setItem('tweeker_list_highlight_mega', enabled ? 'true' : 'false'); } catch (err) {}
+        syncListFilterSettings();
+        addLogEntry({
+            type: 'system',
+            text: `List page mega influencer highlight ${enabled ? 'enabled' : 'disabled'}`
+        });
+    });
+}
+
+if (dom.listMegaColorInput) {
+    dom.listMegaColorInput.addEventListener('input', (e) => {
+        const color = e.target.value;
+        state.listMegaColor = color;
+        try { localStorage.setItem('tweeker_list_mega_color', color); } catch (err) {}
+        syncListFilterSettings();
+    });
+}
+
 // Dump database statistics button
 if (dom.dumpDbStatsBtn) {
     dom.dumpDbStatsBtn.addEventListener('click', async () => {
@@ -2319,6 +2422,33 @@ async function init() {
         limit: relevantLimit,
         color: savedHighlightColor
     }, '*');
+
+    // Restore list page filter & highlight settings
+    const listMinFollowers = parseInt(localStorage.getItem('tweeker_list_min_followers'), 10);
+    state.listMinFollowers = (!isNaN(listMinFollowers) && listMinFollowers >= 0) ? listMinFollowers : 0;
+    if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = state.listMinFollowers;
+
+    const listMinRatio = parseFloat(localStorage.getItem('tweeker_list_min_ratio'));
+    state.listMinRatio = (!isNaN(listMinRatio) && listMinRatio >= 0.0) ? listMinRatio : 0.0;
+    if (dom.listMinRatioInput) dom.listMinRatioInput.value = state.listMinRatio.toFixed(1);
+
+    const listHighlightVerified = localStorage.getItem('tweeker_list_highlight_verified') === 'true';
+    state.listHighlightVerified = listHighlightVerified;
+    if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = listHighlightVerified;
+
+    const listVerifiedColor = localStorage.getItem('tweeker_list_verified_color') || '#1d9bf0';
+    state.listVerifiedColor = listVerifiedColor;
+    if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = listVerifiedColor;
+
+    const listHighlightMega = localStorage.getItem('tweeker_list_highlight_mega') === 'true';
+    state.listHighlightMega = listHighlightMega;
+    if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = listHighlightMega;
+
+    const listMegaColor = localStorage.getItem('tweeker_list_mega_color') || '#a855f7';
+    state.listMegaColor = listMegaColor;
+    if (dom.listMegaColorInput) dom.listMegaColorInput.value = listMegaColor;
+
+    syncListFilterSettings();
 
     // Restore saved log entries
     try {

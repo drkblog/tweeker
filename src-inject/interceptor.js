@@ -23,6 +23,12 @@
     let debugTwitterEnabled = false;
     let relevantFollowersLimit = 2500;
     let relevantHighlightColor = '#00ba7c';
+    let listMinFollowers = 0;
+    let listMinRatio = 0.0;
+    let listHighlightVerified = false;
+    let listVerifiedColor = '#1d9bf0';
+    let listHighlightMega = false;
+    let listMegaColor = '#a855f7';
 
     function sendDebugLog(text) {
         if (debugTwitterEnabled) {
@@ -228,6 +234,7 @@
         const userCells = document.querySelectorAll(`[data-testid="UserCell"][data-tweeker-author="${lowerHandle}"]`);
         for (const cell of userCells) {
             renderStatsForUserCell(cell, stats.following, stats.followers);
+            applyListFiltersToCell(cell);
         }
 
         highlightAllAvatars();
@@ -660,6 +667,17 @@
             highlightAllAvatars();
         }
 
+        if (event.data.type === 'set_list_filter_settings') {
+            const config = event.data.config || {};
+            listMinFollowers = typeof config.minFollowers === 'number' ? config.minFollowers : 0;
+            listMinRatio = typeof config.minRatio === 'number' ? config.minRatio : 0.0;
+            listHighlightVerified = !!config.highlightVerified;
+            listVerifiedColor = typeof config.verifiedColor === 'string' ? config.verifiedColor : '#1d9bf0';
+            listHighlightMega = !!config.highlightMega;
+            listMegaColor = typeof config.megaColor === 'string' ? config.megaColor : '#a855f7';
+            applyListFiltersToAllCells();
+        }
+
         if (event.data.type === 'user_counts_response') {
             const { handle, counts } = event.data.payload;
             if (handle) {
@@ -1017,6 +1035,64 @@
         }
     }
 
+    function applyListFiltersToCell(userCellEl) {
+        try {
+            const handle = userCellEl.dataset.tweekerAuthor;
+            if (!handle) return;
+
+            const stats = window.__tweeker.userCache[handle];
+            if (!stats) return;
+
+            const followers = stats.followers || 0;
+            const following = stats.following || 0;
+            const ratio = followers / Math.max(following, 1);
+            const verified = !!stats.verified;
+            const isMega = followers >= 100000;
+
+            if (followers < listMinFollowers) {
+                userCellEl.style.display = 'none';
+                return;
+            } else {
+                userCellEl.style.display = '';
+            }
+
+            if (ratio < listMinRatio) {
+                userCellEl.style.opacity = '0.35';
+                userCellEl.style.transition = 'opacity 0.2s';
+            } else {
+                userCellEl.style.opacity = '1.0';
+            }
+
+            userCellEl.style.border = 'none';
+            userCellEl.style.borderRadius = '0px';
+            userCellEl.style.margin = '0px';
+            userCellEl.style.boxShadow = 'none';
+
+            if (isMega && listHighlightMega) {
+                userCellEl.style.border = `2.5px solid ${listMegaColor}`;
+                userCellEl.style.borderRadius = '12px';
+                userCellEl.style.margin = '6px 0';
+                userCellEl.style.boxShadow = `0 4px 12px ${hexToRgba(listMegaColor, 0.2)}`;
+            } else if (verified && listHighlightVerified) {
+                userCellEl.style.border = `2px solid ${listVerifiedColor}`;
+                userCellEl.style.borderRadius = '12px';
+                userCellEl.style.margin = '6px 0';
+                userCellEl.style.boxShadow = `0 4px 12px ${hexToRgba(listVerifiedColor, 0.2)}`;
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Error applying filters to user cell:', e);
+        }
+    }
+
+    function applyListFiltersToAllCells() {
+        try {
+            const userCells = document.querySelectorAll('[data-testid="UserCell"]');
+            for (const cell of userCells) {
+                applyListFiltersToCell(cell);
+            }
+        } catch (e) {}
+    }
+
     function addInfoButtonToUserCell(userCellEl, handle, lowerHandle) {
         try {
             const avatarContainer = userCellEl.querySelector('[data-testid^="UserAvatar-Container-"]');
@@ -1066,6 +1142,8 @@
                 if (avatarImgContainer) {
                     processUserAvatar(avatarImgContainer, lowerHandle);
                 }
+
+                applyListFiltersToCell(userCellEl);
             } else {
                 if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
                     window.__tweeker.pendingUserRequests.add(lowerHandle);

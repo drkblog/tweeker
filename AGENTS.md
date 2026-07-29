@@ -39,6 +39,7 @@ src-frontend/         # Local control panel overlay UI & styling
 - **Current Version**: `1.0.0`
 - **Single Source of Truth**: The app version is set in `src-tauri/Cargo.toml` (`version = "1.0.0"`) and mirrored in `src-tauri/tauri.conf.json`.
 - **Incrementing Version**: To increment the version, edit `version` in `Cargo.toml` and `tauri.conf.json`. The backend `get_app_version()` command uses `env!("CARGO_PKG_VERSION")` and updates automatically across the app.
+- **Roadmap & Feature Tracking**: Future features, optimizations, and developmental tasks are tracked in [ROADMAP.md](file:///c:/Users/Leandro/repos/tweeker/ROADMAP.md) at the repository root. Any agent implementing a feature from the roadmap MUST update its status in `ROADMAP.md` accordingly.
 
 ## Code Style & Guidelines
 

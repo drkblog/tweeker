@@ -249,6 +249,61 @@
                     </div>
                 </div>
 
+                <!-- ── List Page Filters & Highlights ── -->
+                <div class="section-heading">
+                    <h2>List Page Filters &amp; Highlights</h2>
+                </div>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Min followers to show</span>
+                            <span class="setting-desc">Auto-hide list users with fewer followers</span>
+                        </div>
+                        <input type="number" id="list-min-followers-input" class="input input-number" min="0" max="100000000" step="50" value="0">
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Min ratio to avoid dimming</span>
+                            <span class="setting-desc">Dim list users with an F/F ratio below this</span>
+                        </div>
+                        <input type="number" id="list-min-ratio-input" class="input input-number" min="0.0" max="100.0" step="0.1" value="0.0">
+                    </div>
+                    <label class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Highlight verified users</span>
+                            <span class="setting-desc">Show custom border around verified user cards</span>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="list-highlight-verified-toggle">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Verified border color</span>
+                            <span class="setting-desc">Custom color for verified user cards</span>
+                        </div>
+                        <input type="color" id="list-verified-color-input" class="input-color" value="#1d9bf0">
+                    </div>
+                    <label class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Highlight mega-influencers</span>
+                            <span class="setting-desc">Show custom border around mega-influencer cards</span>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="list-highlight-mega-toggle">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Mega-influencer border color</span>
+                            <span class="setting-desc">Custom color for mega-influencer cards</span>
+                        </div>
+                        <input type="color" id="list-mega-color-input" class="input-color" value="#a855f7">
+                    </div>
+                </div>
+
                 <!-- ── Data & Logging ── -->
                 <div class="section-heading">
                     <h2>Data &amp; Logging</h2>
