@@ -79,9 +79,7 @@ impl AppState {
         let unique_authors = author_counts.len() as u64;
 
         let cache = self.user_cache.lock().unwrap();
-        let mut top_authors: Vec<AuthorCount> = Vec::new();
-
-        if !cache.is_empty() {
+        let top_authors: Vec<AuthorCount> = if !cache.is_empty() {
             let mut cached_users: Vec<AuthorCount> = cache
                 .iter()
                 .map(|(handle, user)| {
@@ -95,7 +93,7 @@ impl AppState {
                 .collect();
             cached_users.sort_by(|a, b| b.count.cmp(&a.count));
             cached_users.truncate(5);
-            top_authors = cached_users;
+            cached_users
         } else {
             let mut tweet_authors: Vec<AuthorCount> = author_counts
                 .into_iter()
@@ -103,8 +101,8 @@ impl AppState {
                 .collect();
             tweet_authors.sort_by(|a, b| b.count.cmp(&a.count));
             tweet_authors.truncate(5);
-            top_authors = tweet_authors;
-        }
+            tweet_authors
+        };
 
         TimelineStats {
             total_tweets_seen: tweets.len() as u64,
