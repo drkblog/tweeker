@@ -155,34 +155,30 @@
         }
     }
 
-    function renderStatsBelowAvatar(tweetEl, following, followers) {
-        const avatar = tweetEl.querySelector('[data-testid="Tweet-User-Avatar"]');
-        if (!avatar) return;
+    function injectUserStats(parentEl, avatarEl, following, followers) {
+        if (!parentEl || !avatarEl) return null;
 
-        let statsEl = tweetEl.querySelector('.tweeker-tweet-user-stats');
+        let statsEl = parentEl.querySelector('.tweeker-tweet-user-stats');
         if (!statsEl) {
             statsEl = document.createElement('div');
             statsEl.className = 'tweeker-tweet-user-stats';
-            statsEl.style.fontSize = '10px';
-            statsEl.style.lineHeight = '13px';
-            statsEl.style.textAlign = 'center';
-            statsEl.style.marginTop = '4px';
-            statsEl.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-            statsEl.style.display = 'block';
-            statsEl.style.width = '100%';
-            statsEl.style.overflow = 'hidden';
-            statsEl.style.textOverflow = 'ellipsis';
-
-            avatar.parentNode.insertBefore(statsEl, avatar.nextSibling);
+            parentEl.insertBefore(statsEl, avatarEl.nextSibling);
         }
 
         const formattedFollowing = formatCount(following);
         const formattedFollowers = formatCount(followers);
 
         statsEl.innerHTML = `
-            <div style="color: #71767b; white-space: nowrap;" title="Following: ${following}">${formattedFollowing}</div>
-            <div style="color: #1d9bf0; font-weight: bold; white-space: nowrap;" title="Followers: ${followers}">${formattedFollowers}</div>
+            <div class="tweeker-stats-following" title="Following: ${following}">${formattedFollowing}</div>
+            <div class="tweeker-stats-followers" title="Followers: ${followers}">${formattedFollowers}</div>
         `;
+        return statsEl;
+    }
+
+    function renderStatsBelowAvatar(tweetEl, following, followers) {
+        const avatar = tweetEl.querySelector('[data-testid="Tweet-User-Avatar"]');
+        if (!avatar) return;
+        injectUserStats(avatar.parentNode, avatar, following, followers);
     }
 
     function updateStatsForAuthor(handle) {
@@ -194,6 +190,12 @@
         for (const tweet of tweets) {
             renderStatsBelowAvatar(tweet, stats.following, stats.followers);
         }
+
+        const userCells = document.querySelectorAll(`[data-testid="UserCell"][data-tweeker-author="${lowerHandle}"]`);
+        for (const cell of userCells) {
+            renderStatsForUserCell(cell, stats.following, stats.followers);
+        }
+
         highlightAllAvatars();
     }
 
@@ -459,12 +461,21 @@
                 if (node.closest('input, textarea, [contenteditable="true"]')) continue;
             }
 
-            if (node.matches && node.matches('[data-testid="tweet"]')) {
-                parseDOMTweet(node);
-            } else if (node.querySelectorAll) {
+            if (node.matches) {
+                if (node.matches('[data-testid="tweet"]')) {
+                    parseDOMTweet(node);
+                } else if (node.matches('[data-testid="UserCell"]')) {
+                    parseDOMUserCell(node);
+                }
+            }
+            if (node.querySelectorAll) {
                 const articles = node.querySelectorAll('[data-testid="tweet"]');
                 for (const article of articles) {
                     parseDOMTweet(article);
+                }
+                const userCells = node.querySelectorAll('[data-testid="UserCell"]');
+                for (const cell of userCells) {
+                    parseDOMUserCell(cell);
                 }
             }
         }
@@ -877,92 +888,158 @@
         }
     }
 
+    function injectUserInfoButton(parentEl, siblingEl, handle, lowerHandle) {
+        if (!parentEl) return;
+        if (parentEl.querySelector('.tweeker-user-info-btn')) return;
+
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'tweeker-user-info-btn';
+        infoBtn.title = 'Dump user info to log';
+
+        infoBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+        `;
+
+        infoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const stats = window.__tweeker.userCache[lowerHandle];
+            let domDisplayName = null;
+            try {
+                const nameEl = parentEl.closest('[data-testid="tweet"]')?.querySelector('[data-testid="User-Name"] span') ||
+                               parentEl.closest('[data-testid="UserCell"]')?.querySelector('[data-testid="UserCell"] span') ||
+                               document.querySelector(`a[href="/${handle}"] span`);
+                if (nameEl) domDisplayName = nameEl.textContent.trim();
+            } catch (err) {}
+
+            const displayName = (stats && stats.name) || domDisplayName || handle;
+
+            let parts = [`[User Info @${handle}] Name: "${displayName}"`];
+            if (stats) {
+                if (stats.followers !== undefined) parts.push(`Followers: ${stats.followers.toLocaleString()}`);
+                if (stats.following !== undefined) parts.push(`Following: ${stats.following.toLocaleString()}`);
+                if (stats.tweet_count) parts.push(`Posts: ${stats.tweet_count.toLocaleString()}`);
+                if (stats.verified !== undefined && stats.verified !== null) parts.push(`Verified: ${stats.verified ? 'Yes' : 'No'}`);
+                if (stats.location) parts.push(`Location: "${stats.location}"`);
+                if (stats.created_at) parts.push(`Joined: ${stats.created_at}`);
+                if (stats.description) parts.push(`Bio: "${stats.description}"`);
+                if (stats.updated_at) parts.push(`Cached at: ${stats.updated_at}`);
+            } else {
+                parts.push('No detailed stats cached yet.');
+            }
+
+            const text = parts.join(' | ');
+
+            console.log(`[Tweeker] ${text}`);
+            window.__tweeker.sendMessage('log', {
+                type: 'info',
+                text: text
+            });
+        });
+
+        if (siblingEl) {
+            parentEl.insertBefore(infoBtn, siblingEl.nextSibling);
+        } else {
+            parentEl.appendChild(infoBtn);
+        }
+    }
+
     function addInfoButtonToHeader(tweetEl, handle, lowerHandle) {
         try {
-            // Place the info button below the info-widget (tweeker-tweet-user-stats)
-            // which is rendered under the user avatar column
             const avatar = tweetEl.querySelector('[data-testid="Tweet-User-Avatar"]');
             if (!avatar) return;
 
             const parentCol = avatar.parentNode;
             if (!parentCol) return;
 
-            if (parentCol.querySelector('.tweeker-user-info-btn')) return;
-
-            const userNameContainer = tweetEl.querySelector('[data-testid="User-Name"]');
-
-            const infoBtn = document.createElement('button');
-            infoBtn.className = 'tweeker-user-info-btn';
-            infoBtn.style.background = 'none';
-            infoBtn.style.border = 'none';
-            infoBtn.style.padding = '2px 0';
-            infoBtn.style.cursor = 'pointer';
-            infoBtn.style.display = 'flex';
-            infoBtn.style.alignItems = 'center';
-            infoBtn.style.justifyContent = 'center';
-            infoBtn.style.color = '#71767b';
-            infoBtn.style.marginTop = '2px';
-            infoBtn.style.transition = 'color 0.2s';
-            infoBtn.style.width = '100%';
-            infoBtn.title = 'Dump user info to log';
-
-            infoBtn.innerHTML = `
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-            `;
-
-            infoBtn.addEventListener('mouseenter', () => {
-                infoBtn.style.color = '#1d9bf0';
-            });
-            infoBtn.addEventListener('mouseleave', () => {
-                infoBtn.style.color = '#71767b';
-            });
-
-            infoBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const stats = window.__tweeker.userCache[lowerHandle];
-                const nameEl = userNameContainer ? userNameContainer.querySelector('span') : null;
-                const domDisplayName = nameEl ? nameEl.textContent.trim() : null;
-                const displayName = (stats && stats.name) || domDisplayName || handle;
-
-                let parts = [`[User Info @${handle}] Name: "${displayName}"`];
-                if (stats) {
-                    if (stats.followers !== undefined) parts.push(`Followers: ${stats.followers.toLocaleString()}`);
-                    if (stats.following !== undefined) parts.push(`Following: ${stats.following.toLocaleString()}`);
-                    if (stats.tweet_count) parts.push(`Posts: ${stats.tweet_count.toLocaleString()}`);
-                    if (stats.verified !== undefined && stats.verified !== null) parts.push(`Verified: ${stats.verified ? 'Yes' : 'No'}`);
-                    if (stats.location) parts.push(`Location: "${stats.location}"`);
-                    if (stats.created_at) parts.push(`Joined: ${stats.created_at}`);
-                    if (stats.description) parts.push(`Bio: "${stats.description}"`);
-                    if (stats.updated_at) parts.push(`Cached at: ${stats.updated_at}`);
-                } else {
-                    parts.push('No detailed stats cached yet.');
-                }
-
-                const text = parts.join(' | ');
-
-                console.log(`[Tweeker] ${text}`);
-                window.__tweeker.sendMessage('log', {
-                    type: 'info',
-                    text: text
-                });
-            });
-
-            // Insert after the info-widget (tweeker-tweet-user-stats) if it exists,
-            // otherwise after the avatar itself
             const statsWidget = parentCol.querySelector('.tweeker-tweet-user-stats');
-            if (statsWidget) {
-                statsWidget.parentNode.insertBefore(infoBtn, statsWidget.nextSibling);
-            } else {
-                avatar.parentNode.insertBefore(infoBtn, avatar.nextSibling);
-            }
+            injectUserInfoButton(parentCol, statsWidget || avatar, handle, lowerHandle);
         } catch (e) {
             console.debug('[Tweeker Interceptor] Error adding info button:', e);
+        }
+    }
+
+    function renderStatsForUserCell(userCellEl, following, followers) {
+        const avatarContainer = userCellEl.querySelector('[data-testid^="UserAvatar-Container-"]');
+        if (!avatarContainer) return;
+
+        let avatarWrapper = avatarContainer;
+        if (avatarContainer.closest('a[role="link"]')) {
+            avatarWrapper = avatarContainer.closest('a[role="link"]');
+        }
+
+        const statsEl = injectUserStats(avatarWrapper.parentNode, avatarWrapper, following, followers);
+
+        const parentCol = avatarWrapper.parentNode;
+        const infoBtn = parentCol.querySelector('.tweeker-user-info-btn');
+        if (infoBtn && statsEl) {
+            parentCol.insertBefore(infoBtn, statsEl.nextSibling);
+        }
+    }
+
+    function addInfoButtonToUserCell(userCellEl, handle, lowerHandle) {
+        try {
+            const avatarContainer = userCellEl.querySelector('[data-testid^="UserAvatar-Container-"]');
+            if (!avatarContainer) return;
+
+            let avatarWrapper = avatarContainer;
+            if (avatarContainer.closest('a[role="link"]')) {
+                avatarWrapper = avatarContainer.closest('a[role="link"]');
+            }
+
+            const parentCol = avatarWrapper.parentNode;
+            if (!parentCol) return;
+
+            const statsWidget = parentCol.querySelector('.tweeker-tweet-user-stats');
+            injectUserInfoButton(parentCol, statsWidget || avatarWrapper, handle, lowerHandle);
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Error adding info button to UserCell:', e);
+        }
+    }
+
+    function parseDOMUserCell(userCellEl) {
+        try {
+            if (!userCellEl || userCellEl.dataset.tweekerParsed) return;
+            userCellEl.dataset.tweekerParsed = 'true';
+
+            const avatarContainer = userCellEl.querySelector('[data-testid^="UserAvatar-Container-"]');
+            if (!avatarContainer) return;
+
+            const testId = avatarContainer.getAttribute('data-testid') || '';
+            const handle = testId.replace('UserAvatar-Container-', '');
+            if (!handle) return;
+
+            const lowerHandle = handle.toLowerCase();
+            userCellEl.dataset.tweekerAuthor = lowerHandle;
+
+            // Unconditionally add the info button
+            addInfoButtonToUserCell(userCellEl, handle, lowerHandle);
+
+            // Render stats if cached
+            if (window.__tweeker.userCache[lowerHandle]) {
+                const c = window.__tweeker.userCache[lowerHandle];
+                renderStatsForUserCell(userCellEl, c.following, c.followers);
+                
+                // Highlight avatar container if relevant
+                const avatarImg = avatarContainer.querySelector('img');
+                const avatarImgContainer = avatarImg ? avatarImg.closest('[data-testid^="UserAvatar-Container-"]') || avatarImg.parentElement : null;
+                if (avatarImgContainer) {
+                    processUserAvatar(avatarImgContainer, lowerHandle);
+                }
+            } else {
+                if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
+                    window.__tweeker.pendingUserRequests.add(lowerHandle);
+                    sendDebugLog(`Querying database cache for user stats of @${lowerHandle} from UserCell`);
+                    window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
+                }
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Error parsing UserCell:', e);
         }
     }
 
@@ -1073,6 +1150,10 @@
                 const articles = timeline.querySelectorAll('[data-testid="tweet"]:not([data-tweeker-parsed="true"])');
                 for (const article of articles) {
                     parseDOMTweet(article);
+                }
+                const userCells = timeline.querySelectorAll('[data-testid="UserCell"]:not([data-tweeker-parsed="true"])');
+                for (const cell of userCells) {
+                    parseDOMUserCell(cell);
                 }
             }
             highlightAllAvatars();

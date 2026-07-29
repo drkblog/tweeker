@@ -1352,4 +1352,48 @@
     pointer-events: none !important;
 }
 
+/* ── Injected User Stats Widget (Everywhere) ── */
+.tweeker-tweet-user-stats {
+    font-size: 10px !important;
+    line-height: 13px !important;
+    text-align: center !important;
+    margin-top: 4px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    display: block !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.tweeker-tweet-user-stats .tweeker-stats-following {
+    color: #71767b !important;
+    white-space: nowrap !important;
+}
+
+.tweeker-tweet-user-stats .tweeker-stats-followers {
+    color: #1d9bf0 !important;
+    font-weight: bold !important;
+    white-space: nowrap !important;
+}
+
+/* ── Injected User Info Button (Everywhere) ── */
+.tweeker-user-info-btn {
+    background: none !important;
+    border: none !important;
+    padding: 2px 0 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #71767b !important;
+    margin-top: 2px !important;
+    transition: color 0.2s !important;
+    width: 100% !important;
+}
+
+.tweeker-user-info-btn:hover {
+    color: #1d9bf0 !important;
+}
+
+
 
