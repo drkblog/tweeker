@@ -249,6 +249,10 @@
 
     function processUserAvatar(avatarContainer, handle) {
         if (!avatarContainer || !handle) return;
+        
+        // Guard against accidentally highlighting whole notification/timeline row containers
+        if (avatarContainer.offsetWidth > 120 || avatarContainer.offsetHeight > 120) return;
+
         const lowerHandle = handle.toLowerCase();
         const stats = window.__tweeker.userCache[lowerHandle];
 
@@ -301,7 +305,7 @@
                         if (handle && !['home', 'notifications', 'explore', 'messages', 'settings', 'i', 'compose', 'search', 'tos', 'privacy'].includes(handle.toLowerCase())) {
                             const img = link.querySelector('img');
                             if (img) {
-                                const imgContainer = img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('.r-1adg3ll') || img.parentElement;
+                                const imgContainer = img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('[data-testid="Tweet-User-Avatar"]') || img.parentElement;
                                 if (imgContainer) {
                                     processUserAvatar(imgContainer, handle);
                                 }
@@ -319,7 +323,7 @@
                 const avatarLink = tweet.querySelector('[data-testid="Tweet-User-Avatar"]');
                 if (avatarLink) {
                     const img = avatarLink.querySelector('img');
-                    const imgContainer = img ? (img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('.r-1adg3ll') || img.parentElement) : null;
+                    const imgContainer = img ? (img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('[data-testid="Tweet-User-Avatar"]') || img.parentElement) : null;
                     if (imgContainer) {
                         processUserAvatar(imgContainer, author);
                     }
