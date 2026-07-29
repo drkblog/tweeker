@@ -1361,8 +1361,9 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     display: block !important;
     width: 100% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    overflow: visible !important;
+    position: relative !important;
+    cursor: help !important;
 }
 
 .tweeker-tweet-user-stats .tweeker-stats-following {
@@ -1374,6 +1375,100 @@
     color: #1d9bf0 !important;
     font-weight: bold !important;
     white-space: nowrap !important;
+}
+
+.tweeker-tweet-user-stats .tweeker-stats-ratio {
+    color: #00ba7c !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+}
+
+/* Custom Tooltips for User Stats */
+.tweeker-stats-tooltip {
+    visibility: hidden !important;
+    width: 160px !important;
+    background-color: hsla(220, 20%, 8%, 0.96) !important;
+    border: 1px solid hsla(220, 15%, 30%, 0.6) !important;
+    backdrop-filter: blur(16px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
+    color: hsla(0, 0%, 98%, 0.96) !important;
+    text-align: left !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    position: absolute !important;
+    z-index: 100005 !important;
+    bottom: 125% !important;
+    left: 50% !important;
+    transform: translateX(-50%) translateY(4px) !important;
+    opacity: 0 !important;
+    transition: opacity 150ms ease, transform 150ms ease !important;
+    pointer-events: none !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 12px hsla(199, 89%, 48%, 0.25) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+}
+
+.tweeker-tweet-user-stats:hover .tweeker-stats-tooltip {
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: translateX(-50%) translateY(0) !important;
+}
+
+.tweeker-stats-tooltip strong {
+    display: block !important;
+    margin-bottom: 4px !important;
+    color: hsl(199, 89%, 55%) !important;
+    border-bottom: 1px solid hsla(220, 15%, 30%, 0.4) !important;
+    padding-bottom: 2px !important;
+    font-size: 11.5px !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+}
+
+.tweeker-stats-tooltip .tooltip-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 2px !important;
+}
+
+.tweeker-stats-tooltip .tooltip-row span {
+    font-weight: 600 !important;
+}
+
+.tweeker-stats-tooltip .status-badge {
+    padding: 1px 4px !important;
+    border-radius: 4px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+}
+
+.tweeker-stats-tooltip .status-spam {
+    background: hsla(350, 80%, 55%, 0.2) !important;
+    color: hsl(350, 90%, 75%) !important;
+    border: 1px solid hsla(350, 80%, 55%, 0.4) !important;
+}
+
+.tweeker-stats-tooltip .status-influencer,
+.tweeker-stats-tooltip .status-mega {
+    background: hsla(199, 89%, 48%, 0.2) !important;
+    color: hsl(199, 90%, 75%) !important;
+    border: 1px solid hsla(199, 89%, 48%, 0.4) !important;
+}
+
+.tweeker-stats-tooltip .status-power {
+    background: hsla(142, 71%, 45%, 0.2) !important;
+    color: hsl(142, 80%, 70%) !important;
+    border: 1px solid hsla(142, 71%, 45%, 0.4) !important;
+}
+
+.tweeker-stats-tooltip .status-casual {
+    background: hsla(220, 15%, 30%, 0.35) !important;
+    color: hsla(0, 0%, 75%, 0.88) !important;
+    border: 1px solid hsla(220, 15%, 30%, 0.5) !important;
 }
 
 /* ── Injected User Info Button (Everywhere) ── */

@@ -155,7 +155,7 @@
         }
     }
 
-    function injectUserStats(parentEl, avatarEl, following, followers) {
+    function injectUserStats(parentEl, avatarEl, handle, following, followers) {
         if (!parentEl || !avatarEl) return null;
 
         let statsEl = parentEl.querySelector('.tweeker-tweet-user-stats');
@@ -168,9 +168,42 @@
         const formattedFollowing = formatCount(following);
         const formattedFollowers = formatCount(followers);
 
+        let ratioText = '?';
+        let classColorClass = 'status-casual';
+        let classLabel = 'Casual';
+
+        if (following !== undefined && followers !== undefined && following !== null && followers !== null) {
+            const rawRatio = followers / Math.max(following, 1);
+            ratioText = rawRatio.toFixed(1);
+
+            if (followers < 50 && rawRatio < 0.2) {
+                classLabel = 'Spam/Bot';
+                classColorClass = 'status-spam';
+            } else if (followers > 100000 && rawRatio > 10.0) {
+                classLabel = 'Mega-Influencer';
+                classColorClass = 'status-mega';
+            } else if (followers > 10000 && rawRatio > 5.0) {
+                classLabel = 'Influencer';
+                classColorClass = 'status-influencer';
+            } else if (followers > 1000 && rawRatio >= 0.8 && rawRatio <= 5.0) {
+                classLabel = 'Power User';
+                classColorClass = 'status-power';
+            }
+        }
+
+        const cleanHandle = handle ? handle.replace(/^@/, '') : 'user';
+
         statsEl.innerHTML = `
-            <div class="tweeker-stats-following" title="Following: ${following}">${formattedFollowing}</div>
-            <div class="tweeker-stats-followers" title="Followers: ${followers}">${formattedFollowers}</div>
+            <div class="tweeker-stats-following">${formattedFollowing}</div>
+            <div class="tweeker-stats-followers">${formattedFollowers}</div>
+            <div class="tweeker-stats-ratio">R: ${ratioText}</div>
+            <div class="tweeker-stats-tooltip">
+                <strong>@${cleanHandle}</strong>
+                <div class="tooltip-row">Following: <span>${following !== null && following !== undefined ? following.toLocaleString() : '?'}</span></div>
+                <div class="tooltip-row">Followers: <span>${followers !== null && followers !== undefined ? followers.toLocaleString() : '?'}</span></div>
+                <div class="tooltip-row">Ratio: <span>${ratioText}</span></div>
+                <div class="tooltip-row">Status: <span class="status-badge ${classColorClass}">${classLabel}</span></div>
+            </div>
         `;
         return statsEl;
     }
@@ -178,7 +211,8 @@
     function renderStatsBelowAvatar(tweetEl, following, followers) {
         const avatar = tweetEl.querySelector('[data-testid="Tweet-User-Avatar"]');
         if (!avatar) return;
-        injectUserStats(avatar.parentNode, avatar, following, followers);
+        const handle = tweetEl.dataset.tweekerAuthor || '';
+        injectUserStats(avatar.parentNode, avatar, handle, following, followers);
     }
 
     function updateStatsForAuthor(handle) {
@@ -973,7 +1007,8 @@
             avatarWrapper = avatarContainer.closest('a[role="link"]');
         }
 
-        const statsEl = injectUserStats(avatarWrapper.parentNode, avatarWrapper, following, followers);
+        const handle = userCellEl.dataset.tweekerAuthor || '';
+        const statsEl = injectUserStats(avatarWrapper.parentNode, avatarWrapper, handle, following, followers);
 
         const parentCol = avatarWrapper.parentNode;
         const infoBtn = parentCol.querySelector('.tweeker-user-info-btn');
