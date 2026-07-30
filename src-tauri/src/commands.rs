@@ -201,6 +201,28 @@ pub fn get_cached_user(
 }
 
 #[tauri::command]
+pub fn get_users_counts_batch(
+    state: tauri::State<'_, AppState>,
+    handles: Vec<String>,
+) -> std::collections::HashMap<String, Option<TwitterUser>> {
+    let mut cache = state.user_cache.lock().unwrap();
+    let now = Utc::now();
+    let mut result = std::collections::HashMap::new();
+
+    for handle in handles {
+        let lower = handle.to_lowercase();
+        if let Some(user) = cache.get_mut(&lower) {
+            user.last_accessed = Some(now);
+            result.insert(lower, Some(user.clone()));
+        } else {
+            result.insert(lower, None);
+        }
+    }
+
+    result
+}
+
+#[tauri::command]
 pub fn get_all_cached_users(
     state: tauri::State<'_, AppState>,
 ) -> std::collections::HashMap<String, TwitterUser> {

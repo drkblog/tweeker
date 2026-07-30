@@ -7,7 +7,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | Feature ID | Feature Name | Status | Developer/Agent | Session Date |
 | :--- | :--- | :--- | :--- | :--- |
 | **A** | Followers-to-Following (F/F) Ratio & Custom Tooltips | **Completed** | Antigravity | 2026-07-29 |
-| **B** | IPC Batching for Bulk Scrolling (`get_users_counts_batch`) | **Pending** | - | - |
+| **B** | IPC Batching for Bulk Scrolling (`get_users_counts_batch`) | **Completed** | Antigravity | 2026-07-30 |
 | **C** | List Page Highlighting & Filtering Controls | **Completed** | Antigravity | 2026-07-29 |
 | **D** | Lazy API Fetching for Uncached Profiles | **Pending** | - | - |
 

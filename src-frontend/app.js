@@ -2339,6 +2339,19 @@ window.addEventListener('message', (event) => {
             console.error('[Tweeker App] Failed to get user counts:', e);
         });
     }
+
+    if (type === 'get_users_counts_batch' && payload && Array.isArray(payload.handles)) {
+        const handles = payload.handles;
+        invoke('get_users_counts_batch', { handles }).then((usersMap) => {
+            window.postMessage({
+                __tweeker: true,
+                type: 'user_counts_batch_response',
+                payload: { users: usersMap }
+            }, '*');
+        }).catch((e) => {
+            console.error('[Tweeker App] Failed to get user counts batch:', e);
+        });
+    }
 });
 
 // ── Tauri Event Listeners ──

@@ -30,6 +30,40 @@
     let listHighlightMega = false;
     let listMegaColor = '#a855f7';
 
+    let userCountsBatchQueue = new Set();
+    let userCountsBatchTimer = null;
+
+    function requestUserCounts(handle) {
+        if (!handle) return;
+        const lowerHandle = handle.toLowerCase();
+        if (window.__tweeker.userCache[lowerHandle]) return;
+        if (window.__tweeker.pendingUserRequests.has(lowerHandle)) return;
+
+        window.__tweeker.pendingUserRequests.add(lowerHandle);
+        userCountsBatchQueue.add(lowerHandle);
+
+        if (userCountsBatchQueue.size >= 50) {
+            flushUserCountsBatch();
+        } else if (!userCountsBatchTimer) {
+            userCountsBatchTimer = setTimeout(flushUserCountsBatch, 150);
+        }
+    }
+
+    function flushUserCountsBatch() {
+        if (userCountsBatchTimer) {
+            clearTimeout(userCountsBatchTimer);
+            userCountsBatchTimer = null;
+        }
+
+        if (userCountsBatchQueue.size === 0) return;
+
+        const handles = Array.from(userCountsBatchQueue);
+        userCountsBatchQueue.clear();
+
+        sendDebugLog(`Batch-querying database cache for ${handles.length} user(s)`);
+        window.__tweeker.sendMessage('get_users_counts_batch', { handles: handles });
+    }
+
     function sendDebugLog(text) {
         if (debugTwitterEnabled) {
             window.__tweeker.sendMessage('debug_log', { text: text });
@@ -257,11 +291,7 @@
         const stats = window.__tweeker.userCache[lowerHandle];
 
         if (!stats) {
-            if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
-                window.__tweeker.pendingUserRequests.add(lowerHandle);
-                sendDebugLog(`Querying database cache for user @${lowerHandle}`);
-                window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
-            }
+            requestUserCounts(lowerHandle);
             return;
         }
 
@@ -693,6 +723,27 @@
                     sendDebugLog(`Found cached stats in database for @${lowerHandle}: ${counts.followers} followers, ${counts.following} following`);
                     window.__tweeker.userCache[lowerHandle] = counts;
                     updateStatsForAuthor(lowerHandle);
+                }
+            }
+        }
+
+        if (event.data.type === 'user_counts_batch_response') {
+            const users = event.data.payload && event.data.payload.users;
+            if (users && typeof users === 'object') {
+                let foundCount = 0;
+                for (const [handle, counts] of Object.entries(users)) {
+                    const lowerHandle = handle.toLowerCase();
+                    window.__tweeker.pendingUserRequests.delete(lowerHandle);
+                    if (counts) {
+                        foundCount++;
+                        window.__tweeker.userCache[lowerHandle] = counts;
+                        updateStatsForAuthor(lowerHandle);
+                    }
+                }
+                if (foundCount > 0) {
+                    sendDebugLog(`Batch query returned stats for ${foundCount} user(s)`);
+                    applyListFiltersToAllCells();
+                    highlightAllAvatars();
                 }
             }
         }
@@ -1151,11 +1202,7 @@
 
                 applyListFiltersToCell(userCellEl);
             } else {
-                if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
-                    window.__tweeker.pendingUserRequests.add(lowerHandle);
-                    sendDebugLog(`Querying database cache for user stats of @${lowerHandle} from UserCell`);
-                    window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
-                }
+                requestUserCounts(lowerHandle);
             }
         } catch (e) {
             console.debug('[Tweeker Interceptor] Error parsing UserCell:', e);
@@ -1206,11 +1253,7 @@
                             }
                         }
                     } else {
-                        if (!window.__tweeker.pendingUserRequests.has(lowerHandle)) {
-                            window.__tweeker.pendingUserRequests.add(lowerHandle);
-                            sendDebugLog(`Querying database cache for user stats of @${lowerHandle}`);
-                            window.__tweeker.sendMessage('get_user_counts', { handle: lowerHandle });
-                        }
+                        requestUserCounts(lowerHandle);
                     }
                 }
             }

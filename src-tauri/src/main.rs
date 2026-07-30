@@ -34,6 +34,7 @@ fn main() {
             commands::get_user_cache_limit,
             commands::set_user_cache_limit,
             commands::get_cached_user,
+            commands::get_users_counts_batch,
             commands::get_all_cached_users,
             commands::add_multiple_to_user_cache,
             commands::get_db_path,
