@@ -78,6 +78,11 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
             updated_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_tweets_author ON tweets(author_handle);
         CREATE INDEX IF NOT EXISTS idx_tweets_timestamp ON tweets(timestamp);
         CREATE INDEX IF NOT EXISTS idx_scheduled_for ON scheduled_tweets(scheduled_for);
@@ -522,3 +527,30 @@ pub fn get_db_stats(app: &tauri::AppHandle, conn: &Connection) -> Result<crate::
         cached_users_count,
     })
 }
+
+pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT value FROM settings WHERE key = ?1")
+        .map_err(|e| format!("Failed to prepare get_setting query: {}", e))?;
+
+    let mut rows = stmt
+        .query(params![key])
+        .map_err(|e| format!("Failed to query setting: {}", e))?;
+
+    if let Some(row) = rows.next().map_err(|e| format!("Failed to fetch row: {}", e))? {
+        let val: String = row.get(0).map_err(|e| format!("Failed to get column: {}", e))?;
+        Ok(Some(val))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2",
+        params![key, value],
+    )
+    .map_err(|e| format!("Failed to set setting: {}", e))?;
+    Ok(())
+}
+

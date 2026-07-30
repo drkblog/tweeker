@@ -21,8 +21,38 @@
     window.__tweeker.pendingUserRequests = window.__tweeker.pendingUserRequests || new Set();
     window.__tweeker.tweetCache = window.__tweeker.tweetCache || {};
     window.__tweeker.tweetContentCache = window.__tweeker.tweetContentCache || {};
+    window.__tweeker.notificationMap = window.__tweeker.notificationMap || {};
     window.__tweeker.pendingTweetRequests = window.__tweeker.pendingTweetRequests || new Set();
     window.__tweeker.pendingSnippetRequests = window.__tweeker.pendingSnippetRequests || new Set();
+
+    let lastSavedUrl = window.location.href;
+
+    function checkAndSaveCurrentUrl() {
+        try {
+            const href = window.location.href;
+            if (!href || href === 'about:blank') return;
+            if (href.startsWith('https://x.com') || href.startsWith('https://twitter.com')) {
+                if (href !== lastSavedUrl) {
+                    lastSavedUrl = href;
+                    localStorage.setItem('tweeker_last_url', href);
+                    window.__tweeker.sendMessage('save_last_url', { url: href });
+                }
+            }
+        } catch (e) {}
+    }
+
+    window.addEventListener('popstate', checkAndSaveCurrentUrl);
+    window.addEventListener('beforeunload', checkAndSaveCurrentUrl);
+    setInterval(checkAndSaveCurrentUrl, 2000);
+
+    try {
+        const savedUrl = localStorage.getItem('tweeker_last_url');
+        if (savedUrl && (window.location.pathname === '/' || window.location.pathname === '') && savedUrl !== window.location.href) {
+            if (savedUrl.startsWith('https://x.com') || savedUrl.startsWith('https://twitter.com')) {
+                window.location.href = savedUrl;
+            }
+        }
+    } catch (e) {}
 
     function normalizeTweetText(text) {
         if (!text || typeof text !== 'string') return '';
@@ -161,9 +191,7 @@
     }
 
     function sendDebugLog(text) {
-        if (debugTwitterEnabled) {
-            window.__tweeker.sendMessage('debug_log', { text: text });
-        }
+        window.__tweeker.sendMessage('debug_log', { text: text });
     }
 
     function formatCount(num) {
@@ -526,8 +554,8 @@
                             }
                             window.__tweeker.sendTweets(tweets);
                             sendDebugLog(`Extracted ${tweets.length} tweet(s) from operation ${opName}`);
-                            updateNotificationTweetStats();
                         }
+                        updateNotificationTweetStats();
                     } catch (e) {
                         sendDebugLog(`Parse error for ${opName}: ${e.message}`);
                     }
@@ -592,8 +620,8 @@
                         }
                         window.__tweeker.sendTweets(tweets);
                         sendDebugLog(`Extracted ${tweets.length} tweet(s) from XHR operation ${opName}`);
-                        updateNotificationTweetStats();
                     }
+                    updateNotificationTweetStats();
 
                     try {
                         findScreenNamePaths(data);
@@ -1073,6 +1101,40 @@
         return url.includes('/graphql/') || url.includes('/api/graphql');
     }
 
+    function createNotifKey(headerText, tweetText) {
+        const cleanHeader = (headerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const cleanTweet = (tweetText || '').replace(/https?:\/\/t\.co\/\w+/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const snippetHeader = cleanHeader.substring(0, 40);
+        const snippetTweet = cleanTweet.substring(0, 40);
+        return `${snippetHeader}|${snippetTweet}`;
+    }
+
+    function parseNotificationApiObjects(obj, depth) {
+        if (!obj || typeof obj !== 'object' || depth > 15) return;
+
+        if (obj.message && (obj.target_tweet_results || obj.tweet_results || obj.target_root_tweet_results || obj.tweet)) {
+            const msgText = typeof obj.message === 'string' ? obj.message : (obj.message.text || '');
+            const targetRes = obj.target_tweet_results?.result || obj.tweet_results?.result || obj.target_root_tweet_results?.result || obj.tweet;
+            if (msgText && targetRes) {
+                const tweetObj = extractTweetFromResult(targetRes);
+                if (tweetObj) {
+                    const notifKey = createNotifKey(msgText, tweetObj.content);
+                    window.__tweeker.notificationMap[notifKey] = tweetObj;
+                }
+            }
+        }
+
+        if (Array.isArray(obj)) {
+            for (const item of obj) {
+                parseNotificationApiObjects(item, depth + 1);
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                parseNotificationApiObjects(obj[key], depth + 1);
+            }
+        }
+    }
+
     /**
      * Parse X.com's GraphQL API response to extract tweet data.
      * X.com's API format is deeply nested; this extracts what we need defensively.
@@ -1083,6 +1145,7 @@
         try {
             // Walk the response tree looking for tweet results
             findTweetsInObject(data, tweets, 0);
+            parseNotificationApiObjects(data, 0);
         } catch (e) {
             // API format changed, fail silently
         }
@@ -1392,19 +1455,66 @@
         return isNotif && !isMentions && !isVerified;
     }
 
+    function findTweetIdByText(text) {
+        if (!text) return null;
+        const norm = text
+            .replace(/[…\.]+$|https?:\/\/t\.co\/\w+/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+        if (!norm || norm.length < 10) return null;
+
+        if (window.__tweeker.tweetContentCache[norm]) {
+            return window.__tweeker.tweetContentCache[norm];
+        }
+
+        for (const len of [40, 30, 25, 20, 15, 12, 10]) {
+            if (norm.length >= len) {
+                const prefix = norm.substring(0, len);
+                if (window.__tweeker.tweetContentCache[prefix]) {
+                    return window.__tweeker.tweetContentCache[prefix];
+                }
+            }
+        }
+
+        for (const [id, tweet] of Object.entries(window.__tweeker.tweetCache)) {
+            if (tweet && tweet.content) {
+                const tweetNorm = tweet.content
+                    .replace(/https?:\/\/t\.co\/\w+/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase();
+
+                if (tweetNorm.startsWith(norm) || (norm.length >= 15 && tweetNorm.includes(norm))) {
+                    return id;
+                }
+            }
+        }
+
+        return null;
+    }
+
     function parseNotificationMessageEngagement(msgText) {
         if (!msgText) return null;
+        const cleanText = msgText.replace(/\s+/g, ' ').trim();
         let likes = null;
         let retweets = null;
 
-        const likeMatch = msgText.match(/(?:and\s+(\d+)\s+others\s+liked|liked)\s+your/i);
-        if (likeMatch) {
-            likes = likeMatch[1] ? (parseInt(likeMatch[1], 10) + 1) : 1;
+        const likeCountMatch = cleanText.match(/(?:and\s+)?([\d,]+)\s+others?\s+liked\b/i);
+        if (likeCountMatch) {
+            const num = parseInt(likeCountMatch[1].replace(/,/g, ''), 10);
+            likes = isNaN(num) ? 1 : num + 1;
+        } else if (/\bliked\b/i.test(cleanText)) {
+            likes = 1;
         }
 
-        const retweetMatch = msgText.match(/(?:and\s+(\d+)\s+others\s+(?:reposted|retweeted)|(?:reposted|retweeted))\s+your/i);
-        if (retweetMatch) {
-            retweets = retweetMatch[1] ? (parseInt(retweetMatch[1], 10) + 1) : 1;
+        const retweetCountMatch = cleanText.match(/(?:and\s+)?([\d,]+)\s+others?\s+(?:reposted|retweeted)\b/i);
+        if (retweetCountMatch) {
+            const num = parseInt(retweetCountMatch[1].replace(/,/g, ''), 10);
+            retweets = isNaN(num) ? 1 : num + 1;
+        } else if (/\b(?:reposted|retweeted)\b/i.test(cleanText)) {
+            retweets = 1;
         }
 
         if (likes !== null || retweets !== null) {
@@ -1458,79 +1568,110 @@
             if (!notifEl) return;
             if (!isAllNotificationsPage()) return;
 
-            let foundTweetId = null;
-            const statusLinks = notifEl.querySelectorAll('a[href*="/status/"]');
-            if (statusLinks && statusLinks.length > 0) {
-                for (const sLink of statusLinks) {
-                    const href = sLink.getAttribute('href') || '';
-                    const match = href.match(/\/status\/(\d+)/);
-                    if (match && match[1]) {
-                        foundTweetId = match[1];
-                        break;
-                    }
-                }
-            }
-
-            let stats = null;
-            if (foundTweetId && window.__tweeker.tweetCache[foundTweetId]) {
-                stats = window.__tweeker.tweetCache[foundTweetId];
-            }
-
             const msgTextEl = notifEl.querySelector('#notification-message-text');
             const msgText = msgTextEl ? msgTextEl.textContent : '';
 
             const tweetTextEl = notifEl.querySelector('#notification-tweet-text') || notifEl.querySelector('[data-testid="tweetText"]');
             const text = tweetTextEl ? tweetTextEl.textContent : '';
 
-            if (!stats && text) {
-                const norm = normalizeTweetText(text);
-                const key = norm.length > 40 ? norm.substring(0, 40) : norm;
-                const matchedId = window.__tweeker.tweetContentCache[key] || window.__tweeker.tweetContentCache[norm];
-                if (matchedId && window.__tweeker.tweetCache[matchedId]) {
-                    foundTweetId = matchedId;
-                    stats = window.__tweeker.tweetCache[matchedId];
-                } else if (norm && norm.length >= 8) {
-                    requestTweetContentSnippet(key);
+            let foundTweetId = null;
+            let stats = null;
+            let matchSource = null;
+
+            if (msgText || text) {
+                const notifKey = createNotifKey(msgText, text);
+                if (window.__tweeker.notificationMap[notifKey]) {
+                    stats = window.__tweeker.notificationMap[notifKey];
+                    foundTweetId = stats.tweet_id;
+                    matchSource = 'notificationMap';
                 }
             }
 
-            if (!foundTweetId && statusLinks && statusLinks.length > 0) {
-                for (const sLink of statusLinks) {
-                    const href = sLink.getAttribute('href') || '';
-                    const match = href.match(/\/status\/(\d+)/);
-                    if (match && match[1]) {
-                        requestTweetStats(match[1]);
+            if (!stats) {
+                const statusLinks = notifEl.querySelectorAll('a[href*="/status/"]');
+                if (statusLinks && statusLinks.length > 0) {
+                    for (const sLink of statusLinks) {
+                        const href = sLink.getAttribute('href') || '';
+                        const match = href.match(/\/status\/(\d+)/);
+                        if (match && match[1]) {
+                            foundTweetId = match[1];
+                            if (window.__tweeker.tweetCache[foundTweetId]) {
+                                stats = window.__tweeker.tweetCache[foundTweetId];
+                                matchSource = 'statusLinkCache';
+                            } else {
+                                matchSource = 'statusLinkUncached';
+                            }
+                            break;
+                        }
                     }
                 }
             }
 
-            if (!stats && msgText) {
-                stats = parseNotificationMessageEngagement(msgText);
+            if (!stats && text) {
+                const matchedId = findTweetIdByText(text);
+                if (matchedId && window.__tweeker.tweetCache[matchedId]) {
+                    foundTweetId = matchedId;
+                    stats = window.__tweeker.tweetCache[matchedId];
+                    matchSource = 'textSnippetMatch';
+                } else {
+                    const norm = normalizeTweetText(text);
+                    const key = norm.length > 40 ? norm.substring(0, 40) : norm;
+                    if (norm && norm.length >= 10) {
+                        requestTweetContentSnippet(key);
+                        matchSource = 'textSnippetRequested';
+                    }
+                }
             }
 
-            if (!stats && (text || msgText)) {
-                stats = { replies: null, retweets: null, likes: null, views: null };
+            const msgStats = msgText ? parseNotificationMessageEngagement(msgText) : null;
+
+            let finalStats = stats ? { ...stats } : null;
+
+            if (!finalStats && msgStats) {
+                finalStats = { ...msgStats };
+                if (!matchSource) matchSource = 'headerMsgEngagement';
+            } else if (finalStats && msgStats) {
+                if ((!finalStats.likes || finalStats.likes === 0) && msgStats.likes) {
+                    finalStats.likes = msgStats.likes;
+                }
+                if ((!finalStats.retweets || finalStats.retweets === 0) && msgStats.retweets) {
+                    finalStats.retweets = msgStats.retweets;
+                }
             }
 
-            if (stats) {
+            if (!finalStats && (text || msgText)) {
+                finalStats = { replies: null, retweets: null, likes: null, views: null };
+                if (!matchSource) matchSource = 'fallbackNulls';
+            }
+
+            if (finalStats) {
                 notifEl.dataset.tweekerNotifStatsParsed = 'true';
-                injectNotificationTweetStats(notifEl, stats, foundTweetId);
+                injectNotificationTweetStats(notifEl, finalStats, foundTweetId);
+                sendDebugLog(`[NotifStats] Card parsed (Src: ${matchSource || 'unknown'}, TweetID: ${foundTweetId || 'none'}) -> Likes: ${finalStats.likes}, Retweets: ${finalStats.retweets}, Replies: ${finalStats.replies}, Views: ${finalStats.views}`);
             }
         } catch (e) {
-            console.debug('[Tweeker Interceptor] Error parsing notification:', e);
+            sendDebugLog(`[NotifStats] Error parsing notification card: ${e.message}`);
         }
     }
 
     function updateNotificationTweetStats() {
         try {
-            if (!isAllNotificationsPage()) {
+            const isAllNotif = isAllNotificationsPage();
+            const path = window.location.pathname;
+
+            if (!isAllNotif) {
                 const existingStats = document.querySelectorAll('.tweeker-notification-tweet-stats');
-                for (const el of existingStats) el.remove();
+                if (existingStats.length > 0) {
+                    sendDebugLog(`[NotifStats] Navigated away from All tab (path: ${path}). Cleared ${existingStats.length} notification stats badges.`);
+                    for (const el of existingStats) el.remove();
+                }
                 return;
             }
 
             const notifElements = document.querySelectorAll('article[data-testid="notification"], [data-testid="notification"], #notification-message-text, #notification-tweet-text');
             const processedContainers = new Set();
+
+            sendDebugLog(`[NotifStats] Scanning notifications timeline at ${path}... Found ${notifElements.length} notification element(s).`);
 
             for (const el of notifElements) {
                 const container = el.closest('[data-testid="notification"]') || el.closest('.r-136ojw6') || el.closest('article') || el;
@@ -1540,7 +1681,7 @@
                 }
             }
         } catch (e) {
-            console.debug('[Tweeker Interceptor] Error updating notification tweet stats:', e);
+            sendDebugLog(`[NotifStats] Error in updateNotificationTweetStats: ${e.message}`);
         }
     }
 

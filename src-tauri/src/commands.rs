@@ -400,4 +400,18 @@ pub fn get_tweets_by_content_batch(
     result
 }
 
+#[tauri::command]
+pub fn save_last_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let clean_url = url.trim();
+    if !clean_url.starts_with("https://x.com") && !clean_url.starts_with("https://twitter.com") {
+        return Ok(());
+    }
+
+    if let Ok(conn) = storage::open_db(&app) {
+        storage::set_setting(&conn, "last_url", clean_url)?;
+    }
+    Ok(())
+}
+
+
 

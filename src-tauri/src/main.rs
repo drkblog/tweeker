@@ -42,14 +42,26 @@ fn main() {
             commands::save_tweets,
             commands::get_tweet_stats_batch,
             commands::get_tweets_by_content_batch,
+            commands::save_last_url,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+
+            let mut start_url = "https://x.com".to_string();
 
             // ── Initialize database ──
             if let Ok(conn) = storage::open_db(&handle) {
                 if let Err(e) = storage::run_migrations(&conn) {
                     eprintln!("[Tweeker] Database migration failed: {}", e);
+                }
+
+                // Check for saved last URL
+                if let Ok(Some(saved_url)) = storage::get_setting(&conn, "last_url") {
+                    let clean = saved_url.trim();
+                    if clean.starts_with("https://x.com") || clean.starts_with("https://twitter.com") {
+                        start_url = clean.to_string();
+                        println!("[Tweeker] Restoring last URL on startup: {}", start_url);
+                    }
                 }
 
                 // Load persisted user cache from SQLite into in-memory HashMap
@@ -93,7 +105,7 @@ fn main() {
             let _main_window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
-                tauri::WebviewUrl::External("https://x.com".parse().unwrap()),
+                tauri::WebviewUrl::External(start_url.parse().unwrap()),
             )
             .title("Tweeker")
             .inner_size(1280.0, 900.0)

@@ -101,7 +101,7 @@
             </button>
             <button class="tab" role="tab" aria-selected="false" data-tab="debug" id="tab-debug" style="display: none;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M6.34 6.34l1.42 1.42M17.66 6.34l-1.42 1.42M19 12h2M3 12h2M12 20v2M16.24 16.24l1.42 1.42M7.76 16.24l-1.42 1.42"/><circle cx="12" cy="12" r="6"/></svg>
-                Debug
+                X debug
             </button>
         </nav>
 
@@ -200,6 +200,24 @@
             <!-- Logs tab -->
             <section id="content-logs" class="tab-content" role="tabpanel" hidden>
                 <div class="logs-header-bar">
+                    <div class="logs-level-filters" title="Toggle logging levels to display">
+                        <label class="log-level-filter-chip filter-info" title="Toggle INFO logs">
+                            <input type="checkbox" id="log-filter-info" checked>
+                            <span class="chip-label">INFO</span>
+                        </label>
+                        <label class="log-level-filter-chip filter-warn" title="Toggle WARN logs">
+                            <input type="checkbox" id="log-filter-warn" checked>
+                            <span class="chip-label">WARN</span>
+                        </label>
+                        <label class="log-level-filter-chip filter-error" title="Toggle ERROR logs">
+                            <input type="checkbox" id="log-filter-error" checked>
+                            <span class="chip-label">ERROR</span>
+                        </label>
+                        <label class="log-level-filter-chip filter-debug" title="Toggle DEBUG logs (off by default)">
+                            <input type="checkbox" id="log-filter-debug">
+                            <span class="chip-label">DEBUG</span>
+                        </label>
+                    </div>
                     <div class="logs-status-info">
                         <span id="log-count-text" class="log-count-text">0 / 2000 lines</span>
                     </div>

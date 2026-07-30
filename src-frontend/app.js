@@ -51,6 +51,12 @@ const state = {
     autoRead: false,
     autoReadOnStart: false,
     maxLogLines: 2000,
+    logFilters: {
+        INFO: true,
+        WARN: true,
+        ERROR: true,
+        DEBUG: false,
+    },
     logs: [],
     panelSize: { width: null, height: null },
     stats: null,
@@ -138,6 +144,10 @@ const dom = {
     logCountText: document.getElementById('log-count-text'),
     clearLogsBtn: document.getElementById('clear-logs-btn'),
     logOutputContainer: document.getElementById('log-output-container'),
+    logFilterInfo: document.getElementById('log-filter-info'),
+    logFilterWarn: document.getElementById('log-filter-warn'),
+    logFilterError: document.getElementById('log-filter-error'),
+    logFilterDebug: document.getElementById('log-filter-debug'),
 
     // Debug
     debugTab: document.getElementById('tab-debug'),
@@ -783,10 +793,32 @@ function pruneLogs() {
     }
 }
 
+function getLogLevel(item) {
+    if (!item) return 'DEBUG';
+    if (item.level) {
+        const lvl = String(item.level).toUpperCase();
+        if (['INFO', 'WARN', 'ERROR', 'DEBUG'].includes(lvl)) return lvl;
+    }
+    const type = (item.type || '').toLowerCase();
+    const text = (item.text || '').toLowerCase();
+
+    if (type === 'system' || type === 'debug' || text.startsWith('[debug]') || text.includes('debug_log') || text.startsWith('[interceptor]') || text.startsWith('[notifstats]')) {
+        return 'DEBUG';
+    }
+    if (type === 'error' || type === 'fail' || text.includes('error') || text.includes('failed') || text.includes('exception')) {
+        return 'ERROR';
+    }
+    if (type === 'warn' || type === 'warning' || text.includes('warn') || text.includes('warning')) {
+        return 'WARN';
+    }
+    return 'DEBUG';
+}
+
 function addLogEntry(entry) {
     if (!entry) return;
 
-    const type = entry.type || 'system';
+    const rawType = entry.type || 'debug';
+    const type = rawType === 'system' ? 'debug' : rawType;
     const text = entry.text || '';
     const rawTweetId = entry.tweetId || null;
     const authorHandle = entry.authorHandle || null;
@@ -808,6 +840,7 @@ function addLogEntry(entry) {
     const logItem = {
         id: 'log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         type,
+        level: entry.level || getLogLevel(entry),
         text,
         tweetId,
         tweetUrl,
@@ -831,12 +864,18 @@ function addLogEntry(entry) {
 function renderLogItem(item) {
     if (!dom.logOutputContainer) return;
 
+    const level = getLogLevel(item);
+    if (!state.logFilters[level]) {
+        return;
+    }
+
     // Remove empty state if present
     const emptyState = dom.logOutputContainer.querySelector('.log-empty-state');
     if (emptyState) emptyState.remove();
 
     const entryDiv = document.createElement('div');
-    entryDiv.className = `log-entry log-entry-${item.type || 'system'}`;
+    const type = (item.type || 'system').toLowerCase();
+    entryDiv.className = `log-entry log-entry-${type} log-level-${level.toLowerCase()}`;
     entryDiv.dataset.logId = item.id;
     entryDiv.innerHTML = getLogItemInnerHtml(item);
 
@@ -856,8 +895,9 @@ function renderLogItem(item) {
 }
 
 function getLogItemInnerHtml(item) {
-    const type = item.type || 'system';
-    const tagLabel = type.toUpperCase();
+    const rawType = (item.type || 'debug').toLowerCase();
+    const type = rawType === 'system' ? 'debug' : rawType;
+    const tagLabel = (type === 'system' || type === 'debug') ? 'DEBUG' : type.toUpperCase();
     
     let rawText = item.text || '';
     let displayText = rawText;
@@ -914,18 +954,28 @@ function getLogItemInnerHtml(item) {
 
 function refreshLogsView() {
     if (!dom.logOutputContainer) return;
-    updateLogCountText();
 
-    if (!state.logs || state.logs.length === 0) {
-        dom.logOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No logs recorded yet.</p>';
+    const filteredLogs = (state.logs || []).filter(item => {
+        const level = getLogLevel(item);
+        return !!state.logFilters[level];
+    });
+
+    updateLogCountText(filteredLogs.length);
+
+    if (filteredLogs.length === 0) {
+        dom.logOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No logs match selected log levels.</p>';
         return;
     }
 
-    dom.logOutputContainer.innerHTML = state.logs.map(item => `
-        <div class="log-entry log-entry-${item.type || 'system'}" data-log-id="${item.id}">
-            ${getLogItemInnerHtml(item)}
-        </div>
-    `).join('');
+    dom.logOutputContainer.innerHTML = filteredLogs.map(item => {
+        const level = getLogLevel(item);
+        const type = (item.type || 'system').toLowerCase();
+        return `
+            <div class="log-entry log-entry-${type} log-level-${level.toLowerCase()}" data-log-id="${item.id}">
+                ${getLogItemInnerHtml(item)}
+            </div>
+        `;
+    }).join('');
 
     dom.logOutputContainer.scrollTop = dom.logOutputContainer.scrollHeight;
 }
@@ -2311,6 +2361,11 @@ window.addEventListener('message', (event) => {
 
     if (type === 'debug_log' && payload && payload.text) {
         addDebugLogEntry(`[Interceptor] ${payload.text}`);
+        addLogEntry({
+            type: 'debug',
+            level: 'DEBUG',
+            text: `[Interceptor] ${payload.text}`
+        });
     }
 
     if (type === 'tweet_data' && payload && payload.tweets) {
@@ -2376,6 +2431,12 @@ window.addEventListener('message', (event) => {
             }, '*');
         }).catch((e) => {
             console.error('[Tweeker App] Failed to get tweets by content batch:', e);
+        });
+    }
+
+    if (type === 'save_last_url' && payload && typeof payload.url === 'string') {
+        invoke('save_last_url', { url: payload.url }).catch((e) => {
+            console.error('[Tweeker App] Failed to save last URL:', e);
         });
     }
 });
@@ -2497,6 +2558,43 @@ async function init() {
             pruneLogs();
         }
     } catch (e) {}
+
+    // Restore log level filters (default: all enabled except DEBUG)
+    try {
+        const savedLogFilters = localStorage.getItem('tweeker_log_filters');
+        if (savedLogFilters) {
+            const parsed = JSON.parse(savedLogFilters);
+            state.logFilters = {
+                INFO: typeof parsed.INFO === 'boolean' ? parsed.INFO : true,
+                WARN: typeof parsed.WARN === 'boolean' ? parsed.WARN : true,
+                ERROR: typeof parsed.ERROR === 'boolean' ? parsed.ERROR : true,
+                DEBUG: typeof parsed.DEBUG === 'boolean' ? parsed.DEBUG : false,
+            };
+        }
+    } catch (e) {}
+
+    if (dom.logFilterInfo) dom.logFilterInfo.checked = !!state.logFilters.INFO;
+    if (dom.logFilterWarn) dom.logFilterWarn.checked = !!state.logFilters.WARN;
+    if (dom.logFilterError) dom.logFilterError.checked = !!state.logFilters.ERROR;
+    if (dom.logFilterDebug) dom.logFilterDebug.checked = !!state.logFilters.DEBUG;
+
+    const handleLogFilterChange = () => {
+        state.logFilters = {
+            INFO: dom.logFilterInfo ? dom.logFilterInfo.checked : true,
+            WARN: dom.logFilterWarn ? dom.logFilterWarn.checked : true,
+            ERROR: dom.logFilterError ? dom.logFilterError.checked : true,
+            DEBUG: dom.logFilterDebug ? dom.logFilterDebug.checked : false,
+        };
+        try {
+            localStorage.setItem('tweeker_log_filters', JSON.stringify(state.logFilters));
+        } catch (e) {}
+        refreshLogsView();
+    };
+
+    if (dom.logFilterInfo) dom.logFilterInfo.addEventListener('change', handleLogFilterChange);
+    if (dom.logFilterWarn) dom.logFilterWarn.addEventListener('change', handleLogFilterChange);
+    if (dom.logFilterError) dom.logFilterError.addEventListener('change', handleLogFilterChange);
+    if (dom.logFilterDebug) dom.logFilterDebug.addEventListener('change', handleLogFilterChange);
 
     // Restore saved Debug Twitter setting
     const debugTwitterStartup = localStorage.getItem('tweeker_debug_twitter') === 'true';
