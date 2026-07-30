@@ -2352,6 +2352,32 @@ window.addEventListener('message', (event) => {
             console.error('[Tweeker App] Failed to get user counts batch:', e);
         });
     }
+
+    if (type === 'get_tweet_stats_batch' && payload && Array.isArray(payload.tweet_ids)) {
+        const tweetIds = payload.tweet_ids;
+        invoke('get_tweet_stats_batch', { tweetIds }).then((tweetsMap) => {
+            window.postMessage({
+                __tweeker: true,
+                type: 'tweet_stats_batch_response',
+                payload: { tweets: tweetsMap }
+            }, '*');
+        }).catch((e) => {
+            console.error('[Tweeker App] Failed to get tweet stats batch:', e);
+        });
+    }
+
+    if (type === 'get_tweets_by_content_batch' && payload && Array.isArray(payload.snippets)) {
+        const snippets = payload.snippets;
+        invoke('get_tweets_by_content_batch', { snippets }).then((tweetsMap) => {
+            window.postMessage({
+                __tweeker: true,
+                type: 'tweets_by_content_batch_response',
+                payload: { tweets: tweetsMap }
+            }, '*');
+        }).catch((e) => {
+            console.error('[Tweeker App] Failed to get tweets by content batch:', e);
+        });
+    }
 });
 
 // ── Tauri Event Listeners ──

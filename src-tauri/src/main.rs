@@ -40,6 +40,8 @@ fn main() {
             commands::get_db_path,
             commands::get_db_stats,
             commands::save_tweets,
+            commands::get_tweet_stats_batch,
+            commands::get_tweets_by_content_batch,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

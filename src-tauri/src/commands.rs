@@ -309,3 +309,95 @@ pub fn save_tweets(
     }
     Ok(count)
 }
+
+#[tauri::command]
+pub fn get_tweet_stats_batch(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    tweet_ids: Vec<String>,
+) -> std::collections::HashMap<String, Option<InterceptedTweet>> {
+    let mut result = std::collections::HashMap::new();
+    let state_tweets = state.tweets.lock().unwrap();
+    let mut missing_ids = Vec::new();
+
+    for id in &tweet_ids {
+        if let Some(tweet) = state_tweets.iter().find(|t| &t.tweet_id == id) {
+            result.insert(id.clone(), Some(tweet.clone()));
+        } else {
+            missing_ids.push(id.clone());
+        }
+    }
+    drop(state_tweets);
+
+    if !missing_ids.is_empty() {
+        if let Ok(conn) = storage::open_db(&app) {
+            if let Ok(db_tweets) = storage::get_tweets_by_ids(&conn, &missing_ids) {
+                for tweet in db_tweets {
+                    result.insert(tweet.tweet_id.clone(), Some(tweet));
+                }
+            }
+        }
+    }
+
+    for id in tweet_ids {
+        result.entry(id).or_insert(None);
+    }
+
+    result
+}
+
+#[tauri::command]
+pub fn get_tweets_by_content_batch(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    snippets: Vec<String>,
+) -> std::collections::HashMap<String, Option<InterceptedTweet>> {
+    let mut result = std::collections::HashMap::new();
+    let state_tweets = state.tweets.lock().unwrap();
+
+    for snippet in &snippets {
+        let clean_snippet = snippet.trim().to_lowercase();
+        if clean_snippet.is_empty() {
+            continue;
+        }
+
+        let found = state_tweets.iter().find(|t| {
+            t.content.to_lowercase().contains(&clean_snippet)
+        });
+
+        if let Some(tweet) = found {
+            result.insert(snippet.clone(), Some(tweet.clone()));
+        }
+    }
+    drop(state_tweets);
+
+    let missing_snippets: Vec<String> = snippets
+        .iter()
+        .filter(|s| !result.contains_key(*s))
+        .cloned()
+        .collect();
+
+    if !missing_snippets.is_empty() {
+        if let Ok(conn) = storage::open_db(&app) {
+            if let Ok(db_tweets) = storage::get_tweets_by_content_snippets(&conn, &missing_snippets) {
+                for snippet in &missing_snippets {
+                    let clean_snippet = snippet.trim().to_lowercase();
+                    let found = db_tweets.iter().find(|t| {
+                        t.content.to_lowercase().contains(&clean_snippet)
+                    });
+                    if let Some(tweet) = found {
+                        result.insert(snippet.clone(), Some(tweet.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    for snippet in snippets {
+        result.entry(snippet).or_insert(None);
+    }
+
+    result
+}
+
+

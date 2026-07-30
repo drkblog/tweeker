@@ -19,6 +19,32 @@
     window.__tweeker = window.__tweeker || {};
     window.__tweeker.userCache = window.__tweeker.userCache || {};
     window.__tweeker.pendingUserRequests = window.__tweeker.pendingUserRequests || new Set();
+    window.__tweeker.tweetCache = window.__tweeker.tweetCache || {};
+    window.__tweeker.tweetContentCache = window.__tweeker.tweetContentCache || {};
+    window.__tweeker.pendingTweetRequests = window.__tweeker.pendingTweetRequests || new Set();
+    window.__tweeker.pendingSnippetRequests = window.__tweeker.pendingSnippetRequests || new Set();
+
+    function normalizeTweetText(text) {
+        if (!text || typeof text !== 'string') return '';
+        return text
+            .replace(/https?:\/\/t\.co\/\w+/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    function cacheTweet(tweet) {
+        if (!tweet || !tweet.tweet_id) return;
+        window.__tweeker.tweetCache[tweet.tweet_id] = tweet;
+        if (tweet.content) {
+            const norm = normalizeTweetText(tweet.content);
+            if (norm && norm.length >= 8) {
+                window.__tweeker.tweetContentCache[norm] = tweet.tweet_id;
+                const key = norm.length > 40 ? norm.substring(0, 40) : norm;
+                window.__tweeker.tweetContentCache[key] = tweet.tweet_id;
+            }
+        }
+    }
 
     let debugTwitterEnabled = false;
     let relevantFollowersLimit = 2500;
@@ -62,6 +88,76 @@
 
         sendDebugLog(`Batch-querying database cache for ${handles.length} user(s)`);
         window.__tweeker.sendMessage('get_users_counts_batch', { handles: handles });
+    }
+
+    let tweetStatsBatchQueue = new Set();
+    let tweetStatsBatchTimer = null;
+
+    function requestTweetStats(tweetId) {
+        if (!tweetId) return;
+        if (window.__tweeker.tweetCache[tweetId]) return;
+        if (window.__tweeker.pendingTweetRequests.has(tweetId)) return;
+
+        window.__tweeker.pendingTweetRequests.add(tweetId);
+        tweetStatsBatchQueue.add(tweetId);
+
+        if (tweetStatsBatchQueue.size >= 50) {
+            flushTweetStatsBatch();
+        } else if (!tweetStatsBatchTimer) {
+            tweetStatsBatchTimer = setTimeout(flushTweetStatsBatch, 150);
+        }
+    }
+
+    function flushTweetStatsBatch() {
+        if (tweetStatsBatchTimer) {
+            clearTimeout(tweetStatsBatchTimer);
+            tweetStatsBatchTimer = null;
+        }
+
+        if (tweetStatsBatchQueue.size === 0) return;
+
+        const tweetIds = Array.from(tweetStatsBatchQueue);
+        tweetStatsBatchQueue.clear();
+
+        sendDebugLog(`Batch-querying database cache for ${tweetIds.length} tweet(s)`);
+        window.__tweeker.sendMessage('get_tweet_stats_batch', { tweet_ids: tweetIds });
+    }
+
+    let tweetSnippetBatchQueue = new Set();
+    let tweetSnippetBatchTimer = null;
+
+    function requestTweetContentSnippet(snippet) {
+        if (!snippet) return;
+        const norm = normalizeTweetText(snippet);
+        if (!norm || norm.length < 8) return;
+        const key = norm.length > 40 ? norm.substring(0, 40) : norm;
+
+        if (window.__tweeker.tweetContentCache[key]) return;
+        if (window.__tweeker.pendingSnippetRequests.has(key)) return;
+
+        window.__tweeker.pendingSnippetRequests.add(key);
+        tweetSnippetBatchQueue.add(key);
+
+        if (tweetSnippetBatchQueue.size >= 50) {
+            flushTweetSnippetBatch();
+        } else if (!tweetSnippetBatchTimer) {
+            tweetSnippetBatchTimer = setTimeout(flushTweetSnippetBatch, 150);
+        }
+    }
+
+    function flushTweetSnippetBatch() {
+        if (tweetSnippetBatchTimer) {
+            clearTimeout(tweetSnippetBatchTimer);
+            tweetSnippetBatchTimer = null;
+        }
+
+        if (tweetSnippetBatchQueue.size === 0) return;
+
+        const snippets = Array.from(tweetSnippetBatchQueue);
+        tweetSnippetBatchQueue.clear();
+
+        sendDebugLog(`Batch-querying database by content snippet for ${snippets.length} item(s)`);
+        window.__tweeker.sendMessage('get_tweets_by_content_batch', { snippets: snippets });
     }
 
     function sendDebugLog(text) {
@@ -425,8 +521,12 @@
                     try {
                         const tweets = parseApiResponse(data);
                         if (tweets.length > 0) {
+                            for (const t of tweets) {
+                                if (t && t.tweet_id) window.__tweeker.tweetCache[t.tweet_id] = t;
+                            }
                             window.__tweeker.sendTweets(tweets);
                             sendDebugLog(`Extracted ${tweets.length} tweet(s) from operation ${opName}`);
+                            updateNotificationTweetStats();
                         }
                     } catch (e) {
                         sendDebugLog(`Parse error for ${opName}: ${e.message}`);
@@ -487,8 +587,12 @@
                     sendDebugLog(`Parsed XHR JSON for operation: ${opName}`);
                     const tweets = parseApiResponse(data);
                     if (tweets.length > 0) {
+                        for (const t of tweets) {
+                            if (t && t.tweet_id) window.__tweeker.tweetCache[t.tweet_id] = t;
+                        }
                         window.__tweeker.sendTweets(tweets);
                         sendDebugLog(`Extracted ${tweets.length} tweet(s) from XHR operation ${opName}`);
+                        updateNotificationTweetStats();
                     }
 
                     try {
@@ -543,6 +647,8 @@
                     parseDOMTweet(node);
                 } else if (node.matches('[data-testid="UserCell"]')) {
                     parseDOMUserCell(node);
+                } else if (node.matches('[data-testid="notification"]')) {
+                    parseDOMNotification(node);
                 }
             }
             if (node.querySelectorAll) {
@@ -553,6 +659,10 @@
                 const userCells = node.querySelectorAll('[data-testid="UserCell"]');
                 for (const cell of userCells) {
                     parseDOMUserCell(cell);
+                }
+                const notifications = node.querySelectorAll('[data-testid="notification"]');
+                for (const notif of notifications) {
+                    parseDOMNotification(notif);
                 }
             }
         }
@@ -744,6 +854,59 @@
                     sendDebugLog(`Batch query returned stats for ${foundCount} user(s)`);
                     applyListFiltersToAllCells();
                     highlightAllAvatars();
+                }
+            }
+        }
+
+        if (event.data.type === 'tweet_stats_batch_response') {
+            const tweets = event.data.payload && event.data.payload.tweets;
+            if (tweets && typeof tweets === 'object') {
+                let foundCount = 0;
+                for (const [tweetId, tweetObj] of Object.entries(tweets)) {
+                    window.__tweeker.pendingTweetRequests.delete(tweetId);
+                    if (tweetObj) {
+                        foundCount++;
+                        cacheTweet(tweetObj);
+                    }
+                }
+                if (foundCount > 0) {
+                    sendDebugLog(`Batch query returned stats for ${foundCount} tweet(s)`);
+                    updateNotificationTweetStats();
+                }
+            }
+        }
+
+        if (event.data.type === 'tweets_by_content_batch_response') {
+            const tweetsMap = event.data.payload && event.data.payload.tweets;
+            if (tweetsMap && typeof tweetsMap === 'object') {
+                let foundCount = 0;
+                for (const [snippetKey, tweetObj] of Object.entries(tweetsMap)) {
+                    window.__tweeker.pendingSnippetRequests.delete(snippetKey);
+                    if (tweetObj && tweetObj.tweet_id) {
+                        foundCount++;
+                        cacheTweet(tweetObj);
+                    }
+                }
+                if (foundCount > 0) {
+                    sendDebugLog(`Content snippet batch query returned ${foundCount} tweet(s)`);
+                    updateNotificationTweetStats();
+                }
+            }
+        }
+
+        if (event.data.type === 'bulk_tweet_cache') {
+            const tweets = event.data.payload && event.data.payload.tweets;
+            if (tweets && typeof tweets === 'object') {
+                let count = 0;
+                for (const [tweetId, tweetObj] of Object.entries(tweets)) {
+                    if (tweetObj) {
+                        cacheTweet(tweetObj);
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    sendDebugLog(`Bulk-loaded ${count} tweets into cache`);
+                    updateNotificationTweetStats();
                 }
             }
         }
@@ -969,29 +1132,41 @@
      */
     function extractTweetFromResult(result) {
         try {
-            const legacy = result.legacy;
-            const core = result.core;
-            if (!legacy || !core) return null;
+            if (!result || typeof result !== 'object') return null;
 
-            const userResults = core.user_results?.result?.legacy;
-            if (!userResults) return null;
+            const tweetData = (result.__typename === 'TweetWithVisibilityResults' && result.tweet) ? result.tweet : result;
 
-            return {
-                tweet_id: result.rest_id || legacy.id_str || '',
-                author_handle: userResults.screen_name || '',
-                author_name: userResults.name || '',
-                content: legacy.full_text || '',
+            const legacy = tweetData.legacy || (tweetData.tweet && tweetData.tweet.legacy);
+            if (!legacy) return null;
+
+            const restId = tweetData.rest_id || legacy.id_str || (tweetData.tweet && tweetData.tweet.rest_id) || '';
+            if (!restId) return null;
+
+            const core = tweetData.core || (tweetData.tweet && tweetData.tweet.core);
+            const userResults = core?.user_results?.result?.legacy || core?.user_results?.result?.tweet?.legacy;
+
+            const authorHandle = userResults?.screen_name || legacy.screen_name || '';
+            const authorName = userResults?.name || legacy.name || authorHandle;
+
+            const viewsCount = tweetData.views?.count || (tweetData.tweet && tweetData.tweet.views?.count);
+
+            const tweetObj = {
+                tweet_id: String(restId),
+                author_handle: authorHandle,
+                author_name: authorName,
+                content: legacy.full_text || legacy.text || '',
                 timestamp: legacy.created_at
                     ? new Date(legacy.created_at).toISOString()
                     : new Date().toISOString(),
-                likes: legacy.favorite_count || 0,
-                retweets: legacy.retweet_count || 0,
-                replies: legacy.reply_count || 0,
-                views: result.views?.count
-                    ? parseInt(result.views.count, 10)
-                    : null,
+                likes: typeof legacy.favorite_count === 'number' ? legacy.favorite_count : 0,
+                retweets: typeof legacy.retweet_count === 'number' ? legacy.retweet_count : 0,
+                replies: typeof legacy.reply_count === 'number' ? legacy.reply_count : 0,
+                views: viewsCount !== null && viewsCount !== undefined ? parseInt(viewsCount, 10) : null,
                 captured_at: new Date().toISOString(),
             };
+
+            cacheTweet(tweetObj);
+            return tweetObj;
         } catch (e) {
             return null;
         }
@@ -1209,6 +1384,166 @@
         }
     }
 
+    function isAllNotificationsPage() {
+        const path = window.location.pathname.toLowerCase();
+        const isNotif = path.includes('/notifications');
+        const isMentions = path.includes('/mentions');
+        const isVerified = path.includes('/verified');
+        return isNotif && !isMentions && !isVerified;
+    }
+
+    function parseNotificationMessageEngagement(msgText) {
+        if (!msgText) return null;
+        let likes = null;
+        let retweets = null;
+
+        const likeMatch = msgText.match(/(?:and\s+(\d+)\s+others\s+liked|liked)\s+your/i);
+        if (likeMatch) {
+            likes = likeMatch[1] ? (parseInt(likeMatch[1], 10) + 1) : 1;
+        }
+
+        const retweetMatch = msgText.match(/(?:and\s+(\d+)\s+others\s+(?:reposted|retweeted)|(?:reposted|retweeted))\s+your/i);
+        if (retweetMatch) {
+            retweets = retweetMatch[1] ? (parseInt(retweetMatch[1], 10) + 1) : 1;
+        }
+
+        if (likes !== null || retweets !== null) {
+            return { likes, retweets, replies: null, views: null };
+        }
+        return null;
+    }
+
+    function injectNotificationTweetStats(articleEl, tweetStats, keyId) {
+        if (!articleEl) return null;
+
+        let statsEl = articleEl.querySelector('.tweeker-notification-tweet-stats');
+        if (!statsEl) {
+            statsEl = document.createElement('div');
+            statsEl.className = 'tweeker-notification-tweet-stats';
+
+            const textEl = articleEl.querySelector('#notification-tweet-text') ||
+                           articleEl.querySelector('[data-testid="tweetText"]') ||
+                           articleEl.querySelector('#notification-message-text');
+
+            if (textEl) {
+                const parent = textEl.parentNode;
+                if (textEl.nextSibling) {
+                    parent.insertBefore(statsEl, textEl.nextSibling);
+                } else {
+                    parent.appendChild(statsEl);
+                }
+            } else {
+                articleEl.appendChild(statsEl);
+            }
+        }
+
+        if (keyId) statsEl.dataset.tweetId = keyId;
+
+        const replies = tweetStats && tweetStats.replies !== undefined && tweetStats.replies !== null ? formatCount(tweetStats.replies) : '?';
+        const retweets = tweetStats && tweetStats.retweets !== undefined && tweetStats.retweets !== null ? formatCount(tweetStats.retweets) : '?';
+        const likes = tweetStats && tweetStats.likes !== undefined && tweetStats.likes !== null ? formatCount(tweetStats.likes) : '?';
+        const views = tweetStats && tweetStats.views !== undefined && tweetStats.views !== null ? formatCount(tweetStats.views) : '—';
+
+        statsEl.innerHTML = `
+            <div class="tweeker-notif-stat-item stat-replies" title="Replies">💬 <span>${replies}</span></div>
+            <div class="tweeker-notif-stat-item stat-retweets" title="Retweets">🔁 <span>${retweets}</span></div>
+            <div class="tweeker-notif-stat-item stat-likes" title="Likes">❤️ <span>${likes}</span></div>
+            <div class="tweeker-notif-stat-item stat-views" title="Views">👁 <span>${views}</span></div>
+        `;
+        return statsEl;
+    }
+
+    function parseDOMNotification(notifEl) {
+        try {
+            if (!notifEl) return;
+            if (!isAllNotificationsPage()) return;
+
+            let foundTweetId = null;
+            const statusLinks = notifEl.querySelectorAll('a[href*="/status/"]');
+            if (statusLinks && statusLinks.length > 0) {
+                for (const sLink of statusLinks) {
+                    const href = sLink.getAttribute('href') || '';
+                    const match = href.match(/\/status\/(\d+)/);
+                    if (match && match[1]) {
+                        foundTweetId = match[1];
+                        break;
+                    }
+                }
+            }
+
+            let stats = null;
+            if (foundTweetId && window.__tweeker.tweetCache[foundTweetId]) {
+                stats = window.__tweeker.tweetCache[foundTweetId];
+            }
+
+            const msgTextEl = notifEl.querySelector('#notification-message-text');
+            const msgText = msgTextEl ? msgTextEl.textContent : '';
+
+            const tweetTextEl = notifEl.querySelector('#notification-tweet-text') || notifEl.querySelector('[data-testid="tweetText"]');
+            const text = tweetTextEl ? tweetTextEl.textContent : '';
+
+            if (!stats && text) {
+                const norm = normalizeTweetText(text);
+                const key = norm.length > 40 ? norm.substring(0, 40) : norm;
+                const matchedId = window.__tweeker.tweetContentCache[key] || window.__tweeker.tweetContentCache[norm];
+                if (matchedId && window.__tweeker.tweetCache[matchedId]) {
+                    foundTweetId = matchedId;
+                    stats = window.__tweeker.tweetCache[matchedId];
+                } else if (norm && norm.length >= 8) {
+                    requestTweetContentSnippet(key);
+                }
+            }
+
+            if (!foundTweetId && statusLinks && statusLinks.length > 0) {
+                for (const sLink of statusLinks) {
+                    const href = sLink.getAttribute('href') || '';
+                    const match = href.match(/\/status\/(\d+)/);
+                    if (match && match[1]) {
+                        requestTweetStats(match[1]);
+                    }
+                }
+            }
+
+            if (!stats && msgText) {
+                stats = parseNotificationMessageEngagement(msgText);
+            }
+
+            if (!stats && (text || msgText)) {
+                stats = { replies: null, retweets: null, likes: null, views: null };
+            }
+
+            if (stats) {
+                notifEl.dataset.tweekerNotifStatsParsed = 'true';
+                injectNotificationTweetStats(notifEl, stats, foundTweetId);
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Error parsing notification:', e);
+        }
+    }
+
+    function updateNotificationTweetStats() {
+        try {
+            if (!isAllNotificationsPage()) {
+                const existingStats = document.querySelectorAll('.tweeker-notification-tweet-stats');
+                for (const el of existingStats) el.remove();
+                return;
+            }
+
+            const notifElements = document.querySelectorAll('article[data-testid="notification"], [data-testid="notification"], #notification-message-text, #notification-tweet-text');
+            const processedContainers = new Set();
+
+            for (const el of notifElements) {
+                const container = el.closest('[data-testid="notification"]') || el.closest('.r-136ojw6') || el.closest('article') || el;
+                if (container && !processedContainers.has(container)) {
+                    processedContainers.add(container);
+                    parseDOMNotification(container);
+                }
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Error updating notification tweet stats:', e);
+        }
+    }
+
     /**
      * Parse a tweet directly from the DOM when the API interceptor misses it.
      * This is a fallback and less reliable than API interception.
@@ -1316,6 +1651,10 @@
                 const userCells = timeline.querySelectorAll('[data-testid="UserCell"]:not([data-tweeker-parsed="true"])');
                 for (const cell of userCells) {
                     parseDOMUserCell(cell);
+                }
+                const notifications = timeline.querySelectorAll('article[data-testid="notification"]');
+                for (const notif of notifications) {
+                    parseDOMNotification(notif);
                 }
             }
             highlightAllAvatars();

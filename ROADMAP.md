@@ -10,7 +10,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **B** | IPC Batching for Bulk Scrolling (`get_users_counts_batch`) | **Completed** | Antigravity | 2026-07-30 |
 | **C** | List Page Highlighting & Filtering Controls | **Completed** | Antigravity | 2026-07-29 |
 | **D** | Lazy API Fetching for Uncached Profiles | **Pending** | - | - |
-| **E** | Tweet Stats on Notifications & Mentions Screen | **Pending** | - | - |
+| **E** | Tweet Stats on Notifications Screen ("All" Tab Only) | **Completed** | Antigravity | 2026-07-30 |
 
 ---
 
@@ -39,8 +39,8 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 - **Description**: Currently, if a user card displays but has never been seen in a timeline tweet or network payload, the database has no counts, and the widget displays `?` until X.com happens to fetch that user data. We can implement a lazy, rate-limited request using the intercepted credentials to query X.com's backend for missing profiles automatically when they are displayed on screen.
 - **Benefits**: Guarantees that stats are eventually loaded and shown for *every* user on the screen, even if the app was just launched or the user hasn't tweeted recently.
 
-### [Feature E] Tweet Stats on Notifications & Mentions Screen
-- **Description**: When the user is browsing X.com's `/notifications` or `/notifications/mentions` pages, inject a compact tweet-engagement stats bar (replies, retweets, likes, views) below each notification item that references a tweet. This mirrors the existing `tweeker-tweet-user-stats` user widget pattern but shows *tweet-level* engagement data instead of *user-level* follower/following data.
+### [Feature E] Tweet Stats on Notifications Screen ("All" Tab Only)
+- **Description**: When the user is browsing X.com's `/notifications` ("All" tab) page, inject a compact tweet-engagement stats bar (replies, retweets, likes, views) below each notification item that references a tweet. This mirrors the existing `tweeker-tweet-user-stats` user widget pattern but shows *tweet-level* engagement data instead of *user-level* follower/following data.
 
 - **Data Sources**:
   - **Primary (API interception)**: The existing `isTimelineEndpoint()` filter in `interceptor.js` (line ~907) already matches `/graphql/` requests, which includes the `Notifications` GraphQL endpoint. The `extractTweetFromResult()` function (line ~970) already extracts `likes`, `retweets`, `replies`, and `views` from the `legacy` and `views` fields of tweet result objects. The intercepted tweet data is sent to the Rust backend via `sendTweets()` and stored in `storage.rs` (SQLite `tweets` table).

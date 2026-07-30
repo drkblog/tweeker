@@ -1490,5 +1490,45 @@
     color: #1d9bf0 !important;
 }
 
+/* ── Injected Notification Tweet Stats Bar (Everywhere) ── */
+.tweeker-notification-tweet-stats {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+    color: #71767b !important;
+    margin-top: 6px !important;
+    margin-bottom: 4px !important;
+    padding: 4px 10px !important;
+    background: hsla(220, 20%, 8%, 0.7) !important;
+    border: 1px solid hsla(220, 15%, 30%, 0.4) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-radius: 8px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.tweeker-notification-tweet-stats .tweeker-notif-stat-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    font-weight: 500 !important;
+}
+
+.tweeker-notification-tweet-stats .tweeker-notif-stat-item span {
+    font-weight: 600 !important;
+}
+
+.tweeker-notification-tweet-stats .stat-replies span { color: #1d9bf0 !important; }
+.tweeker-notification-tweet-stats .stat-retweets span { color: #00ba7c !important; }
+.tweeker-notification-tweet-stats .stat-likes span { color: #f91880 !important; }
+.tweeker-notification-tweet-stats .stat-views span { color: #71767b !important; }
+
+
 
 
