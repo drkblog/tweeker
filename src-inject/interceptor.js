@@ -269,13 +269,15 @@
 
         if (isRelevant) {
             const color = relevantHighlightColor;
-            avatarContainer.style.outline = `3px solid ${color}`;
-            avatarContainer.style.outlineOffset = '-2px';
+            const glowColor = hexToRgba(color, 0.5);
+            avatarContainer.style.outline = `3.5px solid ${color}`;
+            avatarContainer.style.outlineOffset = '0px';
             avatarContainer.style.borderRadius = '50%';
-            avatarContainer.style.boxShadow = 'none';
+            avatarContainer.style.boxShadow = `0 0 8px ${glowColor}`;
             avatarContainer.title = `@${handle}: ${stats.followers.toLocaleString()} followers (Relevant User)`;
         } else {
             avatarContainer.style.outline = 'none';
+            avatarContainer.style.outlineOffset = '0px';
             avatarContainer.style.boxShadow = 'none';
             avatarContainer.title = `@${handle}: ${(stats.followers || 0).toLocaleString()} followers`;
         }
