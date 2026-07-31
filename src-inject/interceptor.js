@@ -11,6 +11,14 @@
 (function() {
     'use strict';
 
+    const host = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+    const isXDomain = host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com');
+
+    if (!isXDomain) {
+        console.log('[Tweeker Interceptor] Non-X.com domain detected (' + host + ') — all network interception, DOM observer, and stats injection are disabled.');
+        return;
+    }
+
     let isDecoupled = false;
     try {
         isDecoupled = localStorage.getItem('tweeker_decouple_mode') === 'true';

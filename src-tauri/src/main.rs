@@ -172,14 +172,8 @@ fn main() {
             .inner_size(1280.0, 900.0)
             .initialization_script(&injection_script)
             .on_navigation(|url| {
-                let host = url.host_str().unwrap_or("");
-                host == "x.com"
-                    || host.ends_with(".x.com")
-                    || host == "twitter.com"
-                    || host.ends_with(".twitter.com")
-                    || host.ends_with(".twimg.com")
-                    || host == "api.x.com"
-                    || host == "api.twitter.com"
+                let scheme = url.scheme();
+                scheme == "http" || scheme == "https"
             })
             .build()?;
 

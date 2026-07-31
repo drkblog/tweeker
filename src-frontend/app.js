@@ -491,6 +491,17 @@ async function refreshConnectionStatus() {
 }
 
 function renderConnectionStatus(status) {
+    const host = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+    const isXDomain = host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com');
+
+    if (!isXDomain) {
+        dom.statusDot.className = 'status-dot connected';
+        dom.statusDot.style.background = '#64748b';
+        dom.statusText.textContent = 'External site';
+        if (dom.decoupleIndicator) dom.decoupleIndicator.style.display = 'none';
+        return;
+    }
+
     if (state.decoupleMode) {
         dom.statusDot.className = 'status-dot';
         dom.statusDot.style.background = '#ff9800';
@@ -1492,16 +1503,19 @@ function handleNavigateUrl() {
 
     let targetUrl = input;
 
-    // Handle relative path (e.g. /home or /notifications or /elonmusk)
+    // Handle relative path (e.g. /home or /notifications)
     if (input.startsWith('/')) {
         targetUrl = 'https://x.com' + input;
-    } else if (!/^https?:\/\//i.test(input)) {
-        // Handle x.com/... or twitter.com/... or raw username
-        if (input.startsWith('x.com') || input.startsWith('twitter.com')) {
-            targetUrl = 'https://' + input;
-        } else {
-            targetUrl = 'https://x.com/' + input.replace(/^@/, '');
-        }
+    } else if (input.startsWith('@')) {
+        targetUrl = 'https://x.com/' + input.substring(1);
+    } else if (/^https?:\/\//i.test(input)) {
+        targetUrl = input;
+    } else if (input.includes('.')) {
+        // Any domain or URL containing a dot (e.g. github.com, google.com, news.ycombinator.com)
+        targetUrl = 'https://' + input;
+    } else {
+        // Fallback for raw X.com username or path (e.g. elonmusk)
+        targetUrl = 'https://x.com/' + input;
     }
 
     addLogEntry({
