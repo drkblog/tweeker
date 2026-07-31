@@ -11,6 +11,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **C** | List Page Highlighting & Filtering Controls | **Completed** | Antigravity | 2026-07-29 |
 | **D** | Lazy API Fetching for Uncached Profiles | **Pending** | - | - |
 | **E** | Tweet Stats on Notifications Screen ("All" Tab Only) | **Completed** | Antigravity | 2026-07-30 |
+| **F** | Decoupled Mode (No Page Modifications) | **Completed** | Antigravity | 2026-07-31 |
 
 ---
 
@@ -78,3 +79,9 @@ This document tracks upcoming power-user features and improvements to the Tweeke
   - `src-tauri/src/main.rs` — Optional: Register new command in `invoke_handler!`.
 
 - **Benefits**: Gives power users instant visibility into how their tweets are performing directly from the notifications screen, without needing to click into each individual tweet. Aligns with Tweeker's philosophy of surfacing hidden metadata in-context.
+
+### [Feature F] Decoupled Mode (No Page Modifications)
+- **Description**: Add a toggle setting to run X.com without page modifications, network interceptors, DOM observers, or avatar stats injections, while preserving the overlay drawer for read-only access to SQLite database/memory stats and app settings.
+- **Access Points**: Settable via the Tweeker overlay **Settings** tab (`#decouple-mode-toggle`) or directly from the Mac OS application menu (**Tweeker > Decoupled Mode (No Page Modifications)**).
+- **Benefits**: Allows offline testing, DOM comparison, and non-invasive browsing without modifying X.com's webview page script context.
+

@@ -11,6 +11,16 @@
 (function() {
     'use strict';
 
+    let isDecoupled = false;
+    try {
+        isDecoupled = localStorage.getItem('tweeker_decouple_mode') === 'true';
+    } catch (e) {}
+
+    if (isDecoupled) {
+        console.log('[Tweeker Interceptor] Decoupled mode active — X.com page modifications, fetch/XHR patching, DOM observer, and auto-read pill clicks are disabled.');
+        return;
+    }
+
     // Token & QueryId storage for direct X.com API operations
     let capturedAuthToken = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAn%2Bx1%2Bq%2B4t7D43W5a%2F4%2B15DII5w%3D930W2AuSilKhBmAhx526gWgjTZRBBBmoP9GczOfLhWY';
     let capturedCsrfToken = '';

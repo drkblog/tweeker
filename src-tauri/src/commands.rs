@@ -413,5 +413,26 @@ pub fn save_last_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── Decoupled Mode commands ──
+
+#[tauri::command]
+pub fn get_decouple_mode(app: tauri::AppHandle) -> bool {
+    if let Ok(conn) = storage::open_db(&app) {
+        if let Ok(Some(val)) = storage::get_setting(&conn, "decouple_x_ui") {
+            return val == "true";
+        }
+    }
+    false
+}
+
+#[tauri::command]
+pub fn set_decouple_mode(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    let conn = storage::open_db(&app)?;
+    let val = if enabled { "true" } else { "false" };
+    storage::set_setting(&conn, "decouple_x_ui", val)?;
+    Ok(enabled)
+}
+
+
 
 

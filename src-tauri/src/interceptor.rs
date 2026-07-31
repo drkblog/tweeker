@@ -47,6 +47,8 @@ pub fn build_injection_script(app: &tauri::AppHandle) -> String {
     window.__TWEEKER_DB_PATH__ = `{db_path}`;
     window.__TWEEKER_DB_STATS__ = {db_stats_json};
 
+
+
     // ── Inject CSS ──
     function injectStyles() {{
         if (document.getElementById('tweeker-styles')) return;

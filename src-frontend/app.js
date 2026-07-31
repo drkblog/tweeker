@@ -77,6 +77,7 @@ const state = {
     listVerifiedColor: '#1d9bf0',
     listHighlightMega: false,
     listMegaColor: '#a855f7',
+    decoupleMode: false,
 };
 
 // ── DOM Elements ──
@@ -101,6 +102,7 @@ const dom = {
     // Status & Auto read
     statusDot: document.getElementById('status-dot'),
     statusText: document.getElementById('status-text'),
+    decoupleIndicator: document.getElementById('decouple-indicator'),
     autoReadToggle: document.getElementById('auto-read-toggle'),
     autoReadStartupToggle: document.getElementById('auto-read-startup-toggle'),
 
@@ -489,6 +491,16 @@ async function refreshConnectionStatus() {
 }
 
 function renderConnectionStatus(status) {
+    if (state.decoupleMode) {
+        dom.statusDot.className = 'status-dot';
+        dom.statusDot.style.background = '#ff9800';
+        dom.statusText.textContent = 'Decoupled';
+        if (dom.decoupleIndicator) dom.decoupleIndicator.style.display = 'inline-block';
+        return;
+    }
+    dom.statusDot.style.background = '';
+    if (dom.decoupleIndicator) dom.decoupleIndicator.style.display = 'none';
+
     if (status.interceptor_active) {
         dom.statusDot.className = 'status-dot connected';
         dom.statusText.textContent = 'Connected';
@@ -2608,6 +2620,24 @@ async function init() {
     if (dom.logFilterWarn) dom.logFilterWarn.addEventListener('change', handleLogFilterChange);
     if (dom.logFilterError) dom.logFilterError.addEventListener('change', handleLogFilterChange);
     if (dom.logFilterDebug) dom.logFilterDebug.addEventListener('change', handleLogFilterChange);
+
+    // Check Decoupled Mode setting
+    try {
+        const isDecoupled = await invoke('get_decouple_mode');
+        state.decoupleMode = !!isDecoupled;
+        try {
+            localStorage.setItem('tweeker_decouple_mode', isDecoupled ? 'true' : 'false');
+        } catch (e) {}
+
+        if (dom.decoupleIndicator) {
+            dom.decoupleIndicator.style.display = state.decoupleMode ? 'inline-block' : 'none';
+        }
+    } catch (e) {
+        try {
+            state.decoupleMode = localStorage.getItem('tweeker_decouple_mode') === 'true';
+            if (dom.decoupleIndicator) dom.decoupleIndicator.style.display = state.decoupleMode ? 'inline-block' : 'none';
+        } catch (err) {}
+    }
 
     // Restore saved Debug Twitter setting
     const debugTwitterStartup = localStorage.getItem('tweeker_debug_twitter') === 'true';

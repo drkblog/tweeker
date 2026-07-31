@@ -43,9 +43,70 @@ fn main() {
             commands::get_tweet_stats_batch,
             commands::get_tweets_by_content_batch,
             commands::save_last_url,
+            commands::get_decouple_mode,
+            commands::set_decouple_mode,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+
+            // ── Native OS Menu setup ──
+            if let Ok(conn) = storage::open_db(&handle) {
+                let is_decoupled = storage::get_setting(&conn, "decouple_x_ui")
+                    .ok()
+                    .flatten()
+                    .map(|v| v == "true")
+                    .unwrap_or(false);
+
+                if let Ok(decouple_item) = tauri::menu::CheckMenuItemBuilder::new("Decoupled Mode (No Page Modifications)")
+                    .id("toggle_decoupled_mode")
+                    .checked(is_decoupled)
+                    .build(app)
+                {
+                    if let Ok(app_menu) = tauri::menu::SubmenuBuilder::new(app, "Tweeker")
+                        .about(None)
+                        .separator()
+                        .item(&decouple_item)
+                        .separator()
+                        .services()
+                        .separator()
+                        .hide()
+                        .hide_others()
+                        .show_all()
+                        .separator()
+                        .quit()
+                        .build()
+                    {
+                        if let Ok(menu) = tauri::menu::MenuBuilder::new(app).items(&[&app_menu]).build() {
+                            let _ = app.set_menu(menu);
+                        }
+                    }
+
+                    app.on_menu_event(move |app_handle, event| {
+                        if event.id() == "toggle_decoupled_mode" {
+                            if let Ok(conn) = storage::open_db(app_handle) {
+                                let cur = storage::get_setting(&conn, "decouple_x_ui")
+                                    .ok()
+                                    .flatten()
+                                    .map(|v| v == "true")
+                                    .unwrap_or(false);
+                                let new_val = !cur;
+                                if storage::set_setting(&conn, "decouple_x_ui", if new_val { "true" } else { "false" }).is_ok() {
+                                    let _ = decouple_item.set_checked(new_val);
+                                    println!("[Tweeker] Decoupled mode set to {} via OS menu, reloading window...", new_val);
+                                    if let Some(window) = app_handle.get_webview_window("main") {
+                                        let script = format!(
+                                            "try {{ localStorage.setItem('tweeker_decouple_mode', '{}'); }} catch(e){{}} window.__TWEEKER_DECOUPLED__ = {}; window.location.reload();",
+                                            if new_val { "true" } else { "false" },
+                                            new_val
+                                        );
+                                        let _ = window.eval(&script);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
 
             let mut start_url = "https://x.com".to_string();
 
