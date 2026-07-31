@@ -144,6 +144,7 @@ const dom = {
     logCountText: document.getElementById('log-count-text'),
     clearLogsBtn: document.getElementById('clear-logs-btn'),
     logOutputContainer: document.getElementById('log-output-container'),
+    logProgressBarFill: document.getElementById('log-progress-bar-fill'),
     logFilterInfo: document.getElementById('log-filter-info'),
     logFilterWarn: document.getElementById('log-filter-warn'),
     logFilterError: document.getElementById('log-filter-error'),
@@ -154,6 +155,7 @@ const dom = {
     debugCountText: document.getElementById('debug-count-text'),
     clearDebugBtn: document.getElementById('clear-debug-btn'),
     debugOutputContainer: document.getElementById('debug-output-container'),
+    debugProgressBarFill: document.getElementById('debug-progress-bar-fill'),
     debugTwitterToggle: document.getElementById('debug-twitter-toggle'),
     maxDebugLinesInput: document.getElementById('max-debug-lines-input'),
 
@@ -780,9 +782,15 @@ function escapeHtml(str) {
 
 // ── Log Management & Rendering ──
 
-function updateLogCountText() {
+function updateLogCountText(visibleCount) {
     if (dom.logCountText) {
-        dom.logCountText.textContent = `${state.logs.length} / ${state.maxLogLines} lines`;
+        const count = visibleCount !== undefined ? visibleCount : (state.logs ? state.logs.length : 0);
+        dom.logCountText.textContent = `${count} / ${state.maxLogLines} lines`;
+    }
+    if (dom.logProgressBarFill) {
+        const totalInMemory = state.logs ? state.logs.length : 0;
+        const pct = Math.min(100, Math.max(0, Math.round((totalInMemory / state.maxLogLines) * 100)));
+        dom.logProgressBarFill.style.width = `${pct}%`;
     }
 }
 
@@ -1085,6 +1093,11 @@ function updateDebugCountText() {
     if (dom.debugCountText) {
         const count = state.debugLogs ? state.debugLogs.length : 0;
         dom.debugCountText.textContent = `${count} / ${state.maxDebugLines} lines`;
+    }
+    if (dom.debugProgressBarFill) {
+        const totalInMemory = state.debugLogs ? state.debugLogs.length : 0;
+        const pct = Math.min(100, Math.max(0, Math.round((totalInMemory / state.maxDebugLines) * 100)));
+        dom.debugProgressBarFill.style.width = `${pct}%`;
     }
 }
 

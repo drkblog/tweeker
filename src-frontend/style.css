@@ -1229,6 +1229,24 @@
     border-radius: 3px !important;
 }
 
+#tweeker-overlay-container .log-progress-bar-container {
+    width: 100% !important;
+    height: 4px !important;
+    background: hsla(220, 20%, 15%, 0.6) !important;
+    border-radius: 2px !important;
+    margin-top: 6px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--tw-border) !important;
+}
+
+#tweeker-overlay-container .log-progress-bar-fill {
+    height: 100% !important;
+    background: linear-gradient(90deg, var(--tw-accent), #38bdf8) !important;
+    border-radius: 2px !important;
+    transition: width 200ms ease !important;
+    box-shadow: 0 0 6px var(--tw-accent) !important;
+}
+
 #tweeker-overlay-container .log-empty-state {
     padding: 40px 16px !important;
 }
