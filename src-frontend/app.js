@@ -2052,7 +2052,7 @@ function processIncomingTweets(tweets) {
         checkAlarmsForTweet(tweet);
     }
 
-    state.stats.unique_authors = window._tweeker_author_map.size;
+    state.stats.unique_authors = Math.max(state.stats.unique_authors || 0, window._tweeker_author_map.size);
 
     const top = Array.from(window._tweeker_author_map.entries())
         .map(([handle, info]) => ({ handle, name: info.name, count: info.count }))
