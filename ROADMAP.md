@@ -1,6 +1,6 @@
 # Tweeker Feature Roadmap
 
-This document tracks upcoming power-user features and improvements to the Tweeker desktop client. Agents picking up a task from this roadmap must update its status in this file.
+This document tracks upcoming power-user features and improvements to the Tweeker desktop client. Agents picking up a task from this roadmap MUST update its status in this file and strictly adhere to the Anti-Abuse, Rate-Limiting & Human Simulation Policy defined in [AGENTS.md](file:///Users/drkbugs/repos/tweeker/AGENTS.md).
 
 ## Features & Implementation Status
 

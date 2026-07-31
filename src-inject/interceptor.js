@@ -749,6 +749,9 @@
 
     let autoReadEnabled = false;
     let autoReadIntervalTimer = null;
+    let lastAutoReadClickTime = 0;
+    let autoReadPendingClickTimer = null;
+    const MIN_AUTO_READ_COOLDOWN_MS = 5000; // Minimum 5 seconds between auto-clicks
 
     function isUserTyping() {
         const active = document.activeElement;
@@ -763,6 +766,8 @@
         if (!autoReadEnabled) return;
         // Never interfere while the user is actively typing a tweet, reply, or form input
         if (isUserTyping()) return;
+        // Never trigger clicks when the page is hidden or blurred
+        if (document.hidden) return;
 
         try {
             // 1. Search strictly for X.com new tweets pill button
@@ -786,8 +791,25 @@
                     pillBtn.closest('#tweeker-overlay-container')
                 );
                 if (!isComposerBtn) {
-                    console.log('[Tweeker Interceptor] Auto read: clicking new tweets pill');
-                    pillBtn.click();
+                    const now = Date.now();
+                    // Anti-abuse guardrail: enforce minimum cooldown between clicks (min 5s)
+                    if (now - lastAutoReadClickTime >= MIN_AUTO_READ_COOLDOWN_MS && !autoReadPendingClickTimer) {
+                        // Human reaction jitter (800ms - 2200ms delay) to mimic natural human reading/notice time
+                        const humanJitterMs = Math.floor(800 + Math.random() * 1400);
+                        sendDebugLog(`[Guardrails] Auto-read pill detected. Scheduling human-simulated click in ${humanJitterMs}ms...`);
+
+                        autoReadPendingClickTimer = setTimeout(function() {
+                            autoReadPendingClickTimer = null;
+                            if (!autoReadEnabled || isUserTyping() || document.hidden) return;
+                            
+                            // Re-verify pill button is still present in DOM before clicking
+                            if (document.body.contains(pillBtn)) {
+                                lastAutoReadClickTime = Date.now();
+                                sendDebugLog('[Guardrails] Auto-read: executing human-simulated click');
+                                pillBtn.click();
+                            }
+                        }, humanJitterMs);
+                    }
                 }
             }
 
@@ -977,11 +999,30 @@
         }
     });
 
+    let lastPostTweetTime = 0;
+    const MIN_POST_TWEET_COOLDOWN_MS = 15000; // Anti-abuse: minimum 15s between automated posts
+
     /**
      * Post a tweet directly using X.com's native CreateTweet GraphQL endpoint.
      */
     async function postTweetViaApi(content) {
         if (!content) return { success: false, error: 'Empty content' };
+
+        // Anti-abuse guardrail: enforce minimum cooldown between consecutive posts
+        const now = Date.now();
+        const elapsed = now - lastPostTweetTime;
+        if (lastPostTweetTime > 0 && elapsed < MIN_POST_TWEET_COOLDOWN_MS) {
+            const waitTime = MIN_POST_TWEET_COOLDOWN_MS - elapsed;
+            sendDebugLog(`[Guardrails] Post rate limit active. Delaying automated post by ${Math.ceil(waitTime / 1000)}s...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        // Anti-abuse guardrail: randomized human typing/submission delay jitter (1.5s - 3.5s)
+        const postJitterMs = Math.floor(1500 + Math.random() * 2000);
+        sendDebugLog(`[Guardrails] Adding ${postJitterMs}ms human submission jitter before posting...`);
+        await new Promise(resolve => setTimeout(resolve, postJitterMs));
+
+        lastPostTweetTime = Date.now();
 
         // Ensure CSRF token is available
         let csrf = capturedCsrfToken;

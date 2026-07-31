@@ -70,6 +70,22 @@ src-frontend/         # Local control panel overlay UI & styling
 - Navigation in the X.com webview is locked to `x.com`, `twitter.com`, and related CDN/API domains via `on_navigation`.
 - Never expose sensitive authentication data or cookies.
 
+## Anti-Abuse, Rate-Limiting & Human Simulation Policy
+
+Tweeker wraps X.com's web interface to provide power-user capabilities while strictly prioritizing account safety and preventing anti-automation triggers on X.com servers. All developers and AI agents MUST adhere to these guidelines:
+
+1. **Passive Interception First**:
+   - Prefer passive interception of existing network traffic and DOM elements over making active automated API requests.
+2. **Human Simulation & Randomized Jitter**:
+   - Any automated interaction with X.com (such as Auto-read timeline pill clicks or scheduled tweet execution) MUST incorporate randomized delay jitter (e.g., 800ms–2500ms) rather than executing instantly at fixed intervals or exact sub-second timestamps.
+3. **Action Rate-Limiting & Cooldowns**:
+   - **Auto-read Pill Clicks**: Throttled to a minimum cooldown interval (at least 5.0 seconds between clicks).
+   - **Automated / Scheduled Tweets**: Enforce a minimum cooldown interval (at least 15.0 seconds between posts) to prevent rapid multi-tweet bursts.
+4. **User Preemption (Non-Interference)**:
+   - Automated actions MUST immediately yield and cancel if the user is actively typing in a form input, composing a post, scrolling, or if the window is hidden/blurred.
+5. **No Endpoint Hammering**:
+   - Never issue automated API requests in tight loops. All DOM MutationObservers and background state checks MUST be debounced (minimum 300ms–500ms).
+
 ## Build & Verification Commands
 - Frontend & Desktop Dev: `cargo tauri dev`
 - Rust Typecheck / Lint: `cd src-tauri && cargo check`
