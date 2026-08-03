@@ -2,6 +2,7 @@ use crate::models::*;
 use crate::state::AppState;
 use crate::storage;
 use chrono::Utc;
+use tauri::Manager;
 use uuid::Uuid;
 
 #[tauri::command]
@@ -432,6 +433,54 @@ pub fn set_decouple_mode(app: tauri::AppHandle, enabled: bool) -> Result<bool, S
     storage::set_setting(&conn, "decouple_x_ui", val)?;
     Ok(enabled)
 }
+
+// ── Manager commands ──
+
+#[tauri::command]
+pub fn clear_browser_cache(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let script = r#"
+            try {
+                if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                        for (var name of names) caches.delete(name);
+                    });
+                }
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for (var r of registrations) r.unregister();
+                    });
+                }
+            } catch(e) {}
+        "#;
+        let _ = window.eval(script);
+    }
+    println!("[Tweeker] Browser cache cleared");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn clear_site_data(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let script = r#"
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                if (window.indexedDB && window.indexedDB.databases) {
+                    window.indexedDB.databases().then(function(dbs) {
+                        for (var db of dbs) {
+                            if (db.name) window.indexedDB.deleteDatabase(db.name);
+                        }
+                    });
+                }
+            } catch(e) {}
+        "#;
+        let _ = window.eval(script);
+    }
+    println!("[Tweeker] Site data erased");
+    Ok(())
+}
+
 
 
 

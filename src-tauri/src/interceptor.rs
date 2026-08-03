@@ -40,6 +40,11 @@ pub fn build_injection_script(app: &tauri::AppHandle) -> String {
 (function() {{
     'use strict';
 
+    // Only run injection on X/Twitter domains
+    const host = window.location.hostname;
+    const isXDomain = host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com');
+    if (!isXDomain) return;
+
     // Prevent double-injection
     if (window.__tweeker_injected) return;
     window.__tweeker_injected = true;

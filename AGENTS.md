@@ -52,13 +52,14 @@ src-frontend/         # Local control panel overlay UI & styling
 - Header includes a **Copy URL button** (`#copy-url-btn`) that copies `window.location.href` to clipboard with a visual feedback toast (`#copy-url-toast`).
 - The status bar contains an **Auto read toggle** (`#auto-read-toggle`), off by default. A startup setting in Settings ("Auto read on app start", stored in `localStorage` as `tweeker_autoread_on_start`) automatically activates Auto read when the app opens.
 - When **Auto read** is enabled, `interceptor.js` automatically clicks X.com floating "New Tweets" pill buttons as they appear and processes all incoming timeline messages immediately.
+- The **Manager tab** (`data-tab="manager"`, `#content-manager`) positioned after Settings houses application management actions, including **Clean cache** (`#clean-cache-btn`), **Delete site data** (`#delete-site-data-btn`, requiring confirmation modal `#tweeker-modal-overlay`), and the **Database & Diagnostics** section (`#settings-db-path`, `#dump-db-stats-btn`).
 
 ### Backend (Rust / Tauri v2)
 - Retain proper error handling (`Result<T, String>`) for all `#[tauri::command]` handlers.
 - Background async tasks started in `setup()` **MUST use `tauri::async_runtime::spawn`**, NEVER direct `tokio::spawn` (which causes Tokio reactor panics on the GUI thread).
 - Use `AppState` in `state.rs` as the single shared state managed by Tauri.
 - All database operations go through `storage.rs`. Do not use raw SQL in command handlers.
-- **Database Statistics & Persistence Guidelines**: On startup, `app.js` queries `get_db_stats` and emits a system log line containing database statistics (`cached_users_count`, `total_tweets`, `total_alarms`, `total_scheduled_tweets`, `db_size_bytes`). **New features that add database entities or persistence MUST update `DbStats` in `storage.rs` and the startup database statistics log line in `app.js` to include relevant statistics for the new entity.** Settings tab displays the read-only SQLite database path (`#settings-db-path`).
+- **Database Statistics & Persistence Guidelines**: On startup, `app.js` queries `get_db_stats` and emits a system log line containing database statistics (`cached_users_count`, `total_tweets`, `total_alarms`, `total_scheduled_tweets`, `db_size_bytes`). **New features that add database entities or persistence MUST update `DbStats` in `storage.rs` and the startup database statistics log line in `app.js` to include relevant statistics for the new entity.** Manager tab displays the read-only SQLite database path (`#settings-db-path`) and database statistics dump action (`#dump-db-stats-btn`).
 
 ### Injected Scripts (src-inject/)
 - Keep injection scripts minimal, defensive, and non-blocking.

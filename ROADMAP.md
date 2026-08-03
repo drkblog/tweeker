@@ -12,6 +12,12 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **D** | Lazy API Fetching for Uncached Profiles | **Pending** | - | - |
 | **E** | Tweet Stats on Notifications Screen ("All" Tab Only) | **Completed** | Antigravity | 2026-07-30 |
 | **F** | Decoupled Mode (No Page Modifications) | **Completed** | Antigravity | 2026-07-31 |
+| **G1** | Export Application Data & Backup | **Proposed** | - | - |
+| **G2** | Import / Restore Application Data | **Proposed** | - | - |
+| **G3** | Purge User Cache & Intercepted Tweets Storage | **Proposed** | - | - |
+| **G4** | Reset Application Settings to Defaults | **Proposed** | - | - |
+| **G5** | Hard Reset / Factory Wipe | **Proposed** | - | - |
+| **G6** | Download Diagnostic System Bundle | **Proposed** | - | - |
 
 ---
 
@@ -84,4 +90,31 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 - **Description**: Add a toggle setting to run X.com without page modifications, network interceptors, DOM observers, or avatar stats injections, while preserving the overlay drawer for read-only access to SQLite database/memory stats and app settings.
 - **Access Points**: Settable via the Tweeker overlay **Settings** tab (`#decouple-mode-toggle`) or directly from the Mac OS application menu (**Tweeker > Decoupled Mode (No Page Modifications)**).
 - **Benefits**: Allows offline testing, DOM comparison, and non-invasive browsing without modifying X.com's webview page script context.
+
+### [Feature G] Manager Tab Action Proposals
+
+#### [Feature G1] Export Application Data & Backup
+- **Description**: Add an "Export Data" button in the Manager tab that compiles all active alarms, scheduled tweets, cached user stats, intercepted tweet metadata, and application configuration settings into a timestamped `.json` or `.zip` backup file.
+- **Benefits**: Allows power users to back up their local Tweeker data before system updates or transfer data to another machine.
+
+#### [Feature G2] Import / Restore Application Data
+- **Description**: Add an "Import Data" button with file picker to upload and restore previously exported backup files.
+- **Benefits**: Enables seamless data restoration or cross-device profile migration without losing alarms or tweet history.
+
+#### [Feature G3] Purge User Cache & Intercepted Tweets Storage
+- **Description**: Add a "Purge User & Tweet Storage" button to clean up SQLite database tables (`cached_users` and `tweets`) to free up disk space while preserving active alarms, scheduled tweets, and user settings.
+- **Benefits**: Helps maintain minimal disk footprint for long-running Tweeker installations without losing configuration.
+
+#### [Feature G4] Reset Application Settings to Defaults
+- **Description**: Add a "Reset Settings to Defaults" button in the Manager tab to restore all UI configuration toggles, list filter thresholds, and logging settings to their factory default values.
+- **Benefits**: Provides an easy one-click recovery path if list filters or threshold settings cause unexpected UI behavior.
+
+#### [Feature G5] Hard Reset / Factory Wipe
+- **Description**: Add a "Factory Reset" button (with red warning modal confirmation) that completely wipes all SQLite tables, clears `localStorage`, `sessionStorage`, `IndexedDB`, browser cache, and restarts the application to a pristine state.
+- **Benefits**: Serves as the ultimate recovery tool for corrupted database states or deep troubleshooting.
+
+#### [Feature G6] Download Diagnostic System Bundle
+- **Description**: Add a "Download Diagnostic Report" button that packages recent system logs, SQLite stats, webview version, OS specifications, and network interceptor status into a single text/JSON diagnostic file for GitHub issue reporting.
+- **Benefits**: Simplifies troubleshooting and bug reporting for developers and power users.
+
 

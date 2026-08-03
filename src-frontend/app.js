@@ -114,6 +114,7 @@ const dom = {
         scheduler: document.getElementById('content-scheduler'),
         logs: document.getElementById('content-logs'),
         settings: document.getElementById('content-settings'),
+        manager: document.getElementById('content-manager'),
         debug: document.getElementById('content-debug'),
     },
 
@@ -177,6 +178,18 @@ const dom = {
     settingsVersion: document.getElementById('settings-version'),
     settingsDbPath: document.getElementById('settings-db-path'),
     dumpDbStatsBtn: document.getElementById('dump-db-stats-btn'),
+
+    // Manager
+    managerTab: document.getElementById('tab-manager'),
+    cleanCacheBtn: document.getElementById('clean-cache-btn'),
+    deleteSiteDataBtn: document.getElementById('delete-site-data-btn'),
+
+    // Modal
+    modalOverlay: document.getElementById('tweeker-modal-overlay'),
+    modalTitle: document.getElementById('tweeker-modal-title'),
+    modalBody: document.getElementById('tweeker-modal-body'),
+    modalCancel: document.getElementById('tweeker-modal-cancel'),
+    modalConfirm: document.getElementById('tweeker-modal-confirm'),
 };
 
 // ── Panel Toggle ──
@@ -230,7 +243,14 @@ function switchTab(tabName) {
     if (tabName === 'scheduler') refreshScheduledTweets();
     if (tabName === 'logs') refreshLogsView();
     if (tabName === 'settings') refreshSettings();
+    if (tabName === 'manager') refreshManagerView();
     if (tabName === 'debug') refreshDebugView();
+}
+
+async function refreshManagerView() {
+    try {
+        await emitDbStatsLog();
+    } catch (e) {}
 }
 
 // ── Data Rendering ──
@@ -1891,6 +1911,107 @@ if (dom.dumpDbStatsBtn) {
     dom.dumpDbStatsBtn.addEventListener('click', async () => {
         await emitDbStatsLog();
         showToastMessage('Database statistics dumped to log!');
+    });
+}
+
+// ── Confirmation Modal Helper ──
+function showConfirmationModal({ title, body, confirmText, onConfirm }) {
+    if (!dom.modalOverlay) return;
+    if (dom.modalTitle) dom.modalTitle.textContent = title || 'Confirmation Required';
+    if (dom.modalBody) dom.modalBody.textContent = body || 'Are you sure you want to proceed?';
+    if (dom.modalConfirm) dom.modalConfirm.textContent = confirmText || 'Confirm';
+
+    dom.modalOverlay.classList.add('open');
+
+    const cleanup = () => {
+        dom.modalOverlay.classList.remove('open');
+        dom.modalOverlay.style.display = 'none';
+        if (dom.modalCancel) dom.modalCancel.removeEventListener('click', handleCancel);
+        if (dom.modalConfirm) dom.modalConfirm.removeEventListener('click', handleConfirm);
+    };
+
+    const handleCancel = () => {
+        cleanup();
+    };
+
+    const handleConfirm = async () => {
+        cleanup();
+        if (typeof onConfirm === 'function') {
+            await onConfirm();
+        }
+    };
+
+    if (dom.modalCancel) dom.modalCancel.addEventListener('click', handleCancel);
+    if (dom.modalConfirm) dom.modalConfirm.addEventListener('click', handleConfirm);
+}
+
+// ── Manager Action Listeners ──
+
+// Clean browser cache button handler
+if (dom.cleanCacheBtn) {
+    dom.cleanCacheBtn.addEventListener('click', async () => {
+        try {
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                for (const key of keys) {
+                    await caches.delete(key);
+                }
+            }
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const reg of registrations) {
+                    await reg.unregister();
+                }
+            }
+            await invoke('clear_browser_cache');
+            addLogEntry({
+                type: 'system',
+                text: 'Browser cache cleaned successfully'
+            });
+            showToastMessage('Browser cache cleaned!');
+        } catch (err) {
+            console.error('[Tweeker] Failed to clean cache:', err);
+            addLogEntry({
+                type: 'system',
+                text: `Failed to clean browser cache: ${err}`
+            });
+        }
+    });
+}
+
+// Delete site data button handler (with confirmation warning)
+if (dom.deleteSiteDataBtn) {
+    dom.deleteSiteDataBtn.addEventListener('click', () => {
+        showConfirmationModal({
+            title: 'Delete Site Data?',
+            body: 'This action will erase local storage, session storage, and stored web data for all sites. You will be logged out of X.com. Are you sure you want to proceed?',
+            confirmText: 'Delete Site Data',
+            onConfirm: async () => {
+                try {
+                    try { localStorage.clear(); } catch (e) {}
+                    try { sessionStorage.clear(); } catch (e) {}
+                    if (window.indexedDB && window.indexedDB.databases) {
+                        try {
+                            const dbs = await window.indexedDB.databases();
+                            for (const db of dbs) {
+                                if (db.name) window.indexedDB.deleteDatabase(db.name);
+                            }
+                        } catch (e) {}
+                    }
+                    await invoke('clear_site_data');
+                    addLogEntry({
+                        type: 'system',
+                        text: 'Site data (localStorage, sessionStorage, IndexedDB) erased by user'
+                    });
+                    showToastMessage('Site data erased. Reloading page...');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
+                } catch (err) {
+                    console.error('[Tweeker] Failed to delete site data:', err);
+                }
+            }
+        });
     });
 }
 
