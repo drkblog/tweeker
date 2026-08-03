@@ -33,8 +33,17 @@
     let capturedAuthToken = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAn%2Bx1%2Bq%2B4t7D43W5a%2F4%2B15DII5w%3D930W2AuSilKhBmAhx526gWgjTZRBBBmoP9GczOfLhWY';
     let capturedCsrfToken = '';
     let capturedCreateTweetQueryId = '5V8HGy9ykoGDjDxTy8HUAQ';
+    let capturedUserByScreenNameQueryId = '';
+    let capturedUserByScreenNameFeatures = null;
+    let capturedUserByScreenNameFieldToggles = null;
 
     window.__tweeker = window.__tweeker || {};
+    window.__tweeker.lazyFetchQueue = window.__tweeker.lazyFetchQueue || new Set();
+    let lazyFetchActive = false;
+    let lastLazyFetchTime = 0;
+    const MIN_LAZY_FETCH_COOLDOWN_MS = 20000;
+    const MAX_LAZY_FETCHES_PER_SESSION = 50;
+    let lazyFetchCount = 0;
     window.__tweeker.userCache = window.__tweeker.userCache || {};
     window.__tweeker.pendingUserRequests = window.__tweeker.pendingUserRequests || new Set();
     window.__tweeker.tweetCache = window.__tweeker.tweetCache || {};
@@ -553,6 +562,23 @@
                     capturedCreateTweetQueryId = match[1];
                 }
             }
+            if (url.includes('/UserByScreenName') || url.includes('/UserResultByScreenName')) {
+                const match = url.match(/\/graphql\/([^\/]+)\/(UserByScreenName|UserResultByScreenName)/);
+                if (match && match[1]) {
+                    capturedUserByScreenNameQueryId = match[1];
+                }
+                try {
+                    const parsedUrl = new URL(url);
+                    const featuresParam = parsedUrl.searchParams.get('features');
+                    if (featuresParam) {
+                        capturedUserByScreenNameFeatures = JSON.parse(featuresParam);
+                    }
+                    const fieldTogglesParam = parsedUrl.searchParams.get('fieldToggles');
+                    if (fieldTogglesParam) {
+                        capturedUserByScreenNameFieldToggles = JSON.parse(fieldTogglesParam);
+                    }
+                } catch (err) {}
+            }
         } catch (e) {}
 
         const response = await originalFetch.apply(this, args);
@@ -860,6 +886,128 @@
         }
     }
 
+    function triggerLazyFetchLoop() {
+        if (lazyFetchActive) return;
+        if (window.__tweeker.lazyFetchQueue.size === 0) return;
+        if (lazyFetchCount >= MAX_LAZY_FETCHES_PER_SESSION) {
+            console.debug('[Tweeker Lazy Fetch] Max session fetch limit reached. Stopping.');
+            return;
+        }
+
+        lazyFetchActive = true;
+        processNextLazyFetch();
+    }
+
+    async function processNextLazyFetch() {
+        if (window.__tweeker.lazyFetchQueue.size === 0 || lazyFetchCount >= MAX_LAZY_FETCHES_PER_SESSION) {
+            lazyFetchActive = false;
+            return;
+        }
+
+        // Yield immediately if typing or page is hidden
+        if (isUserTyping() || document.hidden) {
+            setTimeout(processNextLazyFetch, 5000);
+            return;
+        }
+
+        const handle = window.__tweeker.lazyFetchQueue.values().next().value;
+        window.__tweeker.lazyFetchQueue.delete(handle);
+
+        if (!handle) {
+            setTimeout(processNextLazyFetch, 1000);
+            return;
+        }
+
+        if (window.__tweeker.userCache[handle]) {
+            processNextLazyFetch();
+            return;
+        }
+
+        if (!capturedAuthToken || !capturedCsrfToken || !capturedUserByScreenNameQueryId) {
+            window.__tweeker.lazyFetchQueue.add(handle);
+            console.debug('[Tweeker Lazy Fetch] Awaiting UserByScreenName credentials/queryId...');
+            setTimeout(processNextLazyFetch, 10000);
+            return;
+        }
+
+        const now = Date.now();
+        const elapsed = now - lastLazyFetchTime;
+        if (elapsed < MIN_LAZY_FETCH_COOLDOWN_MS) {
+            const waitTime = MIN_LAZY_FETCH_COOLDOWN_MS - elapsed;
+            setTimeout(processNextLazyFetch, waitTime);
+            return;
+        }
+
+        // Anti-abuse: Randomized human jitter (5s - 15s)
+        const jitter = Math.floor(5000 + Math.random() * 10000);
+        await new Promise(r => setTimeout(r, jitter));
+
+        try {
+            console.log(`[Tweeker Lazy Fetch] Requesting profile stats for @${handle}...`);
+            const variables = {
+                screen_name: handle,
+                withSafetyModeUserFields: true
+            };
+            const features = capturedUserByScreenNameFeatures || {
+                hidden_profile_likes_enabled: true,
+                hidden_profile_subscriptions_enabled: true,
+                responsive_web_graphql_exclude_directive_enabled: true,
+                verified_phone_label_enabled: false,
+                subscriptions_verification_info_is_identity_verified_enabled: true,
+                responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+                responsive_web_graphql_timeline_navigation_enabled: true
+            };
+            const fieldToggles = capturedUserByScreenNameFieldToggles || {
+                withAuxiliaryUserProperties: false
+            };
+
+            const url = `https://x.com/i/api/graphql/${capturedUserByScreenNameQueryId}/UserByScreenName?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}&fieldToggles=${encodeURIComponent(JSON.stringify(fieldToggles))}`;
+
+            const res = await originalFetch(url, {
+                method: 'GET',
+                headers: {
+                    'authorization': capturedAuthToken,
+                    'x-csrf-token': capturedCsrfToken,
+                    'x-twitter-auth-type': 'OAuth2Session',
+                    'x-twitter-active-user': 'yes'
+                },
+                credentials: 'include'
+            });
+
+            lastLazyFetchTime = Date.now();
+            lazyFetchCount++;
+
+            if (res.ok) {
+                const data = await res.json().catch(() => null);
+                if (data) {
+                    const extractedUsers = {};
+                    extractUsersFromJSON(data, extractedUsers);
+                    const counts = extractedUsers[handle];
+                    if (counts) {
+                        console.log(`[Tweeker Lazy Fetch] Successfully fetched profile stats for @${handle}: ${counts.followers} followers`);
+                        window.__tweeker.userCache[handle] = counts;
+                        updateStatsForAuthor(handle);
+                        window.__tweeker.sendMessage('add_users', { users: { [handle]: counts } });
+                    } else {
+                        window.__tweeker.userCache[handle] = { followers: 0, following: 0, dummy: true };
+                        updateStatsForAuthor(handle);
+                    }
+                }
+            } else if (res.status === 429) {
+                window.__tweeker.lazyFetchQueue.add(handle);
+                console.warn('[Tweeker Lazy Fetch] Rate limited (429). Backing off for 2 minutes.');
+                setTimeout(processNextLazyFetch, 120000);
+                return;
+            } else {
+                console.warn(`[Tweeker Lazy Fetch] HTTP error ${res.status} fetching @${handle}`);
+            }
+        } catch (err) {
+            console.error('[Tweeker Lazy Fetch] Error:', err);
+        }
+
+        setTimeout(processNextLazyFetch, MIN_LAZY_FETCH_COOLDOWN_MS);
+    }
+
     // Listen for Auto Read toggle & Direct API Tweet events from overlay app.js
     window.addEventListener('message', async function(event) {
         if (!event.data || !event.data.__tweeker) return;
@@ -915,6 +1063,11 @@
                     sendDebugLog(`Found cached stats in database for @${lowerHandle}: ${counts.followers} followers, ${counts.following} following`);
                     window.__tweeker.userCache[lowerHandle] = counts;
                     updateStatsForAuthor(lowerHandle);
+                } else {
+                    if (!window.__tweeker.userCache[lowerHandle]) {
+                        window.__tweeker.lazyFetchQueue.add(lowerHandle);
+                        triggerLazyFetchLoop();
+                    }
                 }
             }
         }
@@ -930,6 +1083,11 @@
                         foundCount++;
                         window.__tweeker.userCache[lowerHandle] = counts;
                         updateStatsForAuthor(lowerHandle);
+                    } else {
+                        if (!window.__tweeker.userCache[lowerHandle]) {
+                            window.__tweeker.lazyFetchQueue.add(lowerHandle);
+                            triggerLazyFetchLoop();
+                        }
                     }
                 }
                 if (foundCount > 0) {

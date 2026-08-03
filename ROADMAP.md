@@ -9,7 +9,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **A** | Followers-to-Following (F/F) Ratio & Custom Tooltips | **Completed** | Antigravity | 2026-07-29 |
 | **B** | IPC Batching for Bulk Scrolling (`get_users_counts_batch`) | **Completed** | Antigravity | 2026-07-30 |
 | **C** | List Page Highlighting & Filtering Controls | **Completed** | Antigravity | 2026-07-29 |
-| **D** | Lazy API Fetching for Uncached Profiles | **Pending** | - | - |
+| **D** | Lazy API Fetching for Uncached Profiles | **Completed** | Antigravity | 2026-08-03 |
 | **E** | Tweet Stats on Notifications Screen ("All" Tab Only) | **Completed** | Antigravity | 2026-07-30 |
 | **F** | Decoupled Mode (No Page Modifications) | **Completed** | Antigravity | 2026-07-31 |
 | **G1** | Export Application Data & Backup | **Completed** | Antigravity | 2026-08-03 |
