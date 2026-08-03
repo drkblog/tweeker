@@ -19,6 +19,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **G5** | Hard Reset / Factory Wipe | **Completed** | Antigravity | 2026-08-03 |
 | **G6** | Download Diagnostic System Bundle | **Completed** | Antigravity | 2026-08-03 |
 | **H** | Real-Time Relevant & Recent Tweet Highlights | **Completed** | Antigravity | 2026-08-03 |
+| **I** | Advanced Configuration Editor & Custom Stats Styling | **Proposed** | - | - |
 
 ---
 
@@ -122,6 +123,18 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 - **Description**: Wipes the timeline noise by highlighting fresh tweets (e.g. published within a configurable duration, default 3 minutes) coming from relevant users (verified or exceeding follower count limits). Inserts a custom outstanding badge/icon indicator (e.g., a glowing lightning bolt ⚡) next to the user's name or avatar inside the timeline.
 - **Settings configuration**: Add a setting in the Settings panel to let users set the "recent tweet duration" in minutes via a slide/number input.
 - **Benefits**: Focuses user attention on real-time activity from accounts they care about.
+
+#### [Feature I] Advanced Configuration Editor & Custom Stats Styling
+- **Description**: Add an "Advanced..." button at the end of the Settings panel. Clicking it opens a custom modal showing a full key-value editor listing all application settings (loaded from `localStorage` and default schemas), with a live text filter box to search for settings by name.
+- **In-Place Editing**: Allow editing configuration values inline with immediate feedback (updates are saved to `localStorage` and sent down to the injected script).
+- **Hidden Styling Settings**: Introduce new styling settings for customizing the colors of notification statistics added to tweets. These are not visible on the standard Settings page and are only customizable via the Advanced editor:
+  - `notifications.statistics.background-color` (default stats box background color)
+  - `notifications.statistics.likes-color` (default color for likes count text/icon)
+  - `notifications.statistics.retweets-color` (default color for retweets count text/icon)
+  - `notifications.statistics.replies-color` (default color for replies count text/icon)
+  - `notifications.statistics.views-color` (default color for views count text/icon)
+- **Benefits**: Empowers advanced users with fine-grained configuration control and custom appearance options without cluttering the main settings UI.
+
 
 
 
