@@ -112,6 +112,7 @@
     let debugTwitterEnabled = false;
     let relevantFollowersLimit = 2500;
     let relevantHighlightColor = '#00ba7c';
+    let recentTweetDurationMinutes = 3;
     let listMinFollowers = 0;
     let listMinRatio = 0.0;
     let listHighlightVerified = false;
@@ -420,6 +421,7 @@
         const tweets = document.querySelectorAll(`article[data-testid="tweet"][data-tweeker-author="${lowerHandle}"]`);
         for (const tweet of tweets) {
             renderStatsBelowAvatar(tweet, stats.following, stats.followers);
+            evaluateTweetHighlight(tweet);
         }
 
         const userCells = document.querySelectorAll(`[data-testid="UserCell"][data-tweeker-author="${lowerHandle}"]`);
@@ -1026,6 +1028,17 @@
 
         if (event.data.type === 'set_debug_twitter') {
             debugTwitterEnabled = !!event.data.enabled;
+        }
+
+        if (event.data.type === 'set_recent_settings') {
+            recentTweetDurationMinutes = typeof event.data.duration === 'number' ? event.data.duration : 3;
+            const timeline = document.querySelector('[data-testid="primaryColumn"]') || document.querySelector('main');
+            if (timeline) {
+                const articles = timeline.querySelectorAll('[data-testid="tweet"]');
+                for (const article of articles) {
+                    evaluateTweetHighlight(article);
+                }
+            }
         }
 
         if (event.data.type === 'set_relevant_followers_limit') {
@@ -2003,8 +2016,69 @@
                     captured_at: new Date().toISOString(),
                 }]);
             }
+            evaluateTweetHighlight(articleEl);
         } catch (e) {
             // DOM structure changed, fail silently
+        }
+    }
+
+    function evaluateTweetHighlight(articleEl) {
+        try {
+            if (!articleEl) return;
+            const handle = articleEl.dataset.tweekerAuthor;
+            if (!handle) return;
+
+            const lowerHandle = handle.toLowerCase();
+            const stats = window.__tweeker.userCache[lowerHandle];
+            if (!stats) return;
+
+            // Check if user is relevant: verified OR follower count exceeds threshold
+            const isVerified = !!stats.verified;
+            const hasHighFollowers = typeof stats.followers === 'number' && stats.followers >= relevantFollowersLimit;
+            const isRelevant = isVerified || hasHighFollowers;
+
+            if (!isRelevant) {
+                articleEl.classList.remove('tweeker-highlighted-tweet');
+                const badge = articleEl.querySelector('.tweeker-recent-relevant-badge');
+                if (badge) badge.remove();
+                return;
+            }
+
+            // Check if tweet is recent (within configured duration)
+            const timeEl = articleEl.querySelector('time');
+            const datetimeStr = timeEl ? timeEl.getAttribute('datetime') : null;
+            if (!datetimeStr) return;
+
+            const tweetTime = new Date(datetimeStr).getTime();
+            if (isNaN(tweetTime)) return;
+
+            const ageMs = Date.now() - tweetTime;
+            const thresholdMs = recentTweetDurationMinutes * 60 * 1000;
+
+            if (ageMs > 0 && ageMs <= thresholdMs) {
+                // Apply visual highlight wrapper
+                if (!articleEl.classList.contains('tweeker-highlighted-tweet')) {
+                    articleEl.classList.add('tweeker-highlighted-tweet');
+                }
+                
+                // Inject outstanding lightning badge next to display name/handle
+                const userNameDiv = articleEl.querySelector('[data-testid="User-Name"]');
+                if (userNameDiv && !userNameDiv.querySelector('.tweeker-recent-relevant-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'tweeker-recent-relevant-badge';
+                    badge.innerHTML = '⚡';
+                    badge.style.marginLeft = '4px';
+                    badge.title = `Recent tweet from @${handle} (${recentTweetDurationMinutes}m threshold)`;
+                    userNameDiv.appendChild(badge);
+                }
+            } else {
+                // Reached duration limit, remove highlight & badge
+                articleEl.classList.remove('tweeker-highlighted-tweet');
+                const badge = articleEl.querySelector('.tweeker-recent-relevant-badge');
+                if (badge) badge.remove();
+            }
+        } catch (e) {
+            console.debug('[Tweeker Interceptor] Highlight evaluation error:', e);
         }
     }
 
@@ -2021,6 +2095,10 @@
                 const articles = timeline.querySelectorAll('[data-testid="tweet"]:not([data-tweeker-parsed="true"])');
                 for (const article of articles) {
                     parseDOMTweet(article);
+                }
+                const allArticles = timeline.querySelectorAll('[data-testid="tweet"]');
+                for (const article of allArticles) {
+                    evaluateTweetHighlight(article);
                 }
                 const userCells = timeline.querySelectorAll('[data-testid="UserCell"]:not([data-tweeker-parsed="true"])');
                 for (const cell of userCells) {

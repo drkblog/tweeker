@@ -1598,8 +1598,8 @@
     margin-top: 6px !important;
     margin-bottom: 4px !important;
     padding: 4px 10px !important;
-    background: hsla(220, 20%, 8%, 0.7) !important;
-    border: 1px solid hsla(220, 15%, 30%, 0.4) !important;
+    background: hsla(220, 10%, 30%, 0.85) !important;
+    border: 1px solid hsla(220, 15%, 45%, 0.4) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
     border-radius: 8px !important;
@@ -1747,6 +1747,29 @@
     border-radius: 4px !important;
     transition: width 250ms ease-out !important;
     box-shadow: 0 0 10px rgba(239, 68, 68, 0.6) !important;
+}
+
+/* ── Feature H: Recent Relevant Tweet Highlights (Timeline) ── */
+article[data-testid="tweet"].tweeker-highlighted-tweet {
+    border-left: 4px solid #facc15 !important;
+    background: rgba(250, 204, 21, 0.03) !important;
+    box-shadow: inset 0 0 10px rgba(250, 204, 21, 0.05) !important;
+}
+
+.tweeker-recent-relevant-badge {
+    color: #facc15 !important;
+    text-shadow: 0 0 8px rgba(250, 204, 21, 0.8) !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    display: inline-block !important;
+    animation: tweeker-pulse-glow 2s infinite !important;
+    vertical-align: middle !important;
+}
+
+@keyframes tweeker-pulse-glow {
+    0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(250, 204, 21, 0.6)); }
+    50% { transform: scale(1.2); filter: drop-shadow(0 0 8px rgba(250, 204, 21, 1)); }
+    100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(250, 204, 21, 0.6)); }
 }
 
 

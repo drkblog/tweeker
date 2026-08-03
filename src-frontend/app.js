@@ -167,6 +167,7 @@ const dom = {
     userCacheLimitInput: document.getElementById('user-cache-limit-input'),
     relevantFollowersLimitInput: document.getElementById('relevant-followers-limit-input'),
     relevantHighlightColorInput: document.getElementById('relevant-highlight-color-input'),
+    recentDurationInput: document.getElementById('recent-duration-input'),
     listMinFollowersInput: document.getElementById('list-min-followers-input'),
     listMinRatioInput: document.getElementById('list-min-ratio-input'),
     listHighlightVerifiedToggle: document.getElementById('list-highlight-verified-toggle'),
@@ -1826,6 +1827,25 @@ if (dom.relevantHighlightColorInput) {
     });
 }
 
+// Recent duration setting input
+if (dom.recentDurationInput) {
+    dom.recentDurationInput.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 1) val = 3;
+        try { localStorage.setItem('tweeker_recent_duration', val.toString()); } catch (err) {}
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_recent_settings',
+            duration: val
+        }, '*');
+        addLogEntry({
+            type: 'system',
+            text: `Recent tweet threshold updated to ${val} minutes`
+        });
+    });
+}
+
+
 function syncListFilterSettings() {
     const config = {
         minFollowers: state.listMinFollowers,
@@ -2128,6 +2148,7 @@ const SETTINGS_DEFAULTS = {
     tweeker_user_cache_limit: 10000,
     tweeker_relevant_followers_limit: 2500,
     tweeker_relevant_highlight_color: '#00ba7c',
+    tweeker_recent_duration: 3,
     tweeker_list_min_followers: 0,
     tweeker_list_min_ratio: 0.0,
     tweeker_list_highlight_verified: false,
@@ -2166,6 +2187,18 @@ function applySettingsDefaults() {
             type: 'set_relevant_followers_limit',
             limit: relevantLimit,
             color: highlightColor
+        }, '*');
+    } catch (e) {}
+
+    // Recent tweet threshold
+    const recentDuration = SETTINGS_DEFAULTS.tweeker_recent_duration;
+    try { localStorage.setItem('tweeker_recent_duration', recentDuration.toString()); } catch (e) {}
+    if (dom.recentDurationInput) dom.recentDurationInput.value = recentDuration;
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_recent_settings',
+            duration: recentDuration
         }, '*');
     } catch (e) {}
 
@@ -2447,6 +2480,7 @@ const BACKUP_SETTINGS_KEYS = [
     'tweeker_user_cache_limit',
     'tweeker_relevant_followers_limit',
     'tweeker_relevant_highlight_color',
+    'tweeker_recent_duration',
     'tweeker_list_min_followers',
     'tweeker_list_min_ratio',
     'tweeker_list_highlight_verified',
@@ -2656,6 +2690,13 @@ async function applyBackupRestore(backup, updateProgress) {
     try {
         window.postMessage({ __tweeker: true, type: 'set_relevant_followers_limit',
             limit: isNaN(savedRelevantLimit) ? 2500 : savedRelevantLimit, color: savedHighlightColor }, '*');
+    } catch (e) {}
+
+    const savedRecentDuration = parseInt(localStorage.getItem('tweeker_recent_duration'), 10);
+    const recentDuration = (!isNaN(savedRecentDuration) && savedRecentDuration >= 1) ? savedRecentDuration : 3;
+    if (dom.recentDurationInput) dom.recentDurationInput.value = recentDuration;
+    try {
+        window.postMessage({ __tweeker: true, type: 'set_recent_settings', duration: recentDuration }, '*');
     } catch (e) {}
 
     const listMinFollowers = parseInt(localStorage.getItem('tweeker_list_min_followers'), 10);
@@ -3487,6 +3528,18 @@ async function init() {
         type: 'set_relevant_followers_limit',
         limit: relevantLimit,
         color: savedHighlightColor
+    }, '*');
+
+    // Restore saved recent duration setting
+    const savedRecentDuration = parseInt(localStorage.getItem('tweeker_recent_duration'), 10);
+    const recentDuration = (!isNaN(savedRecentDuration) && savedRecentDuration >= 1) ? savedRecentDuration : 3;
+    if (dom.recentDurationInput) {
+        dom.recentDurationInput.value = recentDuration;
+    }
+    window.postMessage({
+        __tweeker: true,
+        type: 'set_recent_settings',
+        duration: recentDuration
     }, '*');
 
     // Restore list page filter & highlight settings

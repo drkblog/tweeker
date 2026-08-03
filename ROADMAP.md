@@ -18,6 +18,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **G4** | Reset Application Settings to Defaults | **Completed** | Antigravity | 2026-08-03 |
 | **G5** | Hard Reset / Factory Wipe | **Completed** | Antigravity | 2026-08-03 |
 | **G6** | Download Diagnostic System Bundle | **Completed** | Antigravity | 2026-08-03 |
+| **H** | Real-Time Relevant & Recent Tweet Highlights | **Completed** | Antigravity | 2026-08-03 |
 
 ---
 
@@ -116,5 +117,11 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 #### [Feature G6] Download Diagnostic System Bundle
 - **Description**: Add a "Download Diagnostic Report" button that packages recent system logs, SQLite stats, webview version, OS specifications, and network interceptor status into a single text/JSON diagnostic file for GitHub issue reporting.
 - **Benefits**: Simplifies troubleshooting and bug reporting for developers and power users.
+
+#### [Feature H] Real-Time Relevant & Recent Tweet Highlights
+- **Description**: Wipes the timeline noise by highlighting fresh tweets (e.g. published within a configurable duration, default 3 minutes) coming from relevant users (verified or exceeding follower count limits). Inserts a custom outstanding badge/icon indicator (e.g., a glowing lightning bolt ⚡) next to the user's name or avatar inside the timeline.
+- **Settings configuration**: Add a setting in the Settings panel to let users set the "recent tweet duration" in minutes via a slide/number input.
+- **Benefits**: Focuses user attention on real-time activity from accounts they care about.
+
 
 
