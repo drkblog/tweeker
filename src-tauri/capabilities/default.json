@@ -58,6 +58,7 @@
     "allow-clear-site-data",
     "allow-export-backup",
     "allow-import-backup",
+    "allow-purge-user-and-tweet-storage",
     "window-state:default"
   ]
 }

@@ -482,11 +482,21 @@ pub fn clear_site_data(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn export_backup(payload: String, filename_hint: String) -> Result<Option<String>, String> {
-    let file_path = rfd::FileDialog::new()
-        .add_filter("JSON Backup", &["json"])
-        .set_file_name(&filename_hint)
-        .save_file();
+pub fn export_backup(
+    app: tauri::AppHandle,
+    payload: String,
+    filename_hint: String,
+) -> Result<Option<String>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let file_path = rfd::FileDialog::new()
+            .add_filter("JSON Backup", &["json"])
+            .set_file_name(&filename_hint)
+            .save_file();
+        let _ = tx.send(file_path);
+    }).map_err(|e| format!("Failed to run on main thread: {}", e))?;
+
+    let file_path = rx.recv().map_err(|e| format!("Failed to receive file path: {}", e))?;
 
     if let Some(path) = file_path {
         std::fs::write(&path, payload)
@@ -498,10 +508,16 @@ pub fn export_backup(payload: String, filename_hint: String) -> Result<Option<St
 }
 
 #[tauri::command]
-pub fn import_backup() -> Result<Option<(String, String)>, String> {
-    let file_path = rfd::FileDialog::new()
-        .add_filter("JSON Backup", &["json"])
-        .pick_file();
+pub fn import_backup(app: tauri::AppHandle) -> Result<Option<(String, String)>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let file_path = rfd::FileDialog::new()
+            .add_filter("JSON Backup", &["json"])
+            .pick_file();
+        let _ = tx.send(file_path);
+    }).map_err(|e| format!("Failed to run on main thread: {}", e))?;
+
+    let file_path = rx.recv().map_err(|e| format!("Failed to receive file path: {}", e))?;
 
     if let Some(path) = file_path {
         let content = std::fs::read_to_string(&path)
@@ -511,6 +527,25 @@ pub fn import_backup() -> Result<Option<(String, String)>, String> {
         Ok(None)
     }
 }
+
+#[tauri::command]
+pub fn purge_user_and_tweet_storage(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let conn = storage::open_db(&app)?;
+    storage::purge_database(&conn)?;
+
+    let mut tweets = state.tweets.lock().unwrap();
+    tweets.clear();
+
+    let mut user_cache = state.user_cache.lock().unwrap();
+    user_cache.clear();
+
+    println!("[Tweeker] Purged user cache and intercepted tweets storage");
+    Ok(())
+}
+
 
 
 

@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-purge-user-and-tweet-storage"
+description = "Enables the purge_user_and_tweet_storage command without any pre-configured scope."
+commands.allow = ["purge_user_and_tweet_storage"]
+
+[[permission]]
+identifier = "deny-purge-user-and-tweet-storage"
+description = "Denies the purge_user_and_tweet_storage command without any pre-configured scope."
+commands.deny = ["purge_user_and_tweet_storage"]

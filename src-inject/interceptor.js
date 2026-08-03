@@ -864,6 +864,14 @@
     window.addEventListener('message', async function(event) {
         if (!event.data || !event.data.__tweeker) return;
 
+        if (event.data.type === 'purge_storage') {
+            window.__tweeker.userCache = {};
+            window.__tweeker.tweetCache = {};
+            window.__tweeker.tweetContentCache = {};
+            window.__tweeker.notificationMap = {};
+            sendDebugLog('Interceptor cache purged successfully');
+        }
+
         if (event.data.type === 'set_auto_read') {
             updateAutoReadState(event.data.enabled);
         }

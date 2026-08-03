@@ -49,6 +49,7 @@ fn main() {
             commands::clear_site_data,
             commands::export_backup,
             commands::import_backup,
+            commands::purge_user_and_tweet_storage,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

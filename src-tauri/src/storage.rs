@@ -554,3 +554,13 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), Stri
     Ok(())
 }
 
+pub fn purge_database(conn: &Connection) -> Result<(), String> {
+    conn.execute("DELETE FROM tweets", [])
+        .map_err(|e| format!("Failed to delete tweets: {}", e))?;
+    conn.execute("DELETE FROM user_cache", [])
+        .map_err(|e| format!("Failed to delete user_cache: {}", e))?;
+    conn.execute("VACUUM", [])
+        .map_err(|e| format!("Failed to vacuum database: {}", e))?;
+    Ok(())
+}
+

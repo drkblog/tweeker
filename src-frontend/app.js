@@ -185,6 +185,7 @@ const dom = {
     deleteSiteDataBtn: document.getElementById('delete-site-data-btn'),
     exportBackupBtn: document.getElementById('export-backup-btn'),
     importBackupBtn: document.getElementById('import-backup-btn'),
+    purgeStorageBtn: document.getElementById('purge-storage-btn'),
     resetSettingsBtn: document.getElementById('reset-settings-btn'),
 
     // Modal
@@ -2251,6 +2252,62 @@ if (dom.resetSettingsBtn) {
         });
     });
 }
+
+// Purge User & Tweet Storage button handler (G3)
+if (dom.purgeStorageBtn) {
+    dom.purgeStorageBtn.addEventListener('click', () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Purge User & Tweet Storage action triggered — awaiting confirmation'
+        });
+        showConfirmationModal({
+            title: 'Purge User & Tweet Storage?',
+            body: 'This will permanently delete all cached user statistics and intercepted tweets from database and memory. Active alarms, scheduled tweets, and application settings will be preserved.\n\nAre you sure you want to proceed?',
+            confirmText: 'Purge Storage',
+            onConfirm: async (updateProgress) => {
+                try {
+                    updateProgress(20, 'Wiping in-memory cache...');
+                    window._tweeker_user_cache = {};
+                    try { localStorage.removeItem('tweeker_user_cache'); } catch (e) {}
+
+                    // Notify injected script to wipe its caches
+                    try {
+                        window.postMessage({
+                            __tweeker: true,
+                            type: 'purge_storage'
+                        }, '*');
+                    } catch (e) {}
+
+                    updateProgress(40, 'Purging SQLite database...');
+                    await invoke('purge_user_and_tweet_storage');
+
+                    updateProgress(80, 'Refreshing application view...');
+                    await refreshStats();
+
+                    updateProgress(100, 'Purge complete!');
+                    await new Promise(r => setTimeout(r, 200));
+
+                    addLogEntry({
+                        type: 'info',
+                        level: 'INFO',
+                        text: 'Manager: User cache and intercepted tweets storage purged successfully'
+                    });
+                    showToastMessage('Storage purged successfully!');
+                } catch (err) {
+                    console.error('[Tweeker] Purge storage failed:', err);
+                    addLogEntry({
+                        type: 'error',
+                        level: 'ERROR',
+                        text: `Manager: Purge storage failed: ${err}`
+                    });
+                    showToastMessage('Purge storage failed.');
+                }
+            }
+        });
+    });
+}
+
 
 // ── G1: Export Application Data & Backup ──
 
