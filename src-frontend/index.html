@@ -461,7 +461,19 @@
                 <h3 id="tweeker-modal-title" class="tweeker-modal-title">Confirmation Required</h3>
             </div>
             <p id="tweeker-modal-body" class="tweeker-modal-body"></p>
-            <div class="tweeker-modal-actions">
+
+            <!-- Progress Section (Hidden by default, shown during execution) -->
+            <div id="tweeker-modal-progress-container" class="tweeker-modal-progress-container" style="display: none;">
+                <div class="tweeker-modal-progress-label">
+                    <span id="tweeker-modal-progress-status">Erasing site data...</span>
+                    <span id="tweeker-modal-progress-percent">0%</span>
+                </div>
+                <div class="tweeker-modal-progress-bar">
+                    <div id="tweeker-modal-progress-fill" class="tweeker-modal-progress-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <div id="tweeker-modal-actions" class="tweeker-modal-actions">
                 <button type="button" id="tweeker-modal-cancel" class="btn btn-secondary btn-sm">Cancel</button>
                 <button type="button" id="tweeker-modal-confirm" class="btn btn-danger btn-sm">Confirm</button>
             </div>

@@ -188,8 +188,13 @@ const dom = {
     modalOverlay: document.getElementById('tweeker-modal-overlay'),
     modalTitle: document.getElementById('tweeker-modal-title'),
     modalBody: document.getElementById('tweeker-modal-body'),
+    modalActions: document.getElementById('tweeker-modal-actions'),
     modalCancel: document.getElementById('tweeker-modal-cancel'),
     modalConfirm: document.getElementById('tweeker-modal-confirm'),
+    modalProgressContainer: document.getElementById('tweeker-modal-progress-container'),
+    modalProgressStatus: document.getElementById('tweeker-modal-progress-status'),
+    modalProgressPercent: document.getElementById('tweeker-modal-progress-percent'),
+    modalProgressFill: document.getElementById('tweeker-modal-progress-fill'),
 };
 
 // ── Panel Toggle ──
@@ -1921,28 +1926,47 @@ function showConfirmationModal({ title, body, confirmText, onConfirm }) {
     if (dom.modalBody) dom.modalBody.textContent = body || 'Are you sure you want to proceed?';
     if (dom.modalConfirm) dom.modalConfirm.textContent = confirmText || 'Confirm';
 
+    // Reset progress UI & display action buttons
+    if (dom.modalActions) dom.modalActions.style.display = 'flex';
+    if (dom.modalProgressContainer) dom.modalProgressContainer.style.display = 'none';
+    if (dom.modalProgressFill) dom.modalProgressFill.style.width = '0%';
+    if (dom.modalProgressPercent) dom.modalProgressPercent.textContent = '0%';
+    if (dom.modalProgressStatus) dom.modalProgressStatus.textContent = 'Initializing...';
+
     dom.modalOverlay.classList.add('open');
 
     const cleanup = () => {
         dom.modalOverlay.classList.remove('open');
         dom.modalOverlay.style.display = 'none';
-        if (dom.modalCancel) dom.modalCancel.removeEventListener('click', handleCancel);
-        if (dom.modalConfirm) dom.modalConfirm.removeEventListener('click', handleConfirm);
+        if (dom.modalCancel) dom.modalCancel.onclick = null;
+        if (dom.modalConfirm) dom.modalConfirm.onclick = null;
     };
 
-    const handleCancel = () => {
+    const updateProgress = (percent, statusText) => {
+        const clamped = Math.min(100, Math.max(0, percent));
+        if (dom.modalProgressFill) dom.modalProgressFill.style.width = `${clamped}%`;
+        if (dom.modalProgressPercent) dom.modalProgressPercent.textContent = `${clamped}%`;
+        if (dom.modalProgressStatus && statusText) dom.modalProgressStatus.textContent = statusText;
+    };
+
+    const handleCancel = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         cleanup();
     };
 
-    const handleConfirm = async () => {
-        cleanup();
+    const handleConfirm = async (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (dom.modalActions) dom.modalActions.style.display = 'none';
+        if (dom.modalProgressContainer) dom.modalProgressContainer.style.display = 'block';
+
         if (typeof onConfirm === 'function') {
-            await onConfirm();
+            await onConfirm(updateProgress);
         }
+        cleanup();
     };
 
-    if (dom.modalCancel) dom.modalCancel.addEventListener('click', handleCancel);
-    if (dom.modalConfirm) dom.modalConfirm.addEventListener('click', handleConfirm);
+    if (dom.modalCancel) dom.modalCancel.onclick = handleCancel;
+    if (dom.modalConfirm) dom.modalConfirm.onclick = handleConfirm;
 }
 
 // ── Manager Action Listeners ──
@@ -1979,17 +2003,22 @@ if (dom.cleanCacheBtn) {
     });
 }
 
-// Delete site data button handler (with confirmation warning)
+// Delete site data button handler (with confirmation warning & progress bar)
 if (dom.deleteSiteDataBtn) {
     dom.deleteSiteDataBtn.addEventListener('click', () => {
         showConfirmationModal({
             title: 'Delete Site Data?',
             body: 'This action will erase local storage, session storage, and stored web data for all sites. You will be logged out of X.com. Are you sure you want to proceed?',
             confirmText: 'Delete Site Data',
-            onConfirm: async () => {
+            onConfirm: async (updateProgress) => {
                 try {
+                    updateProgress(15, 'Clearing LocalStorage & SessionStorage...');
+                    await new Promise(r => setTimeout(r, 300));
                     try { localStorage.clear(); } catch (e) {}
                     try { sessionStorage.clear(); } catch (e) {}
+
+                    updateProgress(45, 'Erasing IndexedDB databases...');
+                    await new Promise(r => setTimeout(r, 350));
                     if (window.indexedDB && window.indexedDB.databases) {
                         try {
                             const dbs = await window.indexedDB.databases();
@@ -1998,15 +2027,32 @@ if (dom.deleteSiteDataBtn) {
                             }
                         } catch (e) {}
                     }
+
+                    updateProgress(75, 'Unregistering Web Cache & Service Workers...');
+                    await new Promise(r => setTimeout(r, 350));
+                    try {
+                        if ('caches' in window) {
+                            const keys = await caches.keys();
+                            for (const key of keys) await caches.delete(key);
+                        }
+                        if ('serviceWorker' in navigator) {
+                            const regs = await navigator.serviceWorker.getRegistrations();
+                            for (const reg of regs) await reg.unregister();
+                        }
+                    } catch (e) {}
+
+                    updateProgress(90, 'Wiping backend site data...');
+                    await new Promise(r => setTimeout(r, 300));
                     await invoke('clear_site_data');
+
+                    updateProgress(100, 'Site data erased! Reloading application...');
                     addLogEntry({
                         type: 'system',
                         text: 'Site data (localStorage, sessionStorage, IndexedDB) erased by user'
                     });
                     showToastMessage('Site data erased. Reloading page...');
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 800);
+                    await new Promise(r => setTimeout(r, 800));
+                    window.location.reload();
                 } catch (err) {
                     console.error('[Tweeker] Failed to delete site data:', err);
                 }
