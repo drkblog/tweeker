@@ -1041,6 +1041,16 @@
             }
         }
 
+        if (event.data.type === 'set_notif_stats_colors') {
+            const colors = event.data.colors || {};
+            const root = document.documentElement;
+            if (colors.bg) root.style.setProperty('--tweeker-notif-bg', colors.bg);
+            if (colors.likes) root.style.setProperty('--tweeker-notif-likes', colors.likes);
+            if (colors.retweets) root.style.setProperty('--tweeker-notif-retweets', colors.retweets);
+            if (colors.replies) root.style.setProperty('--tweeker-notif-replies', colors.replies);
+            if (colors.views) root.style.setProperty('--tweeker-notif-views', colors.views);
+        }
+
         if (event.data.type === 'set_relevant_followers_limit') {
             relevantFollowersLimit = typeof event.data.limit === 'number' ? event.data.limit : 2500;
             if (typeof event.data.color === 'string' && event.data.color) {

@@ -202,6 +202,13 @@ const dom = {
     modalProgressStatus: document.getElementById('tweeker-modal-progress-status'),
     modalProgressPercent: document.getElementById('tweeker-modal-progress-percent'),
     modalProgressFill: document.getElementById('tweeker-modal-progress-fill'),
+
+    // Advanced settings
+    advancedSettingsBtn: document.getElementById('advanced-settings-btn'),
+    advancedModalOverlay: document.getElementById('tweeker-advanced-modal-overlay'),
+    advancedSearchInput: document.getElementById('tweeker-advanced-search-input'),
+    advancedListContainer: document.getElementById('tweeker-advanced-list-container'),
+    advancedModalClose: document.getElementById('tweeker-advanced-modal-close'),
 };
 
 // ── Panel Toggle ──
@@ -2159,6 +2166,33 @@ const SETTINGS_DEFAULTS = {
     tweeker_debug_twitter: false,
     tweeker_max_debug_lines: 2000,
     tweeker_log_filters: { INFO: true, WARN: true, ERROR: true, DEBUG: false },
+    'notifications.statistics.background-color': '#43474d',
+    'notifications.statistics.likes-color': '#f91880',
+    'notifications.statistics.retweets-color': '#00ba7c',
+    'notifications.statistics.replies-color': '#1d9bf0',
+    'notifications.statistics.views-color': '#71767b',
+};
+
+const SETTINGS_DESCRIPTIONS = {
+    tweeker_max_log_lines: 'Maximum number of log lines to keep in the Logs console.',
+    tweeker_user_cache_limit: 'Maximum number of user profile stats to cache.',
+    tweeker_relevant_followers_limit: 'Follower threshold above which users are marked as Relevant.',
+    tweeker_relevant_highlight_color: 'Custom hex color for highlighting relevant user avatars.',
+    tweeker_recent_duration: 'Time threshold in minutes to highlight fresh timeline tweets.',
+    tweeker_list_min_followers: 'Hide users in X Lists with fewer followers than this.',
+    tweeker_list_min_ratio: 'Dim users in X Lists with an F/F ratio below this.',
+    tweeker_list_highlight_verified: 'Enable/disable custom border highlights around verified list cards.',
+    tweeker_list_verified_color: 'Custom hex border color for highlighted verified list cards.',
+    tweeker_list_highlight_mega: 'Enable/disable custom border highlights around mega-influencer list cards.',
+    tweeker_list_mega_color: 'Custom hex border color for highlighted mega-influencer list cards.',
+    tweeker_autoread_on_start: 'Automatically activate timeline Auto read toggle on startup.',
+    tweeker_debug_twitter: 'Enable verbose developer logs from intercepted browser calls.',
+    tweeker_max_debug_lines: 'Maximum number of debug console log lines.',
+    'notifications.statistics.background-color': 'Hex background color for tweet stats bar in notifications screen.',
+    'notifications.statistics.likes-color': 'Hex color for the Likes icon and count in notification stats.',
+    'notifications.statistics.retweets-color': 'Hex color for the Retweets icon and count in notification stats.',
+    'notifications.statistics.replies-color': 'Hex color for the Replies icon and count in notification stats.',
+    'notifications.statistics.views-color': 'Hex color for the Views icon and count in notification stats.',
 };
 
 function applySettingsDefaults() {
@@ -2199,6 +2233,29 @@ function applySettingsDefaults() {
             __tweeker: true,
             type: 'set_recent_settings',
             duration: recentDuration
+        }, '*');
+    } catch (e) {}
+
+    // Custom notifications statistics colors defaults reset
+    const notifBg = SETTINGS_DEFAULTS['notifications.statistics.background-color'];
+    const notifLikes = SETTINGS_DEFAULTS['notifications.statistics.likes-color'];
+    const notifRetweets = SETTINGS_DEFAULTS['notifications.statistics.retweets-color'];
+    const notifReplies = SETTINGS_DEFAULTS['notifications.statistics.replies-color'];
+    const notifViews = SETTINGS_DEFAULTS['notifications.statistics.views-color'];
+
+    try {
+        localStorage.setItem('notifications.statistics.background-color', notifBg);
+        localStorage.setItem('notifications.statistics.likes-color', notifLikes);
+        localStorage.setItem('notifications.statistics.retweets-color', notifRetweets);
+        localStorage.setItem('notifications.statistics.replies-color', notifReplies);
+        localStorage.setItem('notifications.statistics.views-color', notifViews);
+    } catch (e) {}
+
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_notif_stats_colors',
+            colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
         }, '*');
     } catch (e) {}
 
@@ -2472,6 +2529,266 @@ if (dom.downloadDiagnosticsBtn) {
     });
 }
 
+// ── Feature I: Advanced Settings Configuration Editor ──
+
+function getSettingInputType(key) {
+    if (key.endsWith('-color') || key.endsWith('_color') || key.includes('.color')) {
+        return 'color';
+    }
+    const val = localStorage.getItem(key);
+    if (val === 'true' || val === 'false' || typeof val === 'boolean') {
+        return 'boolean';
+    }
+    if (!isNaN(val) && val !== '' && val !== null) {
+        return 'number';
+    }
+    return 'text';
+}
+
+function renderAdvancedSettings(filterQuery = '') {
+    if (!dom.advancedListContainer) return;
+    dom.advancedListContainer.innerHTML = '';
+
+    const allKeysSet = new Set([
+        ...Object.keys(SETTINGS_DEFAULTS),
+        ...Object.keys(localStorage).filter(k => k.startsWith('tweeker_') || k.startsWith('notifications.statistics.'))
+    ]);
+
+    const keys = Array.from(allKeysSet).sort();
+    const query = filterQuery.toLowerCase().trim();
+
+    let count = 0;
+    for (const key of keys) {
+        if (query && !key.toLowerCase().includes(query)) continue;
+
+        let val = localStorage.getItem(key);
+        if (val === null) {
+            const defVal = SETTINGS_DEFAULTS[key];
+            val = defVal !== undefined ? (typeof defVal === 'object' ? JSON.stringify(defVal) : defVal.toString()) : '';
+        }
+
+        const desc = SETTINGS_DESCRIPTIONS[key] || 'Advanced system configuration parameter.';
+        const inputType = getSettingInputType(key);
+
+        const row = document.createElement('div');
+        row.className = 'tweeker-advanced-row';
+
+        const info = document.createElement('div');
+        info.className = 'tweeker-advanced-key-info';
+        
+        const keyName = document.createElement('span');
+        keyName.className = 'tweeker-advanced-key-name';
+        keyName.textContent = key;
+        
+        const keyDesc = document.createElement('span');
+        keyDesc.className = 'tweeker-advanced-key-desc';
+        keyDesc.textContent = desc;
+
+        info.appendChild(keyName);
+        info.appendChild(keyDesc);
+
+        const editor = document.createElement('div');
+        editor.className = 'tweeker-advanced-value-editor';
+
+        let inputEl;
+        if (inputType === 'color') {
+            inputEl = document.createElement('input');
+            inputEl.type = 'color';
+            inputEl.className = 'input-color';
+            inputEl.value = val;
+        } else if (inputType === 'boolean') {
+            const toggleWrapper = document.createElement('label');
+            toggleWrapper.className = 'toggle-switch';
+            
+            inputEl = document.createElement('input');
+            inputEl.type = 'checkbox';
+            inputEl.checked = (val === 'true');
+            
+            const slider = document.createElement('span');
+            slider.className = 'toggle-slider';
+
+            toggleWrapper.appendChild(inputEl);
+            toggleWrapper.appendChild(slider);
+            editor.appendChild(toggleWrapper);
+        } else if (inputType === 'number') {
+            inputEl = document.createElement('input');
+            inputEl.type = 'number';
+            inputEl.className = 'input input-number';
+            inputEl.value = val;
+            inputEl.style.width = '100%';
+        } else {
+            inputEl = document.createElement('input');
+            inputEl.type = 'text';
+            inputEl.className = 'input';
+            inputEl.value = val;
+            inputEl.style.width = '100%';
+        }
+
+        if (inputEl) {
+            const changeHandler = (e) => {
+                let newVal;
+                if (inputType === 'boolean') {
+                    newVal = e.target.checked ? 'true' : 'false';
+                } else {
+                    newVal = e.target.value;
+                }
+                
+                try {
+                    localStorage.setItem(key, newVal);
+                } catch (err) {}
+
+                applyLiveAdvancedSetting(key, newVal);
+            };
+
+            inputEl.addEventListener('change', changeHandler);
+            if (inputType === 'color' || inputType === 'boolean') {
+                inputEl.addEventListener('input', changeHandler);
+            }
+            if (inputType !== 'boolean') {
+                editor.appendChild(inputEl);
+            }
+        }
+
+        row.appendChild(info);
+        row.appendChild(editor);
+        dom.advancedListContainer.appendChild(row);
+        count++;
+    }
+
+    if (count === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.style.textAlign = 'center';
+        empty.style.padding = '12px';
+        empty.textContent = 'No matching settings found.';
+        dom.advancedListContainer.appendChild(empty);
+    }
+}
+
+function applyLiveAdvancedSetting(key, val) {
+    if (key === 'tweeker_max_log_lines') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 10) {
+            state.maxLogLines = num;
+            if (dom.maxLogLinesInput) dom.maxLogLinesInput.value = num;
+            pruneLogs();
+        }
+    } else if (key === 'tweeker_user_cache_limit') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 10) {
+            if (dom.userCacheLimitInput) dom.userCacheLimitInput.value = num;
+            invoke('set_user_cache_limit', { limit: num }).catch(() => {});
+        }
+    } else if (key === 'tweeker_relevant_followers_limit') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 0) {
+            if (dom.relevantFollowersLimitInput) dom.relevantFollowersLimitInput.value = num;
+            const color = localStorage.getItem('tweeker_relevant_highlight_color') || '#00ba7c';
+            window.postMessage({ __tweeker: true, type: 'set_relevant_followers_limit', limit: num, color }, '*');
+        }
+    } else if (key === 'tweeker_relevant_highlight_color') {
+        if (dom.relevantHighlightColorInput) dom.relevantHighlightColorInput.value = val;
+        const limitStr = localStorage.getItem('tweeker_relevant_followers_limit');
+        const limit = parseInt(limitStr, 10) || 2500;
+        window.postMessage({ __tweeker: true, type: 'set_relevant_followers_limit', limit, color: val }, '*');
+    } else if (key === 'tweeker_recent_duration') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 1) {
+            if (dom.recentDurationInput) dom.recentDurationInput.value = num;
+            window.postMessage({ __tweeker: true, type: 'set_recent_settings', duration: num }, '*');
+        }
+    } else if (key === 'tweeker_list_min_followers') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num)) {
+            state.listMinFollowers = num;
+            if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = num;
+            syncListFilterSettings();
+        }
+    } else if (key === 'tweeker_list_min_ratio') {
+        const num = parseFloat(val);
+        if (!isNaN(num)) {
+            state.listMinRatio = num;
+            if (dom.listMinRatioInput) dom.listMinRatioInput.value = num.toFixed(1);
+            syncListFilterSettings();
+        }
+    } else if (key === 'tweeker_list_highlight_verified') {
+        const b = (val === 'true');
+        state.listHighlightVerified = b;
+        if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = b;
+        syncListFilterSettings();
+    } else if (key === 'tweeker_list_verified_color') {
+        state.listVerifiedColor = val;
+        if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = val;
+        syncListFilterSettings();
+    } else if (key === 'tweeker_list_highlight_mega') {
+        const b = (val === 'true');
+        state.listHighlightMega = b;
+        if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = b;
+        syncListFilterSettings();
+    } else if (key === 'tweeker_list_mega_color') {
+        state.listMegaColor = val;
+        if (dom.listMegaColorInput) dom.listMegaColorInput.value = val;
+        syncListFilterSettings();
+    } else if (key === 'tweeker_autoread_on_start') {
+        const b = (val === 'true');
+        state.autoReadOnStart = b;
+        if (dom.autoReadStartupToggle) dom.autoReadStartupToggle.checked = b;
+    } else if (key === 'tweeker_debug_twitter') {
+        const b = (val === 'true');
+        setDebugTwitterState(b);
+    } else if (key === 'tweeker_max_debug_lines') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 10) {
+            state.maxDebugLines = num;
+            if (dom.maxDebugLinesInput) dom.maxDebugLinesInput.value = num;
+            pruneDebugLogs();
+        }
+    } else if (key.startsWith('notifications.statistics.')) {
+        const notifBg = localStorage.getItem('notifications.statistics.background-color') || '#43474d';
+        const notifLikes = localStorage.getItem('notifications.statistics.likes-color') || '#f91880';
+        const notifRetweets = localStorage.getItem('notifications.statistics.retweets-color') || '#00ba7c';
+        const notifReplies = localStorage.getItem('notifications.statistics.replies-color') || '#1d9bf0';
+        const notifViews = localStorage.getItem('notifications.statistics.views-color') || '#71767b';
+        try {
+            window.postMessage({
+                __tweeker: true,
+                type: 'set_notif_stats_colors',
+                colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
+            }, '*');
+        } catch (e) {}
+    }
+
+    addLogEntry({
+        type: 'system',
+        text: `Advanced Setting: [${key}] updated to value: "${val}"`
+    });
+}
+
+if (dom.advancedSettingsBtn) {
+    dom.advancedSettingsBtn.addEventListener('click', () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Advanced Configuration Editor modal opened'
+        });
+        if (dom.advancedSearchInput) dom.advancedSearchInput.value = '';
+        renderAdvancedSettings();
+        if (dom.advancedModalOverlay) dom.advancedModalOverlay.classList.add('open');
+    });
+}
+
+if (dom.advancedModalClose) {
+    dom.advancedModalClose.addEventListener('click', () => {
+        if (dom.advancedModalOverlay) dom.advancedModalOverlay.classList.remove('open');
+    });
+}
+
+if (dom.advancedSearchInput) {
+    dom.advancedSearchInput.addEventListener('input', (e) => {
+        renderAdvancedSettings(e.target.value);
+    });
+}
+
 
 // ── G1: Export Application Data & Backup ──
 
@@ -2492,6 +2809,11 @@ const BACKUP_SETTINGS_KEYS = [
     'tweeker_max_debug_lines',
     'tweeker_log_filters',
     'tweeker_decouple_mode',
+    'notifications.statistics.background-color',
+    'notifications.statistics.likes-color',
+    'notifications.statistics.retweets-color',
+    'notifications.statistics.replies-color',
+    'notifications.statistics.views-color',
 ];
 
 function buildBackupPayload() {
@@ -2724,6 +3046,19 @@ async function applyBackupRestore(backup, updateProgress) {
     if (dom.listMegaColorInput) dom.listMegaColorInput.value = listMegaColor;
 
     syncListFilterSettings();
+
+    const notifBg = localStorage.getItem('notifications.statistics.background-color') || '#43474d';
+    const notifLikes = localStorage.getItem('notifications.statistics.likes-color') || '#f91880';
+    const notifRetweets = localStorage.getItem('notifications.statistics.retweets-color') || '#00ba7c';
+    const notifReplies = localStorage.getItem('notifications.statistics.replies-color') || '#1d9bf0';
+    const notifViews = localStorage.getItem('notifications.statistics.views-color') || '#71767b';
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_notif_stats_colors',
+            colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
+        }, '*');
+    } catch (e) {}
 
     const savedAutoReadOnStart = localStorage.getItem('tweeker_autoread_on_start') === 'true';
     state.autoReadOnStart = savedAutoReadOnStart;
@@ -3568,6 +3903,20 @@ async function init() {
     if (dom.listMegaColorInput) dom.listMegaColorInput.value = listMegaColor;
 
     syncListFilterSettings();
+
+    // Restore custom notifications statistics colors on start
+    const notifBg = localStorage.getItem('notifications.statistics.background-color') || '#43474d';
+    const notifLikes = localStorage.getItem('notifications.statistics.likes-color') || '#f91880';
+    const notifRetweets = localStorage.getItem('notifications.statistics.retweets-color') || '#00ba7c';
+    const notifReplies = localStorage.getItem('notifications.statistics.replies-color') || '#1d9bf0';
+    const notifViews = localStorage.getItem('notifications.statistics.views-color') || '#71767b';
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_notif_stats_colors',
+            colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
+        }, '*');
+    } catch (e) {}
 
     // Restore saved log entries
     try {

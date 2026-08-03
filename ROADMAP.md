@@ -19,7 +19,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **G5** | Hard Reset / Factory Wipe | **Completed** | Antigravity | 2026-08-03 |
 | **G6** | Download Diagnostic System Bundle | **Completed** | Antigravity | 2026-08-03 |
 | **H** | Real-Time Relevant & Recent Tweet Highlights | **Completed** | Antigravity | 2026-08-03 |
-| **I** | Advanced Configuration Editor & Custom Stats Styling | **Proposed** | - | - |
+| **I** | Advanced Configuration Editor & Custom Stats Styling | **Completed** | Antigravity | 2026-08-03 |
 
 ---
 

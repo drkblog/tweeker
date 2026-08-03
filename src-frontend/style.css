@@ -1598,7 +1598,7 @@
     margin-top: 6px !important;
     margin-bottom: 4px !important;
     padding: 4px 10px !important;
-    background: hsla(220, 10%, 30%, 0.85) !important;
+    background: var(--tweeker-notif-bg, hsla(220, 10%, 30%, 0.85)) !important;
     border: 1px solid hsla(220, 15%, 45%, 0.4) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
@@ -1621,10 +1621,10 @@
     font-weight: 600 !important;
 }
 
-.tweeker-notification-tweet-stats .stat-replies span { color: #1d9bf0 !important; }
-.tweeker-notification-tweet-stats .stat-retweets span { color: #00ba7c !important; }
-.tweeker-notification-tweet-stats .stat-likes span { color: #f91880 !important; }
-.tweeker-notification-tweet-stats .stat-views span { color: #71767b !important; }
+.tweeker-notification-tweet-stats .stat-replies span { color: var(--tweeker-notif-replies, #1d9bf0) !important; }
+.tweeker-notification-tweet-stats .stat-retweets span { color: var(--tweeker-notif-retweets, #00ba7c) !important; }
+.tweeker-notification-tweet-stats .stat-likes span { color: var(--tweeker-notif-likes, #f91880) !important; }
+.tweeker-notification-tweet-stats .stat-views span { color: var(--tweeker-notif-views, #71767b) !important; }
 
 /* ── Danger Buttons ── */
 #tweeker-overlay-container .btn-danger {
@@ -1776,6 +1776,89 @@ article[data-testid="tweet"].tweeker-highlighted-tweet:hover {
     50% { transform: scale(1.2); filter: drop-shadow(0 0 8px rgba(250, 204, 21, 1)); }
     100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(250, 204, 21, 0.6)); }
 }
+
+/* ── Advanced Configuration Editor Modal (G6/Feature I) ── */
+#tweeker-overlay-container .tweeker-advanced-modal-card {
+    width: 580px !important;
+    max-width: 90vw !important;
+    border-color: hsla(220, 15%, 35%, 0.5) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 24px rgba(255, 255, 255, 0.1) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-search-container {
+    width: 100% !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-list-container {
+    max-height: 380px !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding-right: 8px !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-list-container::-webkit-scrollbar {
+    width: 6px !important;
+}
+#tweeker-overlay-container .tweeker-advanced-list-container::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+#tweeker-overlay-container .tweeker-advanced-list-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 3px !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-row:last-child {
+    border-bottom: none !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-key-info {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    max-width: 65% !important;
+    word-break: break-all !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-key-name {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #e7e9ea !important;
+    font-family: monospace !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-key-desc {
+    font-size: 11px !important;
+    color: #71767b !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-value-editor {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    width: 35% !important;
+}
+
+#tweeker-overlay-container .tweeker-advanced-value-editor input[type="text"],
+#tweeker-overlay-container .tweeker-advanced-value-editor input[type="number"] {
+    width: 100% !important;
+    font-family: monospace !important;
+    font-size: 12px !important;
+}
+
 
 
 
