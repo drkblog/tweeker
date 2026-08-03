@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-save-last-url"
+description = "Enables the save_last_url command without any pre-configured scope."
+commands.allow = ["save_last_url"]
+
+[[permission]]
+identifier = "deny-save-last-url"
+description = "Denies the save_last_url command without any pre-configured scope."
+commands.deny = ["save_last_url"]

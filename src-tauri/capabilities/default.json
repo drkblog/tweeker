@@ -48,6 +48,14 @@
     "allow-get-db-path",
     "allow-get-db-stats",
     "allow-save-tweets",
+    "allow-get-users-counts-batch",
+    "allow-get-tweet-stats-batch",
+    "allow-get-tweets-by-content-batch",
+    "allow-save-last-url",
+    "allow-get-decouple-mode",
+    "allow-set-decouple-mode",
+    "allow-clear-browser-cache",
+    "allow-clear-site-data",
     "window-state:default"
   ]
 }

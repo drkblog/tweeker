@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-get-decouple-mode"
+description = "Enables the get_decouple_mode command without any pre-configured scope."
+commands.allow = ["get_decouple_mode"]
+
+[[permission]]
+identifier = "deny-get-decouple-mode"
+description = "Denies the get_decouple_mode command without any pre-configured scope."
+commands.deny = ["get_decouple_mode"]

@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-get-tweets-by-content-batch"
+description = "Enables the get_tweets_by_content_batch command without any pre-configured scope."
+commands.allow = ["get_tweets_by_content_batch"]
+
+[[permission]]
+identifier = "deny-get-tweets-by-content-batch"
+description = "Denies the get_tweets_by_content_batch command without any pre-configured scope."
+commands.deny = ["get_tweets_by_content_batch"]

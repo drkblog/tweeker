@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-get-tweet-stats-batch"
+description = "Enables the get_tweet_stats_batch command without any pre-configured scope."
+commands.allow = ["get_tweet_stats_batch"]
+
+[[permission]]
+identifier = "deny-get-tweet-stats-batch"
+description = "Denies the get_tweet_stats_batch command without any pre-configured scope."
+commands.deny = ["get_tweet_stats_batch"]

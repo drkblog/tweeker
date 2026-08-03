@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-get-users-counts-batch"
+description = "Enables the get_users_counts_batch command without any pre-configured scope."
+commands.allow = ["get_users_counts_batch"]
+
+[[permission]]
+identifier = "deny-get-users-counts-batch"
+description = "Denies the get_users_counts_batch command without any pre-configured scope."
+commands.deny = ["get_users_counts_batch"]
