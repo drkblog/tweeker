@@ -183,6 +183,7 @@ const dom = {
     managerTab: document.getElementById('tab-manager'),
     cleanCacheBtn: document.getElementById('clean-cache-btn'),
     deleteSiteDataBtn: document.getElementById('delete-site-data-btn'),
+    resetSettingsBtn: document.getElementById('reset-settings-btn'),
 
     // Modal
     modalOverlay: document.getElementById('tweeker-modal-overlay'),
@@ -1914,6 +1915,11 @@ if (dom.listMegaColorInput) {
 // Dump database statistics button
 if (dom.dumpDbStatsBtn) {
     dom.dumpDbStatsBtn.addEventListener('click', async () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Database statistics dump triggered'
+        });
         await emitDbStatsLog();
         showToastMessage('Database statistics dumped to log!');
     });
@@ -1974,6 +1980,11 @@ function showConfirmationModal({ title, body, confirmText, onConfirm }) {
 // Clean browser cache button handler
 if (dom.cleanCacheBtn) {
     dom.cleanCacheBtn.addEventListener('click', async () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Clean Cache action triggered'
+        });
         try {
             if ('caches' in window) {
                 const keys = await caches.keys();
@@ -1989,15 +2000,17 @@ if (dom.cleanCacheBtn) {
             }
             await invoke('clear_browser_cache');
             addLogEntry({
-                type: 'system',
-                text: 'Browser cache cleaned successfully'
+                type: 'info',
+                level: 'INFO',
+                text: 'Manager: Browser cache cleaned successfully'
             });
             showToastMessage('Browser cache cleaned!');
         } catch (err) {
             console.error('[Tweeker] Failed to clean cache:', err);
             addLogEntry({
-                type: 'system',
-                text: `Failed to clean browser cache: ${err}`
+                type: 'error',
+                level: 'ERROR',
+                text: `Manager: Failed to clean browser cache: ${err}`
             });
         }
     });
@@ -2006,6 +2019,11 @@ if (dom.cleanCacheBtn) {
 // Delete site data button handler (with confirmation warning & progress bar)
 if (dom.deleteSiteDataBtn) {
     dom.deleteSiteDataBtn.addEventListener('click', () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Delete Site Data action triggered — awaiting confirmation'
+        });
         showConfirmationModal({
             title: 'Delete Site Data?',
             body: 'This action will erase local storage, session storage, and stored web data for all sites. You will be logged out of X.com. Are you sure you want to proceed?',
@@ -2047,15 +2065,155 @@ if (dom.deleteSiteDataBtn) {
 
                     updateProgress(100, 'Site data erased! Reloading application...');
                     addLogEntry({
-                        type: 'system',
-                        text: 'Site data (localStorage, sessionStorage, IndexedDB) erased by user'
+                        type: 'info',
+                        level: 'INFO',
+                        text: 'Manager: Site data (localStorage, sessionStorage, IndexedDB) erased successfully'
                     });
                     showToastMessage('Site data erased. Reloading page...');
                     await new Promise(r => setTimeout(r, 800));
                     window.location.reload();
                 } catch (err) {
                     console.error('[Tweeker] Failed to delete site data:', err);
+                    addLogEntry({
+                        type: 'error',
+                        level: 'ERROR',
+                        text: `Manager: Failed to delete site data: ${err}`
+                    });
                 }
+            }
+        });
+    });
+}
+
+// ── G4: Reset Application Settings to Defaults ──
+
+const SETTINGS_DEFAULTS = {
+    tweeker_max_log_lines: 2000,
+    tweeker_user_cache_limit: 10000,
+    tweeker_relevant_followers_limit: 2500,
+    tweeker_relevant_highlight_color: '#00ba7c',
+    tweeker_list_min_followers: 0,
+    tweeker_list_min_ratio: 0.0,
+    tweeker_list_highlight_verified: false,
+    tweeker_list_verified_color: '#1d9bf0',
+    tweeker_list_highlight_mega: false,
+    tweeker_list_mega_color: '#a855f7',
+    tweeker_autoread_on_start: false,
+    tweeker_debug_twitter: false,
+    tweeker_max_debug_lines: 2000,
+    tweeker_log_filters: { INFO: true, WARN: true, ERROR: true, DEBUG: false },
+};
+
+function applySettingsDefaults() {
+    // Max log lines
+    state.maxLogLines = SETTINGS_DEFAULTS.tweeker_max_log_lines;
+    try { localStorage.setItem('tweeker_max_log_lines', state.maxLogLines.toString()); } catch (e) {}
+    if (dom.maxLogLinesInput) dom.maxLogLinesInput.value = state.maxLogLines;
+    pruneLogs();
+
+    // User cache limit
+    const cacheLimit = SETTINGS_DEFAULTS.tweeker_user_cache_limit;
+    try { localStorage.setItem('tweeker_user_cache_limit', cacheLimit.toString()); } catch (e) {}
+    if (dom.userCacheLimitInput) dom.userCacheLimitInput.value = cacheLimit;
+    invoke('set_user_cache_limit', { limit: cacheLimit }).catch(() => {});
+
+    // Relevant followers limit & color
+    const relevantLimit = SETTINGS_DEFAULTS.tweeker_relevant_followers_limit;
+    const highlightColor = SETTINGS_DEFAULTS.tweeker_relevant_highlight_color;
+    try { localStorage.setItem('tweeker_relevant_followers_limit', relevantLimit.toString()); } catch (e) {}
+    try { localStorage.setItem('tweeker_relevant_highlight_color', highlightColor); } catch (e) {}
+    if (dom.relevantFollowersLimitInput) dom.relevantFollowersLimitInput.value = relevantLimit;
+    if (dom.relevantHighlightColorInput) dom.relevantHighlightColorInput.value = highlightColor;
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_relevant_followers_limit',
+            limit: relevantLimit,
+            color: highlightColor
+        }, '*');
+    } catch (e) {}
+
+    // List filter: min followers
+    state.listMinFollowers = SETTINGS_DEFAULTS.tweeker_list_min_followers;
+    try { localStorage.setItem('tweeker_list_min_followers', state.listMinFollowers.toString()); } catch (e) {}
+    if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = state.listMinFollowers;
+
+    // List filter: min ratio
+    state.listMinRatio = SETTINGS_DEFAULTS.tweeker_list_min_ratio;
+    try { localStorage.setItem('tweeker_list_min_ratio', state.listMinRatio.toString()); } catch (e) {}
+    if (dom.listMinRatioInput) dom.listMinRatioInput.value = state.listMinRatio.toFixed(1);
+
+    // List highlight: verified
+    state.listHighlightVerified = SETTINGS_DEFAULTS.tweeker_list_highlight_verified;
+    try { localStorage.setItem('tweeker_list_highlight_verified', state.listHighlightVerified ? 'true' : 'false'); } catch (e) {}
+    if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = state.listHighlightVerified;
+
+    // List highlight: verified color
+    state.listVerifiedColor = SETTINGS_DEFAULTS.tweeker_list_verified_color;
+    try { localStorage.setItem('tweeker_list_verified_color', state.listVerifiedColor); } catch (e) {}
+    if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = state.listVerifiedColor;
+
+    // List highlight: mega influencer
+    state.listHighlightMega = SETTINGS_DEFAULTS.tweeker_list_highlight_mega;
+    try { localStorage.setItem('tweeker_list_highlight_mega', state.listHighlightMega ? 'true' : 'false'); } catch (e) {}
+    if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = state.listHighlightMega;
+
+    // List highlight: mega color
+    state.listMegaColor = SETTINGS_DEFAULTS.tweeker_list_mega_color;
+    try { localStorage.setItem('tweeker_list_mega_color', state.listMegaColor); } catch (e) {}
+    if (dom.listMegaColorInput) dom.listMegaColorInput.value = state.listMegaColor;
+
+    // Sync all list filter settings to injected script
+    syncListFilterSettings();
+
+    // Auto read on app start (startup preference only — does not change live state)
+    state.autoReadOnStart = SETTINGS_DEFAULTS.tweeker_autoread_on_start;
+    try { localStorage.setItem('tweeker_autoread_on_start', state.autoReadOnStart ? 'true' : 'false'); } catch (e) {}
+    if (dom.autoReadStartupToggle) dom.autoReadStartupToggle.checked = state.autoReadOnStart;
+
+    // Debug Twitter
+    setDebugTwitterState(SETTINGS_DEFAULTS.tweeker_debug_twitter);
+
+    // Max debug log lines
+    state.maxDebugLines = SETTINGS_DEFAULTS.tweeker_max_debug_lines;
+    try { localStorage.setItem('tweeker_max_debug_lines', state.maxDebugLines.toString()); } catch (e) {}
+    if (dom.maxDebugLinesInput) dom.maxDebugLinesInput.value = state.maxDebugLines;
+    pruneDebugLogs();
+
+    // Log level filters
+    state.logFilters = { ...SETTINGS_DEFAULTS.tweeker_log_filters };
+    try { localStorage.setItem('tweeker_log_filters', JSON.stringify(state.logFilters)); } catch (e) {}
+    if (dom.logFilterInfo) dom.logFilterInfo.checked = !!state.logFilters.INFO;
+    if (dom.logFilterWarn) dom.logFilterWarn.checked = !!state.logFilters.WARN;
+    if (dom.logFilterError) dom.logFilterError.checked = !!state.logFilters.ERROR;
+    if (dom.logFilterDebug) dom.logFilterDebug.checked = !!state.logFilters.DEBUG;
+    refreshLogsView();
+}
+
+// Reset Settings to Defaults button handler (G4)
+if (dom.resetSettingsBtn) {
+    dom.resetSettingsBtn.addEventListener('click', () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Reset Settings to Defaults action triggered — awaiting confirmation'
+        });
+        showConfirmationModal({
+            title: 'Reset Settings to Defaults?',
+            body: 'This will restore all UI toggles, list filter thresholds, relevant-follower limits, color pickers, and logging settings to their factory default values. Your alarms, scheduled tweets, and cached data are not affected.',
+            confirmText: 'Reset to Defaults',
+            onConfirm: async (updateProgress) => {
+                updateProgress(30, 'Applying factory defaults...');
+                await new Promise(r => setTimeout(r, 200));
+                applySettingsDefaults();
+                updateProgress(100, 'Settings reset complete!');
+                await new Promise(r => setTimeout(r, 300));
+                addLogEntry({
+                    type: 'info',
+                    level: 'INFO',
+                    text: 'Manager: Application settings reset to factory defaults successfully'
+                });
+                showToastMessage('Settings reset to defaults!');
             }
         });
     });

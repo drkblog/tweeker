@@ -15,7 +15,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **G1** | Export Application Data & Backup | **Proposed** | - | - |
 | **G2** | Import / Restore Application Data | **Proposed** | - | - |
 | **G3** | Purge User Cache & Intercepted Tweets Storage | **Proposed** | - | - |
-| **G4** | Reset Application Settings to Defaults | **Proposed** | - | - |
+| **G4** | Reset Application Settings to Defaults | **Completed** | Antigravity | 2026-08-03 |
 | **G5** | Hard Reset / Factory Wipe | **Proposed** | - | - |
 | **G6** | Download Diagnostic System Bundle | **Proposed** | - | - |
 
