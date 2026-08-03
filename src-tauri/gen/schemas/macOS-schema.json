@@ -219,6 +219,12 @@
           "markdownDescription": "Enables the delete_scheduled_tweet command without any pre-configured scope."
         },
         {
+          "description": "Enables the export_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-export-backup",
+          "markdownDescription": "Enables the export_backup command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_alarms command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-alarms",
@@ -307,6 +313,12 @@
           "type": "string",
           "const": "allow-get-users-counts-batch",
           "markdownDescription": "Enables the get_users_counts_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the import_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-import-backup",
+          "markdownDescription": "Enables the import_backup command without any pre-configured scope."
         },
         {
           "description": "Enables the save_last_url command without any pre-configured scope.",
@@ -399,6 +411,12 @@
           "markdownDescription": "Denies the delete_scheduled_tweet command without any pre-configured scope."
         },
         {
+          "description": "Denies the export_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-export-backup",
+          "markdownDescription": "Denies the export_backup command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_alarms command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-alarms",
@@ -487,6 +505,12 @@
           "type": "string",
           "const": "deny-get-users-counts-batch",
           "markdownDescription": "Denies the get_users_counts_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the import_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-import-backup",
+          "markdownDescription": "Denies the import_backup command without any pre-configured scope."
         },
         {
           "description": "Denies the save_last_url command without any pre-configured scope.",

@@ -47,6 +47,8 @@ fn main() {
             commands::set_decouple_mode,
             commands::clear_browser_cache,
             commands::clear_site_data,
+            commands::export_backup,
+            commands::import_backup,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

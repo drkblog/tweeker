@@ -481,6 +481,38 @@ pub fn clear_site_data(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn export_backup(payload: String, filename_hint: String) -> Result<Option<String>, String> {
+    let file_path = rfd::FileDialog::new()
+        .add_filter("JSON Backup", &["json"])
+        .set_file_name(&filename_hint)
+        .save_file();
+
+    if let Some(path) = file_path {
+        std::fs::write(&path, payload)
+            .map_err(|e| format!("Failed to write backup file: {}", e))?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn import_backup() -> Result<Option<(String, String)>, String> {
+    let file_path = rfd::FileDialog::new()
+        .add_filter("JSON Backup", &["json"])
+        .pick_file();
+
+    if let Some(path) = file_path {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read backup file: {}", e))?;
+        Ok(Some((content, path.to_string_lossy().into_owned())))
+    } else {
+        Ok(None)
+    }
+}
+
+
 
 
 

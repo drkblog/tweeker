@@ -56,6 +56,8 @@
     "allow-set-decouple-mode",
     "allow-clear-browser-cache",
     "allow-clear-site-data",
+    "allow-export-backup",
+    "allow-import-backup",
     "window-state:default"
   ]
 }

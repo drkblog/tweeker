@@ -12,8 +12,8 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **D** | Lazy API Fetching for Uncached Profiles | **Pending** | - | - |
 | **E** | Tweet Stats on Notifications Screen ("All" Tab Only) | **Completed** | Antigravity | 2026-07-30 |
 | **F** | Decoupled Mode (No Page Modifications) | **Completed** | Antigravity | 2026-07-31 |
-| **G1** | Export Application Data & Backup | **Proposed** | - | - |
-| **G2** | Import / Restore Application Data | **Proposed** | - | - |
+| **G1** | Export Application Data & Backup | **Completed** | Antigravity | 2026-08-03 |
+| **G2** | Import / Restore Application Data | **Completed** | Antigravity | 2026-08-03 |
 | **G3** | Purge User Cache & Intercepted Tweets Storage | **Proposed** | - | - |
 | **G4** | Reset Application Settings to Defaults | **Completed** | Antigravity | 2026-08-03 |
 | **G5** | Hard Reset / Factory Wipe | **Proposed** | - | - |

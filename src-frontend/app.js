@@ -183,6 +183,8 @@ const dom = {
     managerTab: document.getElementById('tab-manager'),
     cleanCacheBtn: document.getElementById('clean-cache-btn'),
     deleteSiteDataBtn: document.getElementById('delete-site-data-btn'),
+    exportBackupBtn: document.getElementById('export-backup-btn'),
+    importBackupBtn: document.getElementById('import-backup-btn'),
     resetSettingsBtn: document.getElementById('reset-settings-btn'),
 
     // Modal
@@ -1939,6 +1941,7 @@ function showConfirmationModal({ title, body, confirmText, onConfirm }) {
     if (dom.modalProgressPercent) dom.modalProgressPercent.textContent = '0%';
     if (dom.modalProgressStatus) dom.modalProgressStatus.textContent = 'Initializing...';
 
+    dom.modalOverlay.style.display = 'flex';
     dom.modalOverlay.classList.add('open');
 
     const cleanup = () => {
@@ -1974,6 +1977,36 @@ function showConfirmationModal({ title, body, confirmText, onConfirm }) {
     if (dom.modalCancel) dom.modalCancel.onclick = handleCancel;
     if (dom.modalConfirm) dom.modalConfirm.onclick = handleConfirm;
 }
+
+// ── Information Modal Helper ──
+function showInfoModal({ title, body, okText }) {
+    if (!dom.modalOverlay) return;
+    if (dom.modalTitle) dom.modalTitle.textContent = title || 'Information';
+    if (dom.modalBody) dom.modalBody.textContent = body || '';
+    if (dom.modalConfirm) dom.modalConfirm.textContent = okText || 'OK';
+    if (dom.modalCancel) dom.modalCancel.style.display = 'none';
+
+    // Show actions, hide progress
+    if (dom.modalActions) dom.modalActions.style.display = 'flex';
+    if (dom.modalProgressContainer) dom.modalProgressContainer.style.display = 'none';
+
+    dom.modalOverlay.style.display = 'flex';
+    dom.modalOverlay.classList.add('open');
+
+    const cleanup = () => {
+        dom.modalOverlay.classList.remove('open');
+        dom.modalOverlay.style.display = 'none';
+        if (dom.modalCancel) {
+            dom.modalCancel.onclick = null;
+            dom.modalCancel.style.display = 'inline-block';
+        }
+        if (dom.modalConfirm) dom.modalConfirm.onclick = null;
+    };
+
+    if (dom.modalConfirm) dom.modalConfirm.onclick = cleanup;
+    if (dom.modalCancel) dom.modalCancel.onclick = cleanup;
+}
+
 
 // ── Manager Action Listeners ──
 
@@ -2216,6 +2249,387 @@ if (dom.resetSettingsBtn) {
                 showToastMessage('Settings reset to defaults!');
             }
         });
+    });
+}
+
+// ── G1: Export Application Data & Backup ──
+
+const BACKUP_SETTINGS_KEYS = [
+    'tweeker_max_log_lines',
+    'tweeker_user_cache_limit',
+    'tweeker_relevant_followers_limit',
+    'tweeker_relevant_highlight_color',
+    'tweeker_list_min_followers',
+    'tweeker_list_min_ratio',
+    'tweeker_list_highlight_verified',
+    'tweeker_list_verified_color',
+    'tweeker_list_highlight_mega',
+    'tweeker_list_mega_color',
+    'tweeker_autoread_on_start',
+    'tweeker_debug_twitter',
+    'tweeker_max_debug_lines',
+    'tweeker_log_filters',
+    'tweeker_decouple_mode',
+];
+
+function buildBackupPayload() {
+    // Collect settings from localStorage
+    const settings = {};
+    for (const key of BACKUP_SETTINGS_KEYS) {
+        try {
+            const val = localStorage.getItem(key);
+            if (val !== null) settings[key] = val;
+        } catch (e) {}
+    }
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+    return {
+        tweeker_backup: true,
+        version: state.appVersion || '1.0.1',
+        exported_at: now.toISOString(),
+        alarms: [...(state.alarms || [])],
+        scheduled_tweets: [...(state.scheduledTweets || [])],
+        settings,
+        _filename_hint: `tweeker_backup_${ts}.json`,
+    };
+}
+
+if (dom.exportBackupBtn) {
+    dom.exportBackupBtn.addEventListener('click', async () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Export Backup action triggered'
+        });
+        try {
+            const payload = buildBackupPayload();
+            const json = JSON.stringify(payload, null, 2);
+
+            const savedPath = await invoke('export_backup', {
+                payload: json,
+                filenameHint: payload._filename_hint
+            });
+
+            if (!savedPath) {
+                addLogEntry({
+                    type: 'info',
+                    level: 'INFO',
+                    text: 'Manager: Export Backup cancelled by user'
+                });
+                showToastMessage('Backup cancelled.');
+                return;
+            }
+
+            const alarmCount = payload.alarms.length;
+            const tweetCount = payload.scheduled_tweets.length;
+            
+            addLogEntry({
+                type: 'info',
+                level: 'INFO',
+                text: `Manager: Backup exported successfully to: ${savedPath}`
+            });
+
+            showInfoModal({
+                title: 'Backup Successful',
+                body: `Your backup has been saved successfully to:\n\n${savedPath}\n\nContains: ${alarmCount} alarm(s), ${tweetCount} scheduled tweet(s), and settings.`,
+                okText: 'OK'
+            });
+            showToastMessage('Backup exported successfully!');
+        } catch (err) {
+            console.error('[Tweeker] Export backup failed:', err);
+            addLogEntry({
+                type: 'error',
+                level: 'ERROR',
+                text: `Manager: Export backup failed: ${err}`
+            });
+            showToastMessage('Export backup failed.');
+        }
+    });
+}
+
+// ── G2: Import / Restore Application Data ──
+
+async function applyBackupRestore(backup, updateProgress) {
+    let alarmsRestored = 0;
+    let alarmsSkipped = 0;
+    let tweetsRestored = 0;
+    let tweetsSkipped = 0;
+    let settingsRestored = 0;
+
+    updateProgress(10, 'Restoring alarms...');
+    await new Promise(r => setTimeout(r, 150));
+
+    // ── Restore Alarms ──
+    const existingAlarmIds = new Set((state.alarms || []).map(a => a.id));
+    for (const alarm of (backup.alarms || [])) {
+        if (!alarm.id || !alarm.name || !alarm.alarm_type || !alarm.pattern) {
+            alarmsSkipped++;
+            continue;
+        }
+        if (existingAlarmIds.has(alarm.id)) {
+            alarmsSkipped++;
+            continue;
+        }
+        try {
+            const newAlarm = await invoke('create_alarm', {
+                request: {
+                    name: alarm.name,
+                    alarm_type: alarm.alarm_type,
+                    pattern: alarm.pattern,
+                    notify: alarm.notify || false,
+                }
+            });
+            state.alarms.push(newAlarm);
+            existingAlarmIds.add(newAlarm.id);
+            alarmsRestored++;
+        } catch (e) {
+            alarmsSkipped++;
+        }
+    }
+    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    renderAlarmsList();
+
+    updateProgress(45, 'Restoring scheduled tweets...');
+    await new Promise(r => setTimeout(r, 150));
+
+    // ── Restore Scheduled Tweets (pending + future only) ──
+    const now = Date.now();
+    const existingTweetIds = new Set((state.scheduledTweets || []).map(t => t.id));
+    for (const tweet of (backup.scheduled_tweets || [])) {
+        if (!tweet.content || !tweet.scheduled_for) {
+            tweetsSkipped++;
+            continue;
+        }
+        const scheduledMs = new Date(tweet.scheduled_for).getTime();
+        if (isNaN(scheduledMs) || scheduledMs <= now) {
+            tweetsSkipped++;
+            continue;
+        }
+        if (tweet.id && existingTweetIds.has(tweet.id)) {
+            tweetsSkipped++;
+            continue;
+        }
+        const statusStr = (tweet.status || 'pending').toLowerCase();
+        if (statusStr !== 'pending') {
+            tweetsSkipped++;
+            continue;
+        }
+        try {
+            const newTweet = await invoke('create_scheduled_tweet', {
+                content: tweet.content,
+                scheduledFor: new Date(tweet.scheduled_for).toISOString(),
+            });
+            state.scheduledTweets.push(newTweet);
+            existingTweetIds.add(newTweet.id);
+            tweetsRestored++;
+        } catch (e) {
+            tweetsSkipped++;
+        }
+    }
+    try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+    renderScheduledList();
+
+    updateProgress(75, 'Restoring settings...');
+    await new Promise(r => setTimeout(r, 150));
+
+    // ── Restore Settings ──
+    const importableKeys = new Set(BACKUP_SETTINGS_KEYS);
+    for (const [key, value] of Object.entries(backup.settings || {})) {
+        if (!importableKeys.has(key)) continue;
+        try {
+            localStorage.setItem(key, value);
+            settingsRestored++;
+        } catch (e) {}
+    }
+
+    // Apply restored settings live to state + DOM (same pattern as startup init)
+    const savedMaxLogs = parseInt(localStorage.getItem('tweeker_max_log_lines'), 10);
+    if (!isNaN(savedMaxLogs) && savedMaxLogs >= 10) {
+        state.maxLogLines = savedMaxLogs;
+        if (dom.maxLogLinesInput) dom.maxLogLinesInput.value = state.maxLogLines;
+        pruneLogs();
+    }
+
+    const savedCacheLimit = parseInt(localStorage.getItem('tweeker_user_cache_limit'), 10);
+    if (!isNaN(savedCacheLimit) && savedCacheLimit >= 10) {
+        if (dom.userCacheLimitInput) dom.userCacheLimitInput.value = savedCacheLimit;
+        invoke('set_user_cache_limit', { limit: savedCacheLimit }).catch(() => {});
+    }
+
+    const savedRelevantLimit = parseInt(localStorage.getItem('tweeker_relevant_followers_limit'), 10);
+    const savedHighlightColor = localStorage.getItem('tweeker_relevant_highlight_color') || '#00ba7c';
+    if (!isNaN(savedRelevantLimit) && savedRelevantLimit >= 0) {
+        if (dom.relevantFollowersLimitInput) dom.relevantFollowersLimitInput.value = savedRelevantLimit;
+    }
+    if (dom.relevantHighlightColorInput) dom.relevantHighlightColorInput.value = savedHighlightColor;
+    try {
+        window.postMessage({ __tweeker: true, type: 'set_relevant_followers_limit',
+            limit: isNaN(savedRelevantLimit) ? 2500 : savedRelevantLimit, color: savedHighlightColor }, '*');
+    } catch (e) {}
+
+    const listMinFollowers = parseInt(localStorage.getItem('tweeker_list_min_followers'), 10);
+    state.listMinFollowers = (!isNaN(listMinFollowers) && listMinFollowers >= 0) ? listMinFollowers : 0;
+    if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = state.listMinFollowers;
+
+    const listMinRatio = parseFloat(localStorage.getItem('tweeker_list_min_ratio'));
+    state.listMinRatio = (!isNaN(listMinRatio) && listMinRatio >= 0.0) ? listMinRatio : 0.0;
+    if (dom.listMinRatioInput) dom.listMinRatioInput.value = state.listMinRatio.toFixed(1);
+
+    const listHighlightVerified = localStorage.getItem('tweeker_list_highlight_verified') === 'true';
+    state.listHighlightVerified = listHighlightVerified;
+    if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = listHighlightVerified;
+
+    const listVerifiedColor = localStorage.getItem('tweeker_list_verified_color') || '#1d9bf0';
+    state.listVerifiedColor = listVerifiedColor;
+    if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = listVerifiedColor;
+
+    const listHighlightMega = localStorage.getItem('tweeker_list_highlight_mega') === 'true';
+    state.listHighlightMega = listHighlightMega;
+    if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = listHighlightMega;
+
+    const listMegaColor = localStorage.getItem('tweeker_list_mega_color') || '#a855f7';
+    state.listMegaColor = listMegaColor;
+    if (dom.listMegaColorInput) dom.listMegaColorInput.value = listMegaColor;
+
+    syncListFilterSettings();
+
+    const savedAutoReadOnStart = localStorage.getItem('tweeker_autoread_on_start') === 'true';
+    state.autoReadOnStart = savedAutoReadOnStart;
+    if (dom.autoReadStartupToggle) dom.autoReadStartupToggle.checked = savedAutoReadOnStart;
+
+    const savedDebugTwitter = localStorage.getItem('tweeker_debug_twitter') === 'true';
+    setDebugTwitterState(savedDebugTwitter);
+
+    const savedMaxDebug = parseInt(localStorage.getItem('tweeker_max_debug_lines'), 10);
+    if (!isNaN(savedMaxDebug) && savedMaxDebug >= 10) {
+        state.maxDebugLines = savedMaxDebug;
+        if (dom.maxDebugLinesInput) dom.maxDebugLinesInput.value = state.maxDebugLines;
+        pruneDebugLogs();
+    }
+
+    try {
+        const savedLogFilters = localStorage.getItem('tweeker_log_filters');
+        if (savedLogFilters) {
+            const parsed = JSON.parse(savedLogFilters);
+            state.logFilters = {
+                INFO: typeof parsed.INFO === 'boolean' ? parsed.INFO : true,
+                WARN: typeof parsed.WARN === 'boolean' ? parsed.WARN : true,
+                ERROR: typeof parsed.ERROR === 'boolean' ? parsed.ERROR : true,
+                DEBUG: typeof parsed.DEBUG === 'boolean' ? parsed.DEBUG : false,
+            };
+            if (dom.logFilterInfo) dom.logFilterInfo.checked = !!state.logFilters.INFO;
+            if (dom.logFilterWarn) dom.logFilterWarn.checked = !!state.logFilters.WARN;
+            if (dom.logFilterError) dom.logFilterError.checked = !!state.logFilters.ERROR;
+            if (dom.logFilterDebug) dom.logFilterDebug.checked = !!state.logFilters.DEBUG;
+            refreshLogsView();
+        }
+    } catch (e) {}
+
+    updateProgress(100, 'Restore complete!');
+
+    return { alarmsRestored, alarmsSkipped, tweetsRestored, tweetsSkipped, settingsRestored };
+}
+
+if (dom.importBackupBtn) {
+    dom.importBackupBtn.addEventListener('click', async () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Import Backup action triggered'
+        });
+        try {
+            const res = await invoke('import_backup');
+            if (!res) {
+                addLogEntry({
+                    type: 'info',
+                    level: 'INFO',
+                    text: 'Manager: Import Backup cancelled by user'
+                });
+                showToastMessage('Import cancelled.');
+                return;
+            }
+
+            const [content, path] = res;
+            let backup;
+            try {
+                backup = JSON.parse(content);
+            } catch (parseErr) {
+                addLogEntry({
+                    type: 'error',
+                    level: 'ERROR',
+                    text: `Manager: Import Backup failed — file at "${path}" is not valid JSON: ${parseErr}`
+                });
+                showToastMessage('Import failed: invalid JSON file.');
+                return;
+            }
+
+            // Validate
+            if (!backup || backup.tweeker_backup !== true) {
+                addLogEntry({
+                    type: 'error',
+                    level: 'ERROR',
+                    text: `Manager: Import Backup failed — file at "${path}" does not appear to be a valid Tweeker backup`
+                });
+                showToastMessage('Import failed: not a Tweeker backup file.');
+                return;
+            }
+
+            const now = Date.now();
+            const alarmCount = (backup.alarms || []).length;
+            // Only count tweets that are pending + future (same filter as restore)
+            const futureTweetCount = (backup.scheduled_tweets || []).filter(t => {
+                if (!t.scheduled_for) return false;
+                const ms = new Date(t.scheduled_for).getTime();
+                return !isNaN(ms) && ms > now && (t.status || 'pending').toLowerCase() === 'pending';
+            }).length;
+            const settingsCount = Object.keys(backup.settings || {}).length;
+
+            const exportedAt = backup.exported_at
+                ? new Date(backup.exported_at).toLocaleString()
+                : 'unknown date';
+
+            addLogEntry({
+                type: 'info',
+                level: 'INFO',
+                text: `Manager: Backup file at "${path}" validated — exported ${exportedAt}, v${backup.version || '?'} — ${alarmCount} alarm(s), ${futureTweetCount} future scheduled tweet(s), ${settingsCount} setting(s)`
+            });
+
+            showConfirmationModal({
+                title: 'Restore from Backup?',
+                body: `Source File: ${path}\nExported: ${exportedAt} (v${backup.version || '?'})\n\n• ${alarmCount} alarm(s) will be merged (duplicates skipped)\n• ${futureTweetCount} future scheduled tweet(s) will be merged\n• ${settingsCount} setting(s) will be overwritten\n\nYour existing data will not be deleted.`,
+                confirmText: 'Restore Backup',
+                onConfirm: async (updateProgress) => {
+                    try {
+                        const result = await applyBackupRestore(backup, updateProgress);
+                        addLogEntry({
+                            type: 'info',
+                            level: 'INFO',
+                            text: `Manager: Backup from "${path}" restored — ${result.alarmsRestored} alarm(s) added (${result.alarmsSkipped} skipped), ${result.tweetsRestored} tweet(s) added (${result.tweetsSkipped} skipped), ${result.settingsRestored} setting(s) applied`
+                        });
+                        showToastMessage(`Backup restored: ${result.alarmsRestored} alarms, ${result.tweetsRestored} tweets, ${result.settingsRestored} settings`);
+                    } catch (err) {
+                        console.error('[Tweeker] Import restore failed:', err);
+                        addLogEntry({
+                            type: 'error',
+                            level: 'ERROR',
+                            text: `Manager: Import Backup restore failed: ${err}`
+                        });
+                        showToastMessage('Import restore failed. See logs.');
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('[Tweeker] Import backup failed:', err);
+            addLogEntry({
+                type: 'error',
+                level: 'ERROR',
+                text: `Manager: Import backup failed: ${err}`
+            });
+            showToastMessage('Import backup failed.');
+        }
     });
 }
 
