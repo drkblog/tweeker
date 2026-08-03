@@ -493,7 +493,7 @@
                     const parts = href.split('/').filter(Boolean);
                     if (parts.length === 1) {
                         const handle = parts[0];
-                        if (handle && !['home', 'notifications', 'explore', 'messages', 'settings', 'i', 'compose', 'search', 'tos', 'privacy'].includes(handle.toLowerCase())) {
+                        if (handle && !['home', 'notifications', 'explore', 'messages', 'settings', 'i', 'compose', 'search', 'tos', 'privacy', 'status'].includes(handle.toLowerCase())) {
                             const img = link.querySelector('img');
                             if (img) {
                                 const imgContainer = img.closest('[data-testid^="UserAvatar-Container-"]') || img.closest('[data-testid="Tweet-User-Avatar"]') || img.parentElement;
@@ -1956,7 +1956,7 @@
                 } catch (e) {}
 
                 if (handle && 
-                    !['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'compose', 'trends', 'tos', 'privacy', 'hashtag', 'intent', 'share'].includes(handle.toLowerCase())) {
+                    !['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'compose', 'trends', 'tos', 'privacy', 'hashtag', 'intent', 'share', 'status'].includes(handle.toLowerCase())) {
                     const lowerHandle = handle.toLowerCase();
                     articleEl.dataset.tweekerAuthor = lowerHandle;
 
@@ -2030,7 +2030,12 @@
 
             const lowerHandle = handle.toLowerCase();
             const stats = window.__tweeker.userCache[lowerHandle];
-            if (!stats) return;
+            if (!stats) {
+                articleEl.classList.remove('tweeker-highlighted-tweet');
+                const badge = articleEl.querySelector('.tweeker-recent-relevant-badge');
+                if (badge) badge.remove();
+                return;
+            }
 
             // Check if user is relevant: verified OR follower count exceeds threshold
             const isVerified = !!stats.verified;
@@ -2055,7 +2060,7 @@
             const ageMs = Date.now() - tweetTime;
             const thresholdMs = recentTweetDurationMinutes * 60 * 1000;
 
-            if (ageMs > 0 && ageMs <= thresholdMs) {
+            if (ageMs >= -60000 && ageMs <= thresholdMs) {
                 // Apply visual highlight wrapper
                 if (!articleEl.classList.contains('tweeker-highlighted-tweet')) {
                     articleEl.classList.add('tweeker-highlighted-tweet');
