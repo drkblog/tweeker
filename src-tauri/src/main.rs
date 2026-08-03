@@ -50,6 +50,9 @@ fn main() {
             commands::export_backup,
             commands::import_backup,
             commands::purge_user_and_tweet_storage,
+            commands::get_diagnostic_system_info,
+            commands::save_diagnostic_report,
+            commands::factory_reset,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

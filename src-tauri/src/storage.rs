@@ -564,3 +564,20 @@ pub fn purge_database(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+pub fn factory_reset(conn: &Connection) -> Result<(), String> {
+    conn.execute("DROP TABLE IF EXISTS tweets", [])
+        .map_err(|e| format!("Failed to drop tweets: {}", e))?;
+    conn.execute("DROP TABLE IF EXISTS alarms", [])
+        .map_err(|e| format!("Failed to drop alarms: {}", e))?;
+    conn.execute("DROP TABLE IF EXISTS scheduled_tweets", [])
+        .map_err(|e| format!("Failed to drop scheduled_tweets: {}", e))?;
+    conn.execute("DROP TABLE IF EXISTS user_cache", [])
+        .map_err(|e| format!("Failed to drop user_cache: {}", e))?;
+    conn.execute("DROP TABLE IF EXISTS settings", [])
+        .map_err(|e| format!("Failed to drop settings: {}", e))?;
+    run_migrations(conn)?;
+    conn.execute("VACUUM", [])
+        .map_err(|e| format!("Failed to vacuum database: {}", e))?;
+    Ok(())
+}
+

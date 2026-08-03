@@ -225,6 +225,12 @@
           "markdownDescription": "Enables the export_backup command without any pre-configured scope."
         },
         {
+          "description": "Enables the factory_reset command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-factory-reset",
+          "markdownDescription": "Enables the factory_reset command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_alarms command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-alarms",
@@ -279,6 +285,12 @@
           "markdownDescription": "Enables the get_decouple_mode command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_diagnostic_system_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-diagnostic-system-info",
+          "markdownDescription": "Enables the get_diagnostic_system_info command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_scheduled_tweets command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-scheduled-tweets",
@@ -325,6 +337,12 @@
           "type": "string",
           "const": "allow-purge-user-and-tweet-storage",
           "markdownDescription": "Enables the purge_user_and_tweet_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_diagnostic_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-diagnostic-report",
+          "markdownDescription": "Enables the save_diagnostic_report command without any pre-configured scope."
         },
         {
           "description": "Enables the save_last_url command without any pre-configured scope.",
@@ -423,6 +441,12 @@
           "markdownDescription": "Denies the export_backup command without any pre-configured scope."
         },
         {
+          "description": "Denies the factory_reset command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-factory-reset",
+          "markdownDescription": "Denies the factory_reset command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_alarms command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-alarms",
@@ -477,6 +501,12 @@
           "markdownDescription": "Denies the get_decouple_mode command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_diagnostic_system_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-diagnostic-system-info",
+          "markdownDescription": "Denies the get_diagnostic_system_info command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_scheduled_tweets command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-scheduled-tweets",
@@ -523,6 +553,12 @@
           "type": "string",
           "const": "deny-purge-user-and-tweet-storage",
           "markdownDescription": "Denies the purge_user_and_tweet_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_diagnostic_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-diagnostic-report",
+          "markdownDescription": "Denies the save_diagnostic_report command without any pre-configured scope."
         },
         {
           "description": "Denies the save_last_url command without any pre-configured scope.",

@@ -546,6 +546,73 @@ pub fn purge_user_and_tweet_storage(
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+pub struct DiagnosticSystemInfo {
+    pub os: String,
+    pub arch: String,
+    pub app_version: String,
+    pub db_path: String,
+}
+
+#[tauri::command]
+pub fn get_diagnostic_system_info(app: tauri::AppHandle) -> DiagnosticSystemInfo {
+    DiagnosticSystemInfo {
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
+        db_path: storage::db_path_string(&app),
+    }
+}
+
+#[tauri::command]
+pub fn save_diagnostic_report(
+    app: tauri::AppHandle,
+    payload: String,
+    filename_hint: String,
+) -> Result<Option<String>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let file_path = rfd::FileDialog::new()
+            .add_filter("Diagnostic Report", &["json", "txt"])
+            .set_file_name(&filename_hint)
+            .save_file();
+        let _ = tx.send(file_path);
+    }).map_err(|e| format!("Failed to run on main thread: {}", e))?;
+
+    let file_path = rx.recv().map_err(|e| format!("Failed to receive file path: {}", e))?;
+
+    if let Some(path) = file_path {
+        std::fs::write(&path, payload)
+            .map_err(|e| format!("Failed to write diagnostic file: {}", e))?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+#[allow(unreachable_code)]
+pub fn factory_reset(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    // 1. Wipe database
+    let conn = storage::open_db(&app)?;
+    storage::factory_reset(&conn)?;
+
+    // 2. Wipe AppState in-memory structures
+    state.tweets.lock().unwrap().clear();
+    state.alarms.lock().unwrap().clear();
+    state.scheduled_tweets.lock().unwrap().clear();
+    state.user_cache.lock().unwrap().clear();
+
+    println!("[Tweeker] Factory reset complete, restarting application...");
+    
+    // 3. Restart application
+    app.restart();
+    Ok(())
+}
+
 
 
 

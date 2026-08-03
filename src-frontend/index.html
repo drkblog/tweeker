@@ -437,6 +437,13 @@
                         </div>
                         <button type="button" id="reset-settings-btn" class="btn btn-secondary btn-sm" title="Reset all application settings to factory defaults">Reset</button>
                     </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label" style="color: var(--tw-danger);">Factory Reset</span>
+                            <span class="setting-desc">Wipe all database tables, cache, settings, and restart the app</span>
+                        </div>
+                        <button type="button" id="factory-reset-btn" class="btn btn-danger btn-sm" title="Perform a complete factory wipe of Tweeker">Factory Reset</button>
+                    </div>
                 </div>
 
                 <!-- ── Database & Diagnostics ── -->
@@ -464,6 +471,13 @@
                             <span class="setting-desc">Clear cached users and intercepted tweets to free space</span>
                         </div>
                         <button type="button" id="purge-storage-btn" class="btn btn-danger btn-sm" title="Clear all cached users and intercepted tweets from database">Purge Storage</button>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Download Diagnostic Report</span>
+                            <span class="setting-desc">Package and download a system diagnostics bundle</span>
+                        </div>
+                        <button type="button" id="download-diagnostics-btn" class="btn btn-secondary btn-sm" title="Download diagnostic report file">Download Report</button>
                     </div>
                 </div>
             </section>

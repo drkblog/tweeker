@@ -187,6 +187,8 @@ const dom = {
     importBackupBtn: document.getElementById('import-backup-btn'),
     purgeStorageBtn: document.getElementById('purge-storage-btn'),
     resetSettingsBtn: document.getElementById('reset-settings-btn'),
+    factoryResetBtn: document.getElementById('factory-reset-btn'),
+    downloadDiagnosticsBtn: document.getElementById('download-diagnostics-btn'),
 
     // Modal
     modalOverlay: document.getElementById('tweeker-modal-overlay'),
@@ -2305,6 +2307,135 @@ if (dom.purgeStorageBtn) {
                 }
             }
         });
+    });
+}
+
+// Factory Reset button handler (G5)
+if (dom.factoryResetBtn) {
+    dom.factoryResetBtn.addEventListener('click', () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Factory Reset action triggered — awaiting confirmation'
+        });
+        showConfirmationModal({
+            title: 'FACTORY WIPE / RESET?',
+            body: 'WARNING: This will permanently delete ALL user statistics, tweet logs, custom alarms, scheduled tweets, and restore all application settings to their factory defaults. This will also clear all browser data, cookies, and cache.\n\nAre you sure you want to completely wipe Tweeker and restart the application?',
+            confirmText: 'FACTORY RESET & RESTART',
+            onConfirm: async (updateProgress) => {
+                try {
+                    updateProgress(20, 'Clearing browser site data & cache...');
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    if (window.indexedDB && window.indexedDB.databases) {
+                        try {
+                            const dbs = await window.indexedDB.databases();
+                            for (const db of dbs) {
+                                if (db.name) window.indexedDB.deleteDatabase(db.name);
+                            }
+                        } catch (e) {}
+                    }
+                    if ('caches' in window) {
+                        try {
+                            const names = await caches.keys();
+                            for (const name of names) {
+                                await caches.delete(name);
+                            }
+                        } catch (e) {}
+                    }
+
+                    updateProgress(50, 'Resetting SQLite database...');
+                    await invoke('factory_reset');
+                    updateProgress(100, 'Restarting...');
+                } catch (err) {
+                    console.error('[Tweeker] Factory reset failed:', err);
+                    addLogEntry({
+                        type: 'error',
+                        level: 'ERROR',
+                        text: `Manager: Factory reset failed: ${err}`
+                    });
+                    showToastMessage('Factory reset failed.');
+                }
+            }
+        });
+    });
+}
+
+// Download Diagnostic Report button handler (G6)
+if (dom.downloadDiagnosticsBtn) {
+    dom.downloadDiagnosticsBtn.addEventListener('click', async () => {
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: 'Manager: Download Diagnostic Report action triggered'
+        });
+        try {
+            const logs = state.logs || [];
+            const userAgent = navigator.userAgent;
+            const language = navigator.language;
+            const cookieEnabled = navigator.cookieEnabled;
+
+            const systemInfo = await invoke('get_diagnostic_system_info');
+            const dbStats = await fetchDbStats();
+            const connectionStatus = await invoke('get_connection_status');
+
+            const report = {
+                diagnostic_report: true,
+                generated_at: new Date().toISOString(),
+                app_version: systemInfo.app_version || '1.0.1',
+                os: systemInfo.os,
+                arch: systemInfo.arch,
+                db_path: systemInfo.db_path,
+                webview: {
+                    user_agent: userAgent,
+                    language: language,
+                    cookies_enabled: cookieEnabled,
+                },
+                connection: connectionStatus,
+                database_statistics: dbStats,
+                recent_logs: logs.slice(-200).map(l => `[${l.timestamp}] [${l.level}] ${l.text}`),
+            };
+
+            const payload = JSON.stringify(report, null, 2);
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            const filenameHint = `tweeker_diagnostic_${ts}.json`;
+
+            const savedPath = await invoke('save_diagnostic_report', {
+                payload,
+                filenameHint
+            });
+
+            if (!savedPath) {
+                addLogEntry({
+                    type: 'info',
+                    level: 'INFO',
+                    text: 'Manager: Download Diagnostic Report cancelled by user'
+                });
+                showToastMessage('Download cancelled.');
+                return;
+            }
+
+            addLogEntry({
+                type: 'info',
+                level: 'INFO',
+                text: `Manager: Diagnostic report saved successfully to: ${savedPath}`
+            });
+
+            showInfoModal({
+                title: 'Diagnostics Downloaded',
+                body: `Your diagnostic report has been saved successfully to:\n\n${savedPath}\n\nThis file can be attached to GitHub issue reports to assist developers with troubleshooting.`,
+                okText: 'OK'
+            });
+            showToastMessage('Diagnostic report downloaded!');
+        } catch (err) {
+            console.error('[Tweeker] Download diagnostic report failed:', err);
+            addLogEntry({
+                type: 'error',
+                level: 'ERROR',
+                text: `Manager: Download diagnostic report failed: ${err}`
+            });
+            showToastMessage('Download report failed.');
+        }
     });
 }
 
