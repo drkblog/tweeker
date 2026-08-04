@@ -70,7 +70,7 @@ fn main() {
                     .checked(is_decoupled)
                     .build(app)
                 {
-                    if let Ok(app_menu) = tauri::menu::SubmenuBuilder::new(app, "Tweeker")
+                    let app_menu_opt = tauri::menu::SubmenuBuilder::new(app, "Tweeker")
                         .about(None)
                         .separator()
                         .item(&decouple_item)
@@ -82,9 +82,20 @@ fn main() {
                         .show_all()
                         .separator()
                         .quit()
-                        .build()
-                    {
-                        if let Ok(menu) = tauri::menu::MenuBuilder::new(app).items(&[&app_menu]).build() {
+                        .build();
+
+                    let edit_menu_opt = tauri::menu::SubmenuBuilder::new(app, "Edit")
+                        .undo()
+                        .redo()
+                        .separator()
+                        .cut()
+                        .copy()
+                        .paste()
+                        .select_all()
+                        .build();
+
+                    if let (Ok(app_menu), Ok(edit_menu)) = (app_menu_opt, edit_menu_opt) {
+                        if let Ok(menu) = tauri::menu::MenuBuilder::new(app).items(&[&app_menu, &edit_menu]).build() {
                             let _ = app.set_menu(menu);
                         }
                     }
