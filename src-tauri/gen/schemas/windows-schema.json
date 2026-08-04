@@ -183,6 +183,18 @@
           "markdownDescription": "Enables the add_multiple_to_user_cache command without any pre-configured scope."
         },
         {
+          "description": "Enables the clear_browser_cache command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-browser-cache",
+          "markdownDescription": "Enables the clear_browser_cache command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clear_site_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-site-data",
+          "markdownDescription": "Enables the clear_site_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the create_alarm command without any pre-configured scope.",
           "type": "string",
           "const": "allow-create-alarm",
@@ -205,6 +217,18 @@
           "type": "string",
           "const": "allow-delete-scheduled-tweet",
           "markdownDescription": "Enables the delete_scheduled_tweet command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the export_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-export-backup",
+          "markdownDescription": "Enables the export_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the factory_reset command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-factory-reset",
+          "markdownDescription": "Enables the factory_reset command without any pre-configured scope."
         },
         {
           "description": "Enables the get_alarms command without any pre-configured scope.",
@@ -255,6 +279,18 @@
           "markdownDescription": "Enables the get_db_stats command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_decouple_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-decouple-mode",
+          "markdownDescription": "Enables the get_decouple_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_diagnostic_system_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-diagnostic-system-info",
+          "markdownDescription": "Enables the get_diagnostic_system_info command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_scheduled_tweets command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-scheduled-tweets",
@@ -267,10 +303,52 @@
           "markdownDescription": "Enables the get_timeline_stats command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_tweet_stats_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-tweet-stats-batch",
+          "markdownDescription": "Enables the get_tweet_stats_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_tweets_by_content_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-tweets-by-content-batch",
+          "markdownDescription": "Enables the get_tweets_by_content_batch command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_user_cache_limit command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-user-cache-limit",
           "markdownDescription": "Enables the get_user_cache_limit command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_users_counts_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-users-counts-batch",
+          "markdownDescription": "Enables the get_users_counts_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the import_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-import-backup",
+          "markdownDescription": "Enables the import_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the purge_user_and_tweet_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-purge-user-and-tweet-storage",
+          "markdownDescription": "Enables the purge_user_and_tweet_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_diagnostic_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-diagnostic-report",
+          "markdownDescription": "Enables the save_diagnostic_report command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_last_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-last-url",
+          "markdownDescription": "Enables the save_last_url command without any pre-configured scope."
         },
         {
           "description": "Enables the save_tweets command without any pre-configured scope.",
@@ -283,6 +361,12 @@
           "type": "string",
           "const": "allow-set-auto-read",
           "markdownDescription": "Enables the set_auto_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_decouple_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-decouple-mode",
+          "markdownDescription": "Enables the set_decouple_mode command without any pre-configured scope."
         },
         {
           "description": "Enables the set_user_cache_limit command without any pre-configured scope.",
@@ -315,6 +399,18 @@
           "markdownDescription": "Denies the add_multiple_to_user_cache command without any pre-configured scope."
         },
         {
+          "description": "Denies the clear_browser_cache command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-browser-cache",
+          "markdownDescription": "Denies the clear_browser_cache command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_site_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-site-data",
+          "markdownDescription": "Denies the clear_site_data command without any pre-configured scope."
+        },
+        {
           "description": "Denies the create_alarm command without any pre-configured scope.",
           "type": "string",
           "const": "deny-create-alarm",
@@ -337,6 +433,18 @@
           "type": "string",
           "const": "deny-delete-scheduled-tweet",
           "markdownDescription": "Denies the delete_scheduled_tweet command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the export_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-export-backup",
+          "markdownDescription": "Denies the export_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the factory_reset command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-factory-reset",
+          "markdownDescription": "Denies the factory_reset command without any pre-configured scope."
         },
         {
           "description": "Denies the get_alarms command without any pre-configured scope.",
@@ -387,6 +495,18 @@
           "markdownDescription": "Denies the get_db_stats command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_decouple_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-decouple-mode",
+          "markdownDescription": "Denies the get_decouple_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_diagnostic_system_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-diagnostic-system-info",
+          "markdownDescription": "Denies the get_diagnostic_system_info command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_scheduled_tweets command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-scheduled-tweets",
@@ -399,10 +519,52 @@
           "markdownDescription": "Denies the get_timeline_stats command without any pre-configured scope."
         },
         {
+          "description": "Denies the get_tweet_stats_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-tweet-stats-batch",
+          "markdownDescription": "Denies the get_tweet_stats_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_tweets_by_content_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-tweets-by-content-batch",
+          "markdownDescription": "Denies the get_tweets_by_content_batch command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_user_cache_limit command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-user-cache-limit",
           "markdownDescription": "Denies the get_user_cache_limit command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_users_counts_batch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-users-counts-batch",
+          "markdownDescription": "Denies the get_users_counts_batch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the import_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-import-backup",
+          "markdownDescription": "Denies the import_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the purge_user_and_tweet_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-purge-user-and-tweet-storage",
+          "markdownDescription": "Denies the purge_user_and_tweet_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_diagnostic_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-diagnostic-report",
+          "markdownDescription": "Denies the save_diagnostic_report command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_last_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-last-url",
+          "markdownDescription": "Denies the save_last_url command without any pre-configured scope."
         },
         {
           "description": "Denies the save_tweets command without any pre-configured scope.",
@@ -415,6 +577,12 @@
           "type": "string",
           "const": "deny-set-auto-read",
           "markdownDescription": "Denies the set_auto_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_decouple_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-decouple-mode",
+          "markdownDescription": "Denies the set_decouple_mode command without any pre-configured scope."
         },
         {
           "description": "Denies the set_user_cache_limit command without any pre-configured scope.",
