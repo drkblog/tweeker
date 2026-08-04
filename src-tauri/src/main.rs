@@ -94,8 +94,19 @@ fn main() {
                         .select_all()
                         .build();
 
-                    if let (Ok(app_menu), Ok(edit_menu)) = (app_menu_opt, edit_menu_opt) {
-                        if let Ok(menu) = tauri::menu::MenuBuilder::new(app).items(&[&app_menu, &edit_menu]).build() {
+                    let mut window_menu = tauri::menu::SubmenuBuilder::new(app, "Window");
+                    if let Ok(item) = tauri::menu::PredefinedMenuItem::minimize(app, None) { window_menu = window_menu.item(&item); }
+                    if let Ok(item) = tauri::menu::PredefinedMenuItem::fullscreen(app, None) { window_menu = window_menu.item(&item); }
+                    if let Ok(item) = tauri::menu::PredefinedMenuItem::close_window(app, None) { window_menu = window_menu.item(&item); }
+                    window_menu = window_menu.separator();
+                    if let Ok(item) = tauri::menu::PredefinedMenuItem::bring_all_to_front(app, None) { window_menu = window_menu.item(&item); }
+                    let window_menu_opt = window_menu.build();
+
+                    if let (Ok(app_menu), Ok(edit_menu), Ok(window_menu)) = (app_menu_opt, edit_menu_opt, window_menu_opt) {
+                        if let Ok(menu) = tauri::menu::MenuBuilder::new(app)
+                            .items(&[&app_menu, &edit_menu, &window_menu])
+                            .build()
+                        {
                             let _ = app.set_menu(menu);
                         }
                     }
