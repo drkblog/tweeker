@@ -2229,6 +2229,7 @@
                     parseDOMNotification(notif);
                 }
             }
+            scanForVideos(document.body);
             highlightAllAvatars();
         } catch (e) {
             console.debug('[Tweeker Interceptor] Periodic scanner error:', e);
