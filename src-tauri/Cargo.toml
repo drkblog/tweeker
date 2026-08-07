@@ -18,3 +18,5 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 tauri-plugin-window-state = "2.0.0-rc.0"
 rfd = "0.14"
+reqwest = { version = "0.13", features = ["json", "stream"] }
+

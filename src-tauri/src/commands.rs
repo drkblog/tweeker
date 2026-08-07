@@ -613,6 +613,142 @@ pub fn factory_reset(
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+struct CobaltRequest {
+    url: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CobaltResponse {
+    status: Option<String>,
+    url: Option<String>,
+    text: Option<String>,
+}
+
+#[tauri::command]
+pub async fn download_video_stream(
+    app: tauri::AppHandle,
+    tweet_url: String,
+) -> Result<Option<String>, String> {
+    println!("[Tweeker Backend] Requesting video download for URL: {}", tweet_url);
+
+    let status_id = tweet_url
+        .split("/status/")
+        .nth(1)
+        .and_then(|s| s.split('?').next())
+        .unwrap_or("video");
+    let filename_hint = format!("tweeker_video_{}.mp4", status_id);
+
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+    let apis = vec![
+        "https://api.cobalt.tools/api/json",
+        "https://api.cobalt.tools/",
+        "https://dog.kittycat.boo",
+        "https://cobaltapi.cjs.nz",
+        "https://cobaltapi.kittycat.boo",
+        "https://rue-cobalt.xenon.zone",
+    ];
+
+    let mut download_url = None;
+    let mut last_error = "No API endpoints configured".to_string();
+
+    for api_url in apis {
+        println!("[Tweeker Backend] Trying Cobalt API endpoint: {}", api_url);
+        let res_result = client
+            .post(api_url)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .json(&CobaltRequest { url: tweet_url.clone() })
+            .send()
+            .await;
+
+        match res_result {
+            Ok(res) => {
+                if res.status().is_success() {
+                    if let Ok(parsed) = res.json::<CobaltResponse>().await {
+                        if let Some(status) = &parsed.status {
+                            if status == "error" {
+                                let msg = parsed.text.clone().unwrap_or_else(|| "Unknown API error".to_string());
+                                last_error = format!("Endpoint {} returned error status: {}", api_url, msg);
+                                continue;
+                            }
+                        }
+                        if let Some(url) = parsed.url {
+                            download_url = Some(url);
+                            println!("[Tweeker Backend] Successfully resolved stream URL from: {}", api_url);
+                            break;
+                        } else {
+                            last_error = format!("Endpoint {} response had no download URL", api_url);
+                        }
+                    } else {
+                        last_error = format!("Failed to parse response JSON from {}", api_url);
+                    }
+                } else {
+                    let status = res.status();
+                    let err_text = res.text().await.unwrap_or_default();
+                    last_error = format!("Endpoint {} returned status code {}: {}", api_url, status, err_text);
+                }
+            }
+            Err(e) => {
+                last_error = format!("Failed to reach endpoint {}: {}", api_url, e);
+            }
+        }
+    }
+
+    let download_url = match download_url {
+        Some(url) => url,
+        None => return Err(format!("All Cobalt mirrors failed. Last error: {}", last_error)),
+    };
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let file_path = rfd::FileDialog::new()
+            .add_filter("MP4 Video", &["mp4"])
+            .set_file_name(&filename_hint)
+            .save_file();
+        let _ = tx.send(file_path);
+    })
+    .map_err(|e| format!("Failed to prompt file dialog on main thread: {}", e))?;
+
+    let file_path = rx
+        .recv()
+        .map_err(|e| format!("Failed to receive file path: {}", e))?;
+
+    let path = match file_path {
+        Some(p) => p,
+        None => return Ok(None),
+    };
+
+    println!("[Tweeker Backend] Downloading video stream to: {}", path.display());
+
+    let mut download_res = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch video stream: {}", e))?;
+
+    if !download_res.status().is_success() {
+        return Err(format!(
+            "Failed to fetch video stream: status code {}",
+            download_res.status()
+        ));
+    }
+
+    let mut file = std::fs::File::create(&path)
+        .map_err(|e| format!("Failed to create local destination file: {}", e))?;
+
+    while let Some(chunk) = download_res.chunk().await.map_err(|e| format!("Failed to read stream chunk: {}", e))? {
+        std::io::Write::write_all(&mut file, &chunk)
+            .map_err(|e| format!("Failed to write chunk: {}", e))?;
+    }
+
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+
 
 
 

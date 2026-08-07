@@ -62,6 +62,7 @@
     "allow-get-diagnostic-system-info",
     "allow-save-diagnostic-report",
     "allow-factory-reset",
+    "allow-download-video-stream",
     "window-state:default"
   ]
 }

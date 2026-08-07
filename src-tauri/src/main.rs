@@ -53,6 +53,7 @@ fn main() {
             commands::get_diagnostic_system_info,
             commands::save_diagnostic_report,
             commands::factory_reset,
+            commands::download_video_stream,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

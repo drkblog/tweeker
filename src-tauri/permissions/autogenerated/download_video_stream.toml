@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-download-video-stream"
+description = "Enables the download_video_stream command without any pre-configured scope."
+commands.allow = ["download_video_stream"]
+
+[[permission]]
+identifier = "deny-download-video-stream"
+description = "Denies the download_video_stream command without any pre-configured scope."
+commands.deny = ["download_video_stream"]

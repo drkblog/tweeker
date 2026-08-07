@@ -139,6 +139,22 @@ Compiled bundles are output to `src-tauri/target/release/bundle/`. The packaging
 *   Only the control panel webview has IPC access to backend commands.
 *   Navigation in the X.com webview is restricted to `x.com`, `twitter.com`, and related domains.
 
+### Video Download Architecture & Security
+Tweeker provides an integrated video download manager directly inside the X.com timeline.
+
+#### 1. Downloader Architecture
+*   **DOM Injection**: The injected script scans the timeline for video players and overlays a glassmorphic download button (`📥`).
+*   **Cobalt Integration**: Clicking the button sends the public tweet URL to the Rust backend, which contacts the **Cobalt API**—a stateless, open-source media downloader engine. The backend sends a request to resolve the direct media source URL.
+*   **Sequential Mirror Fallbacks**: Because public Cobalt instances often enable Cloudflare WAF protection or require Turnstile JWT tokens (to prevent bot scraping overload), Tweeker implements a self-healing sequential mirror rotation. It tries the official API first (with browser-like `User-Agent` headers), and falls back to a checklist of active community mirrors (`dog.kittycat.boo`, `cobaltapi.cjs.nz`, etc.) if a mirror returns a rate-limit or auth error.
+*   **Web Fallback**: If all community mirrors are down or blocked, the application automatically launches a new browser tab pre-filled with the tweet URL at `twitsave.com`, allowing the user to perform a single-click manual download.
+*   **Chunked Stream Downloader**: When a mirror returns a valid media link, Tweeker prompts the user with a native file dialog (`rfd`) to choose a destination. Bytes are streamed chunk-by-chunk over HTTPS directly to disk to prevent RAM spikes.
+
+#### 2. Security & Privacy Considerations
+*   **Is there any security concern?** No. 
+*   **Sandboxed Isolation**: The video download process runs entirely within the Rust host process (`src-tauri`), maintaining the complete isolation of the X.com webview sandbox. The webview never accesses local file paths or triggers system writes.
+*   **Zero Leakage of Credentials**: The app only sends the public tweet URL (e.g., `https://x.com/username/status/12345`) to Cobalt mirrors. No user cookies, authentication headers, or local session data are ever exposed or transmitted.
+*   **Safe File Dialog**: File path selection is handled via a native OS File Dialog, ensuring the application cannot write to arbitrary directories without user consent.
+
 ---
 
 ## License

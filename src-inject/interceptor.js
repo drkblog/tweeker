@@ -729,6 +729,8 @@
                     parseDOMUserCell(node);
                 } else if (node.matches('[data-testid="notification"]')) {
                     parseDOMNotification(node);
+                } else if (node.matches('[data-testid="videoPlayer"]') || node.matches('video')) {
+                    setupVideoDownloadOverlay(node);
                 }
             }
             if (node.querySelectorAll) {
@@ -744,6 +746,7 @@
                 for (const notif of notifications) {
                     parseDOMNotification(notif);
                 }
+                scanForVideos(node);
             }
         }
     }
@@ -1049,6 +1052,44 @@
             if (colors.retweets) root.style.setProperty('--tweeker-notif-retweets', colors.retweets);
             if (colors.replies) root.style.setProperty('--tweeker-notif-replies', colors.replies);
             if (colors.views) root.style.setProperty('--tweeker-notif-views', colors.views);
+        }
+
+        if (event.data.type === 'video_download_status_update' && event.data.payload) {
+            const { downloadId, status } = event.data.payload;
+            const btn = activeDownloadButtons.get(downloadId);
+            if (btn) {
+                btn.className = 'tweeker-video-download-btn';
+                if (status === 'queued') {
+                    btn.classList.add('queued');
+                    btn.title = 'Queueing... (Waiting for concurrent slots)';
+                    btn.innerHTML = '<span>⏳</span>';
+                } else if (status === 'downloading') {
+                    btn.classList.add('downloading');
+                    btn.title = 'Downloading stream... Please choose path in dialog';
+                    btn.innerHTML = '<span>⏳</span>';
+                } else if (status === 'success') {
+                    btn.classList.add('success');
+                    btn.title = 'Downloaded successfully!';
+                    btn.innerHTML = '<span>✅</span>';
+                    setTimeout(() => {
+                        btn.className = 'tweeker-video-download-btn';
+                        btn.title = 'Download Video';
+                        btn.innerHTML = '<span>📥</span>';
+                    }, 4000);
+                } else if (status === 'failed') {
+                    btn.classList.add('failed');
+                    btn.title = 'Direct download failed. Opened manual page.';
+                    btn.innerHTML = '<span>❌</span>';
+                    setTimeout(() => {
+                        btn.className = 'tweeker-video-download-btn';
+                        btn.title = 'Download Video';
+                        btn.innerHTML = '<span>📥</span>';
+                    }, 4000);
+                } else {
+                    btn.title = 'Download Video';
+                    btn.innerHTML = '<span>📥</span>';
+                }
+            }
         }
 
         if (event.data.type === 'set_relevant_followers_limit') {
@@ -1938,6 +1979,70 @@
             }
         } catch (e) {
             sendDebugLog(`[NotifStats] Error in updateNotificationTweetStats: ${e.message}`);
+        }
+    }
+
+    const activeDownloadButtons = new Map();
+
+    function setupVideoDownloadOverlay(el) {
+        let playerWrapper = el;
+        if (el.tagName === 'VIDEO') {
+            playerWrapper = el.closest('[data-testid="videoPlayer"]') || el.parentNode;
+        }
+
+        if (!playerWrapper || playerWrapper.dataset.tweekerVideoParsed === 'true') return;
+        playerWrapper.dataset.tweekerVideoParsed = 'true';
+
+        const tweetEl = playerWrapper.closest('[data-testid="tweet"]');
+        if (!tweetEl) return;
+
+        const statusLink = tweetEl.querySelector('a[href*="/status/"]');
+        if (!statusLink) return;
+
+        let tweetUrl = statusLink.getAttribute('href');
+        if (tweetUrl.startsWith('/')) {
+            tweetUrl = 'https://x.com' + tweetUrl;
+        }
+
+        const downloadId = 'dl_' + Math.random().toString(36).substr(2, 9);
+
+        const downloadBtn = document.createElement('div');
+        downloadBtn.className = 'tweeker-video-download-btn';
+        downloadBtn.title = 'Download Video';
+        downloadBtn.innerHTML = '<span>📥</span>';
+
+        activeDownloadButtons.set(downloadId, downloadBtn);
+
+        const computedStyle = window.getComputedStyle(playerWrapper);
+        if (computedStyle.position === 'static') {
+            playerWrapper.style.setProperty('position', 'relative', 'important');
+        }
+
+        downloadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            if (downloadBtn.classList.contains('downloading') || downloadBtn.classList.contains('queued')) {
+                return;
+            }
+
+            try {
+                window.postMessage({
+                    __tweeker: true,
+                    type: 'download_video_request',
+                    payload: { tweetUrl, downloadId }
+                }, '*');
+            } catch (err) {}
+        });
+
+        playerWrapper.appendChild(downloadBtn);
+    }
+
+    function scanForVideos(container) {
+        if (!container || !container.querySelectorAll) return;
+        const videoPlayers = container.querySelectorAll('[data-testid="videoPlayer"], video');
+        for (const player of videoPlayers) {
+            setupVideoDownloadOverlay(player);
         }
     }
 

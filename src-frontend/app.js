@@ -78,6 +78,9 @@ const state = {
     listHighlightMega: false,
     listMegaColor: '#a855f7',
     decoupleMode: false,
+    maxConcurrentDownloads: 2,
+    activeDownloadsCount: 0,
+    downloadQueue: [],
 };
 
 // ── DOM Elements ──
@@ -2171,6 +2174,7 @@ const SETTINGS_DEFAULTS = {
     'notifications.statistics.retweets-color': '#00ba7c',
     'notifications.statistics.replies-color': '#1d9bf0',
     'notifications.statistics.views-color': '#71767b',
+    tweeker_max_concurrent_downloads: 2,
 };
 
 const SETTINGS_DESCRIPTIONS = {
@@ -2193,6 +2197,7 @@ const SETTINGS_DESCRIPTIONS = {
     'notifications.statistics.retweets-color': 'Hex color for the Retweets icon and count in notification stats.',
     'notifications.statistics.replies-color': 'Hex color for the Replies icon and count in notification stats.',
     'notifications.statistics.views-color': 'Hex color for the Views icon and count in notification stats.',
+    tweeker_max_concurrent_downloads: 'Maximum number of concurrent video downloads allowed to run in parallel.',
 };
 
 function applySettingsDefaults() {
@@ -2250,6 +2255,10 @@ function applySettingsDefaults() {
         localStorage.setItem('notifications.statistics.replies-color', notifReplies);
         localStorage.setItem('notifications.statistics.views-color', notifViews);
     } catch (e) {}
+
+    const maxConcurrent = SETTINGS_DEFAULTS.tweeker_max_concurrent_downloads;
+    state.maxConcurrentDownloads = maxConcurrent;
+    try { localStorage.setItem('tweeker_max_concurrent_downloads', maxConcurrent.toString()); } catch (e) {}
 
     try {
         window.postMessage({
@@ -2756,6 +2765,12 @@ function applyLiveAdvancedSetting(key, val) {
                 colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
             }, '*');
         } catch (e) {}
+    } else if (key === 'tweeker_max_concurrent_downloads') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 1) {
+            state.maxConcurrentDownloads = num;
+            try { processDownloadQueue(); } catch (e) {}
+        }
     }
 
     addLogEntry({
@@ -2814,6 +2829,7 @@ const BACKUP_SETTINGS_KEYS = [
     'notifications.statistics.retweets-color',
     'notifications.statistics.replies-color',
     'notifications.statistics.views-color',
+    'tweeker_max_concurrent_downloads',
 ];
 
 function buildBackupPayload() {
@@ -3059,6 +3075,9 @@ async function applyBackupRestore(backup, updateProgress) {
             colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
         }, '*');
     } catch (e) {}
+
+    const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker_max_concurrent_downloads'), 10);
+    state.maxConcurrentDownloads = (!isNaN(savedMaxConcurrent) && savedMaxConcurrent >= 1) ? savedMaxConcurrent : 2;
 
     const savedAutoReadOnStart = localStorage.getItem('tweeker_autoread_on_start') === 'true';
     state.autoReadOnStart = savedAutoReadOnStart;
@@ -3670,11 +3689,93 @@ function showScheduledTweetToast(tweet, posted) {
     }, 6000);
 }
 
+// ── Concurrency & Queue Processor for Video Downloads ──
+
+function processDownloadQueue() {
+    if (state.downloadQueue.length === 0 || state.activeDownloadsCount >= state.maxConcurrentDownloads) {
+        return;
+    }
+
+    const { tweetUrl, downloadId } = state.downloadQueue.shift();
+    state.activeDownloadsCount++;
+
+    addLogEntry({
+        type: 'info',
+        level: 'INFO',
+        text: `Downloader: Starting download for video "${tweetUrl}" (Active: ${state.activeDownloadsCount}/${state.maxConcurrentDownloads})`
+    });
+
+    notifyDownloadState(downloadId, 'downloading');
+
+    invoke('download_video_stream', { tweetUrl })
+        .then((savedPath) => {
+            if (savedPath) {
+                addLogEntry({
+                    type: 'info',
+                    level: 'INFO',
+                    text: `Downloader: Video successfully saved to: ${savedPath}`
+                });
+                showToastMessage('Video downloaded successfully!');
+                notifyDownloadState(downloadId, 'success');
+            } else {
+                addLogEntry({
+                    type: 'info',
+                    level: 'INFO',
+                    text: `Downloader: Video download cancelled by user (dialog closed)`
+                });
+                notifyDownloadState(downloadId, 'idle');
+            }
+        })
+        .catch((err) => {
+            console.error('[Tweeker App] Video download failed:', err);
+            addLogEntry({
+                type: 'error',
+                level: 'ERROR',
+                text: `Downloader: Direct video download failed: ${err}. Opening fallback...`
+            });
+            showToastMessage('Direct download failed. Opening manual page...');
+            notifyDownloadState(downloadId, 'failed');
+
+            try {
+                window.open('https://twitsave.com/info?url=' + encodeURIComponent(tweetUrl), '_blank');
+            } catch (e) {}
+        })
+        .finally(() => {
+            state.activeDownloadsCount--;
+            processDownloadQueue();
+        });
+}
+
+function notifyDownloadState(downloadId, status) {
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'video_download_status_update',
+            payload: { downloadId, status }
+        }, '*');
+    } catch (e) {}
+}
+
 // Listen for messages from injected bridge.js
 window.addEventListener('message', (event) => {
     if (!event.data || event.data.__tweeker !== true) return;
 
     const { type, payload } = event.data;
+
+    if (type === 'download_video_request' && payload && payload.tweetUrl && payload.downloadId) {
+        const { tweetUrl, downloadId } = payload;
+        
+        state.downloadQueue.push({ tweetUrl, downloadId });
+        notifyDownloadState(downloadId, 'queued');
+        
+        addLogEntry({
+            type: 'info',
+            level: 'INFO',
+            text: `Downloader: Enqueued download request for video: "${tweetUrl}"`
+        });
+
+        processDownloadQueue();
+    }
 
     if (type === 'heartbeat' || type === 'tweet_data') {
         state.connectionStatus.x_webview_loaded = true;
@@ -3917,6 +4018,9 @@ async function init() {
             colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
         }, '*');
     } catch (e) {}
+
+    const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker_max_concurrent_downloads'), 10);
+    state.maxConcurrentDownloads = (!isNaN(savedMaxConcurrent) && savedMaxConcurrent >= 1) ? savedMaxConcurrent : 2;
 
     // Restore saved log entries
     try {
