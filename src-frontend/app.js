@@ -81,6 +81,7 @@ const state = {
     maxConcurrentDownloads: 2,
     activeDownloadsCount: 0,
     downloadQueue: [],
+    contextMenuEnabled: true,
 };
 
 // ── DOM Elements ──
@@ -2175,6 +2176,7 @@ const SETTINGS_DEFAULTS = {
     'notifications.statistics.replies-color': '#1d9bf0',
     'notifications.statistics.views-color': '#71767b',
     tweeker_max_concurrent_downloads: 2,
+    'browser.context_menu.enabled': true,
 };
 
 const SETTINGS_DESCRIPTIONS = {
@@ -2198,6 +2200,7 @@ const SETTINGS_DESCRIPTIONS = {
     'notifications.statistics.replies-color': 'Hex color for the Replies icon and count in notification stats.',
     'notifications.statistics.views-color': 'Hex color for the Views icon and count in notification stats.',
     tweeker_max_concurrent_downloads: 'Maximum number of concurrent video downloads allowed to run in parallel.',
+    'browser.context_menu.enabled': 'Globally enable or disable custom context menu overrides.',
 };
 
 function applySettingsDefaults() {
@@ -2259,6 +2262,16 @@ function applySettingsDefaults() {
     const maxConcurrent = SETTINGS_DEFAULTS.tweeker_max_concurrent_downloads;
     state.maxConcurrentDownloads = maxConcurrent;
     try { localStorage.setItem('tweeker_max_concurrent_downloads', maxConcurrent.toString()); } catch (e) {}
+
+    state.contextMenuEnabled = true;
+    try { localStorage.setItem('browser.context_menu.enabled', 'true'); } catch (e) {}
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_context_menu_enabled',
+            enabled: true
+        }, '*');
+    } catch (e) {}
 
     try {
         window.postMessage({
@@ -2771,6 +2784,16 @@ function applyLiveAdvancedSetting(key, val) {
             state.maxConcurrentDownloads = num;
             try { processDownloadQueue(); } catch (e) {}
         }
+    } else if (key === 'browser.context_menu.enabled') {
+        const enabled = val === 'true' || val === true;
+        state.contextMenuEnabled = enabled;
+        try {
+            window.postMessage({
+                __tweeker: true,
+                type: 'set_context_menu_enabled',
+                enabled: enabled
+            }, '*');
+        } catch (e) {}
     }
 
     addLogEntry({
@@ -2830,6 +2853,7 @@ const BACKUP_SETTINGS_KEYS = [
     'notifications.statistics.replies-color',
     'notifications.statistics.views-color',
     'tweeker_max_concurrent_downloads',
+    'browser.context_menu.enabled',
 ];
 
 function buildBackupPayload() {
@@ -3078,6 +3102,16 @@ async function applyBackupRestore(backup, updateProgress) {
 
     const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker_max_concurrent_downloads'), 10);
     state.maxConcurrentDownloads = (!isNaN(savedMaxConcurrent) && savedMaxConcurrent >= 1) ? savedMaxConcurrent : 2;
+
+    const contextMenuEnabled = localStorage.getItem('browser.context_menu.enabled') !== 'false';
+    state.contextMenuEnabled = contextMenuEnabled;
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_context_menu_enabled',
+            enabled: contextMenuEnabled
+        }, '*');
+    } catch (e) {}
 
     const savedAutoReadOnStart = localStorage.getItem('tweeker_autoread_on_start') === 'true';
     state.autoReadOnStart = savedAutoReadOnStart;
@@ -3791,6 +3825,11 @@ window.addEventListener('message', (event) => {
                     type: 'set_debug_twitter',
                     enabled: state.debugTwitter
                 }, '*');
+                window.postMessage({
+                    __tweeker: true,
+                    type: 'set_context_menu_enabled',
+                    enabled: state.contextMenuEnabled
+                }, '*');
             } catch (e) {}
         }
     }
@@ -4021,6 +4060,16 @@ async function init() {
 
     const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker_max_concurrent_downloads'), 10);
     state.maxConcurrentDownloads = (!isNaN(savedMaxConcurrent) && savedMaxConcurrent >= 1) ? savedMaxConcurrent : 2;
+
+    const contextMenuEnabled = localStorage.getItem('browser.context_menu.enabled') !== 'false';
+    state.contextMenuEnabled = contextMenuEnabled;
+    try {
+        window.postMessage({
+            __tweeker: true,
+            type: 'set_context_menu_enabled',
+            enabled: contextMenuEnabled
+        }, '*');
+    } catch (e) {}
 
     // Restore saved log entries
     try {

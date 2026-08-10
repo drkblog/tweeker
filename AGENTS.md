@@ -66,6 +66,11 @@ src-frontend/         # Local control panel overlay UI & styling
 - The DOM `MutationObserver` **MUST be debounced** (300ms queue) and ignore nodes inside `#tweeker-overlay-container`.
 - Parsed tweet elements **MUST be deduplicated** via `dataset.tweekerParsed = 'true'` markers so elements are parsed at most once.
 - **Info-widget** (`tweeker-tweet-user-stats`): A compact following/followers stats widget rendered below the user avatar in each tweet's DOM and user list card (`[data-testid="UserCell"]`). It is injected by `renderStatsBelowAvatar()` / `renderStatsForUserCell()` using the modular `injectUserStats()` helper in `interceptor.js`. Below the info-widget, an **info button** (`.tweeker-user-info-btn`, ℹ icon) is injected via `injectUserInfoButton()`, which dumps cached user stats to the Logs console.
+- **Selection context menu items / floating toolbar**: When text is selected, Tweeker provides a floating action bubble toolbar (instead of intercepting right-clicks). This displays action buttons directly above the highlighted selection (like Copy and Google). Right-clicking remains completely untouched, allowing standard OS/browser context menu actions (Look Up, Translate, Speech, Services, Inspect) to function naturally.
+  - The custom floating bubble MUST NOT appear inside editable text elements (e.g., inputs, textareas, `contenteditable="true"` elements, or tweet compose editors) to avoid interfering with writing.
+  - The custom buttons MUST handle the `mousedown` event and call `preventDefault()` / `stopPropagation()` to prevent the browser from clearing the highlighted selection when clicking an action.
+
+
 
 ### Security
 - Navigation in the X.com webview is locked to `x.com`, `twitter.com`, and related CDN/API domains via `on_navigation`.

@@ -119,6 +119,7 @@
     let listVerifiedColor = '#1d9bf0';
     let listHighlightMega = false;
     let listMegaColor = '#a855f7';
+    let contextMenuEnabled = true;
 
     let userCountsBatchQueue = new Set();
     let userCountsBatchTimer = null;
@@ -1090,6 +1091,10 @@
                     btn.innerHTML = '<span>📥</span>';
                 }
             }
+        }
+
+        if (event.data.type === 'set_context_menu_enabled') {
+            contextMenuEnabled = event.data.enabled !== false;
         }
 
         if (event.data.type === 'set_relevant_followers_limit') {
@@ -2205,86 +2210,147 @@
     // Start the observer after a delay to let X.com render
     setTimeout(startDOMObserver, 2000);
 
-    // ── Selection Context Menu Items ──
-    let activeContextMenu = null;
+    // ── Selection Floating Tooltip Bubble ──
+    let activeSelectionBubble = null;
 
-    function removeCustomContextMenu() {
-        if (activeContextMenu) {
-            activeContextMenu.remove();
-            activeContextMenu = null;
+    function removeSelectionBubble() {
+        if (activeSelectionBubble) {
+            activeSelectionBubble.remove();
+            activeSelectionBubble = null;
         }
     }
 
-    document.addEventListener('contextmenu', (e) => {
-        removeCustomContextMenu();
-
-        const selectedText = window.getSelection().toString().trim();
-        if (selectedText.length === 0) {
+    function handleTextSelection() {
+        if (!contextMenuEnabled) {
+            removeSelectionBubble();
             return;
         }
 
-        e.preventDefault();
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
 
-        const menu = document.createElement('div');
-        menu.id = 'tweeker-selection-context-menu';
-        menu.className = 'tweeker-custom-context-menu';
+        if (selectedText.length === 0) {
+            removeSelectionBubble();
+            return;
+        }
 
-        const copyItem = document.createElement('div');
-        copyItem.className = 'context-menu-item';
-        copyItem.innerHTML = '<span>📋</span> Copy';
-        copyItem.addEventListener('click', () => {
-            navigator.clipboard.writeText(selectedText)
-                .then(() => {
-                    try {
-                        window.postMessage({
-                            __tweeker: true,
-                            type: 'log',
-                            payload: { text: 'Selection Context: Text copied to clipboard', type: 'info' }
-                        }, '*');
-                    } catch (e) {}
-                })
-                .catch((err) => console.error('[Tweeker Context] Failed to copy:', err));
-            removeCustomContextMenu();
-        });
-
-        const googleItem = document.createElement('div');
-        googleItem.className = 'context-menu-item';
-        googleItem.innerHTML = '<span>🔍</span> Google...';
-        googleItem.addEventListener('click', () => {
-            const encoded = encodeURIComponent(selectedText);
-            try {
-                if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
-                    window.__TAURI__.core.invoke('open_google_search_window', { queryEncoded: encoded });
-                } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
-                    window.__TAURI__.invoke('open_google_search_window', { queryEncoded: encoded });
-                } else if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
-                    window.__TAURI_INTERNALS__.invoke('open_google_search_window', { queryEncoded: encoded });
-                }
-            } catch (err) {
-                console.error('[Tweeker Context] Failed to invoke search:', err);
+        // Avoid showing inside editable elements
+        const anchorNode = selection.anchorNode;
+        if (anchorNode && anchorNode.parentElement) {
+            const editable = anchorNode.parentElement.closest('input, textarea, [contenteditable="true"], .DraftEditor-root, [role="textbox"]');
+            if (editable) {
+                removeSelectionBubble();
+                return;
             }
-            removeCustomContextMenu();
-        });
+        }
 
-        menu.appendChild(copyItem);
-        menu.appendChild(googleItem);
+        // Create bubble if not exists
+        if (!activeSelectionBubble) {
+            const bubble = document.createElement('div');
+            bubble.id = 'tweeker-selection-bubble';
+            bubble.className = 'tweeker-selection-bubble';
 
-        menu.style.position = 'absolute';
-        menu.style.left = e.pageX + 'px';
-        menu.style.top = e.pageY + 'px';
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'bubble-btn';
+            copyBtn.innerHTML = '📋 Copy';
+            copyBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigator.clipboard.writeText(selectedText)
+                    .then(() => {
+                        try {
+                            window.postMessage({
+                                __tweeker: true,
+                                type: 'log',
+                                payload: { text: 'Selection: Copied to clipboard', type: 'info' }
+                            }, '*');
+                        } catch (e) {}
+                    })
+                    .catch((err) => console.error('[Tweeker Selection] Copy failed:', err));
+                removeSelectionBubble();
+            });
 
-        document.body.appendChild(menu);
-        activeContextMenu = menu;
+            const divider = document.createElement('div');
+            divider.className = 'bubble-divider';
+
+            const googleBtn = document.createElement('button');
+            googleBtn.className = 'bubble-btn';
+            googleBtn.innerHTML = '🔍 Google';
+            googleBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const encoded = encodeURIComponent(selectedText);
+                try {
+                    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+                        window.__TAURI__.core.invoke('open_google_search_window', { queryEncoded: encoded });
+                    } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+                        window.__TAURI__.invoke('open_google_search_window', { queryEncoded: encoded });
+                    } else if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+                        window.__TAURI_INTERNALS__.invoke('open_google_search_window', { queryEncoded: encoded });
+                    }
+                } catch (err) {
+                    console.error('[Tweeker Selection] Search failed:', err);
+                }
+                removeSelectionBubble();
+            });
+
+            bubble.appendChild(copyBtn);
+            bubble.appendChild(divider);
+            bubble.appendChild(googleBtn);
+
+            document.body.appendChild(bubble);
+            activeSelectionBubble = bubble;
+        }
+
+        // Position the bubble above the selection range bounding rect
+        try {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+
+            if (rect.width > 0 && rect.height > 0) {
+                const bubbleRect = activeSelectionBubble.getBoundingClientRect();
+                const bubbleWidth = bubbleRect.width || 160;
+                const bubbleHeight = bubbleRect.height || 36;
+
+                let left = rect.left + window.scrollX + (rect.width / 2) - (bubbleWidth / 2);
+                let top = rect.top + window.scrollY - bubbleHeight - 8;
+
+                if (left < 10) left = 10;
+                if (left + bubbleWidth > window.innerWidth + window.scrollX - 10) {
+                    left = window.innerWidth + window.scrollX - bubbleWidth - 10;
+                }
+                if (rect.top - bubbleHeight - 8 < 10) {
+                    top = rect.bottom + window.scrollY + 8;
+                }
+
+                activeSelectionBubble.style.left = left + 'px';
+                activeSelectionBubble.style.top = top + 'px';
+            }
+        } catch (e) {
+            console.debug('[Tweeker Selection] Position error:', e);
+        }
+    }
+
+    document.addEventListener('mouseup', () => {
+        setTimeout(handleTextSelection, 10);
     });
 
-    document.addEventListener('click', (e) => {
-        if (activeContextMenu && !activeContextMenu.contains(e.target)) {
-            removeCustomContextMenu();
+    document.addEventListener('keyup', (e) => {
+        if (e.key.startsWith('Arrow')) {
+            setTimeout(handleTextSelection, 10);
         }
     });
 
+    document.addEventListener('selectionchange', () => {
+        const selection = window.getSelection();
+        if (selection.isCollapsed || selection.toString().trim().length === 0) {
+            removeSelectionBubble();
+        }
+    });
+
+    window.addEventListener('resize', removeSelectionBubble);
     document.addEventListener('scroll', () => {
-        removeCustomContextMenu();
+        removeSelectionBubble();
     }, { passive: true });
 
     // Periodic scanner to scan initially present tweets and ensure no tweets are missed

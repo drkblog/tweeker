@@ -155,12 +155,13 @@ Tweeker provides an integrated video download manager directly inside the X.com 
 *   **Zero Leakage of Credentials**: The app only sends the public tweet URL (e.g., `https://x.com/username/status/12345`) to Cobalt mirrors. No user cookies, authentication headers, or local session data are ever exposed or transmitted.
 *   **Safe File Dialog**: File path selection is handled via a native OS File Dialog, ensuring the application cannot write to arbitrary directories without user consent.
 
-### Selection Context Menu Items
-Tweeker overrides the default browser context menu to provide custom workflow actions when text is selected on screen.
+### Selection Floating Toolbar (Feature K)
+Tweeker renders an elegant, glassmorphic floating action toolbar directly above the text selection when the user highlights text on screen.
 
-*   **Trigger Mechanics**: If the user highlights text and right-clicks, Tweeker intercepts the browser event and displays a custom-designed glassmorphic context menu next to the cursor. If no text is highlighted, the browser's standard right-click context menu operates normally (retaining options to reload, copy images, inspect, etc.).
-*   **Google Search Integration ("Google...")**: Triggers a native Tauri backend command to launch a new sandboxed `WebviewWindow` loading Google search results for the selected query. This lets users research terms, handles, or topics dynamically in a separate window without leaving their timeline.
-*   **Copy Selection**: Copies the highlighted text directly to the user's system clipboard using standard web APIs.
+*   **Trigger Mechanics**: Highlighting text inside the webview renders a small, floating action bubble above the range bounding box. This toolbar sits close to the selection for easy access. Right-clicking is left entirely untouched, ensuring the user retains full access to native OS/browser right-click context menu options (such as Look Up, Translate, Speech, Services, and Inspect Element).
+*   **Google Search Integration ("Google")**: Clicking the Google button triggers a native Tauri backend command to launch a new sandboxed `WebviewWindow` displaying Google Search results for the selected phrase.
+*   **Copy Selection ("Copy")**: Copies the selected text directly to the system clipboard.
+*   **Non-Interference**: Bypassed inside editable text nodes (inputs, textareas, compose editors) to prevent overlays on input actions. Fully respects the `browser.context_menu.enabled` configuration.
 
 ---
 
