@@ -339,6 +339,12 @@
           "markdownDescription": "Enables the import_backup command without any pre-configured scope."
         },
         {
+          "description": "Enables the open_gemini_grammar_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-gemini-grammar-window",
+          "markdownDescription": "Enables the open_gemini_grammar_window command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_google_search_window command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-google-search-window",
@@ -565,6 +571,12 @@
           "type": "string",
           "const": "deny-import-backup",
           "markdownDescription": "Denies the import_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_gemini_grammar_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-gemini-grammar-window",
+          "markdownDescription": "Denies the open_gemini_grammar_window command without any pre-configured scope."
         },
         {
           "description": "Denies the open_google_search_window command without any pre-configured scope.",

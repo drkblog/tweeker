@@ -2353,6 +2353,143 @@
         removeSelectionBubble();
     }, { passive: true });
 
+    // ── Editor Helper Bar ──
+    let activeEditorHelperBar = null;
+    let currentActiveEditor = null;
+
+    function removeEditorHelperBar() {
+        if (activeEditorHelperBar) {
+            activeEditorHelperBar.remove();
+            activeEditorHelperBar = null;
+        }
+        currentActiveEditor = null;
+    }
+
+    function showEditorHelperBar(editorEl) {
+        if (currentActiveEditor === editorEl) {
+            alignEditorHelperBar();
+            return;
+        }
+        removeEditorHelperBar();
+
+        currentActiveEditor = editorEl;
+
+        const bar = document.createElement('div');
+        bar.id = 'tweeker-editor-helper-bar';
+        bar.className = 'tweeker-editor-helper-bar';
+
+        const checkBtn = document.createElement('button');
+        checkBtn.className = 'helper-btn';
+        checkBtn.title = 'Fix grammar with Gemini';
+        checkBtn.innerHTML = '✨ Fix grammar';
+        
+        checkBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const text = editorEl.innerText || editorEl.textContent || '';
+            if (text.trim().length === 0) {
+                try {
+                    window.postMessage({
+                        __tweeker: true,
+                        type: 'log',
+                        payload: { text: 'Editor Helper: No text to check', type: 'warn' }
+                    }, '*');
+                } catch (e) {}
+                return;
+            }
+
+            try {
+                if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+                    window.__TAURI__.core.invoke('open_gemini_grammar_window', { text: text });
+                } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+                    window.__TAURI__.invoke('open_gemini_grammar_window', { text: text });
+                } else if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+                    window.__TAURI_INTERNALS__.invoke('open_gemini_grammar_window', { text: text });
+                }
+            } catch (err) {
+                console.error('[Tweeker Editor Helper] Invocation failed:', err);
+            }
+        });
+
+        bar.appendChild(checkBtn);
+        document.body.appendChild(bar);
+        activeEditorHelperBar = bar;
+
+        alignEditorHelperBar();
+
+        editorEl.addEventListener('input', alignEditorHelperBar);
+    }
+
+    function alignEditorHelperBar() {
+        if (!activeEditorHelperBar || !currentActiveEditor) return;
+        if (!document.body.contains(currentActiveEditor)) {
+            removeEditorHelperBar();
+            return;
+        }
+        const rect = currentActiveEditor.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            removeEditorHelperBar();
+            return;
+        }
+        
+        const barWidth = activeEditorHelperBar.offsetWidth || 110;
+        const barHeight = activeEditorHelperBar.offsetHeight || 32;
+
+        let left = rect.right + window.scrollX - barWidth;
+        let top = rect.top + window.scrollY - barHeight - 6;
+
+        if (left < 10) left = 10;
+        if (rect.top - barHeight - 6 < 10) {
+            top = rect.bottom + window.scrollY + 6;
+        }
+
+        activeEditorHelperBar.style.left = left + 'px';
+        activeEditorHelperBar.style.top = top + 'px';
+    }
+
+    document.addEventListener('focusin', (e) => {
+        const target = e.target;
+        if (target && target.tagName === 'DIV' && target.getAttribute('contenteditable') === 'true') {
+            if (contextMenuEnabled) {
+                showEditorHelperBar(target);
+            }
+        }
+    });
+
+    document.addEventListener('focusout', (e) => {
+        setTimeout(() => {
+            const activeEl = document.activeElement;
+            if (activeEditorHelperBar && activeEditorHelperBar.contains(activeEl)) {
+                return;
+            }
+            if (activeEl && currentActiveEditor && currentActiveEditor.contains(activeEl)) {
+                return;
+            }
+            if (activeEl && activeEl.tagName === 'DIV' && activeEl.getAttribute('contenteditable') === 'true') {
+                return;
+            }
+            removeEditorHelperBar();
+        }, 150);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (activeEditorHelperBar && 
+            !activeEditorHelperBar.contains(e.target) && 
+            currentActiveEditor && 
+            !currentActiveEditor.contains(e.target)) {
+            removeEditorHelperBar();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (activeEditorHelperBar) alignEditorHelperBar();
+    });
+
+    document.addEventListener('scroll', () => {
+        if (activeEditorHelperBar) alignEditorHelperBar();
+    }, { passive: true });
+
     // Periodic scanner to scan initially present tweets and ensure no tweets are missed
     setInterval(function() {
         try {

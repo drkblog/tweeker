@@ -55,6 +55,7 @@ fn main() {
             commands::factory_reset,
             commands::download_video_stream,
             commands::open_google_search_window,
+            commands::open_gemini_grammar_window,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

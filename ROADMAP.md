@@ -21,6 +21,8 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 | **H** | Real-Time Relevant & Recent Tweet Highlights | **Completed** | Antigravity | 2026-08-03 |
 | **I** | Advanced Configuration Editor & Custom Stats Styling | **Completed** | Antigravity | 2026-08-03 |
 | **J** | Timeline Video Downloader & Queue Manager | **Completed** | Antigravity | 2026-08-06 |
+| **K** | Selection Floating Toolbar | **Completed** | Antigravity | 2026-08-10 |
+| **L** | Editor Helper Bar | **Completed** | Antigravity | 2026-08-10 |
 
 ---
 
@@ -141,6 +143,13 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 - **Concurrent Limits**: Restrict parallel downloads via a configurable parameter `tweeker_max_concurrent_downloads` (default: 2) in Advanced Settings, holding extra downloads in a pending state queue.
 - **Benefits**: Eliminates the need for external browser extensions or untrusted copy-paste downloader sites by providing native, rate-limited downloads.
 
+#### [Feature K] Selection Floating Toolbar
+- **Description**: Render a floating action bubble toolbar containing Copy and Google buttons above highlighted text selections.
+- **Benefits**: Retains native browser right-click options (Look Up, Translate, Services) intact, while making Tweeker workflows easily accessible.
+
+#### [Feature L] Editor Helper Bar
+- **Description**: Display a floating "Editor helper bar" above active text fields where the user writes tweets or replies. It contains a single button ("✨ Fix grammar") that reads the text from the compose area and opens Google Gemini in a new chat pre-filled with the prompt `"Fix grammar: <text>"` and submits it automatically.
+- **Benefits**: Streamlines drafting by bringing real-time AI-powered grammar checking directly inside the X.com tweet composition workflow.
 
 
 

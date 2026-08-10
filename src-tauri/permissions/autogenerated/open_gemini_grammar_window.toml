@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-open-gemini-grammar-window"
+description = "Enables the open_gemini_grammar_window command without any pre-configured scope."
+commands.allow = ["open_gemini_grammar_window"]
+
+[[permission]]
+identifier = "deny-open-gemini-grammar-window"
+description = "Denies the open_gemini_grammar_window command without any pre-configured scope."
+commands.deny = ["open_gemini_grammar_window"]

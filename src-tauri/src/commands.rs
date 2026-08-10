@@ -771,6 +771,81 @@ pub async fn open_google_search_window(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn open_gemini_grammar_window(
+    app: tauri::AppHandle,
+    text: String,
+) -> Result<(), String> {
+    println!("[Tweeker Backend] Opening Gemini window for text: {}", text);
+
+    let gemini_url = "https://gemini.google.com/app";
+    let window_id = format!("gemini_{}", uuid::Uuid::new_v4().to_string());
+
+    let escaped_text = serde_json::to_string(&format!("Fix grammar: {}", text))
+        .map_err(|e| format!("Failed to serialize text: {}", e))?;
+
+    let init_script = format!(
+        r#"
+        (function() {{
+            const promptText = {};
+            console.log("[Tweeker Gemini] Injected init script. Prompt:", promptText);
+
+            function tryInject() {{
+                const input = document.querySelector('rich-textarea div[contenteditable="true"], div[contenteditable="true"]');
+                if (input) {{
+                    console.log("[Tweeker Gemini] Found input area. Injecting prompt.");
+                    input.focus();
+                    input.textContent = '';
+                    document.execCommand('insertText', false, promptText);
+                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+
+                    setTimeout(() => {{
+                        const btn = document.querySelector('button[aria-label*="Send"], button[aria-label*="prompt"], button[aria-label*="Submit"], .send-button-container button');
+                        if (btn && !btn.disabled) {{
+                            console.log("[Tweeker Gemini] Found send button. Clicking.");
+                            btn.click();
+                        }} else {{
+                            console.log("[Tweeker Gemini] Send button not clickable. Dispatching Enter key.");
+                            const enterEvent = new KeyboardEvent('keydown', {{
+                                key: 'Enter',
+                                code: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            }});
+                            input.dispatchEvent(enterEvent);
+                        }}
+                    }}, 800);
+
+                    clearInterval(injectInterval);
+                }}
+            }}
+
+            const injectInterval = setInterval(tryInject, 1000);
+
+            setTimeout(() => {{
+                clearInterval(injectInterval);
+            }}, 15000);
+        }})();
+        "#,
+        escaped_text
+    );
+
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        &window_id,
+        tauri::WebviewUrl::External(gemini_url.parse().unwrap()),
+    )
+    .title(format!("Gemini Helper"))
+    .inner_size(1000.0, 750.0)
+    .initialization_script(&init_script)
+    .build()
+    .map_err(|e| format!("Failed to build Gemini helper window: {}", e))?;
+
+    Ok(())
+}
+
 
 
 

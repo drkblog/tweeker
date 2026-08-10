@@ -64,6 +64,7 @@
     "allow-factory-reset",
     "allow-download-video-stream",
     "allow-open-google-search-window",
+    "allow-open-gemini-grammar-window",
     "window-state:default"
   ]
 }

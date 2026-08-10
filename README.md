@@ -163,6 +163,13 @@ Tweeker renders an elegant, glassmorphic floating action toolbar directly above 
 *   **Copy Selection ("Copy")**: Copies the selected text directly to the system clipboard.
 *   **Non-Interference**: Bypassed inside editable text nodes (inputs, textareas, compose editors) to prevent overlays on input actions. Fully respects the `browser.context_menu.enabled` configuration.
 
+### Editor Helper Bar (Feature L)
+Tweeker renders an overlay menu bar directly above text editor containers where the user writes tweets, replies, or direct messages.
+
+*   **Trigger Mechanics**: Focusing any text composer or reply input on X.com displays a compact, glassmorphic "Editor helper bar" floating above the top-right of the active editing frame.
+*   **Gemini Grammar Check ("Fix grammar")**: Clicking the grammar correction button reads the complete draft inside the composer, opens a sandboxed native Tauri `WebviewWindow` loading Google Gemini (`https://gemini.google.com/app`), and injects the prompt `"Fix grammar: <draft_text>"`, automatically submitting it to the AI for processing.
+*   **Non-Interference**: Actions handle click events defensively so that the editor composer never loses focus or input status during toolbar interactions. Fully respects the `browser.context_menu.enabled` setting.
+
 ---
 
 ## License
