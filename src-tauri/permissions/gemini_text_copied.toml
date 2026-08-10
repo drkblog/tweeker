@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-gemini-text-copied"
+description = "Enables the gemini_text_copied command without any pre-configured scope."
+commands.allow = ["gemini_text_copied"]
+
+[[permission]]
+identifier = "deny-gemini-text-copied"
+description = "Denies the gemini_text_copied command without any pre-configured scope."
+commands.deny = ["gemini_text_copied"]

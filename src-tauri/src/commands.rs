@@ -756,11 +756,19 @@ pub async fn open_google_search_window(
     println!("[Tweeker Backend] Opening Google Search window for encoded query: {}", query_encoded);
 
     let search_url = format!("https://www.google.com/search?q={}", query_encoded);
-    let window_id = format!("search_{}", uuid::Uuid::new_v4().to_string());
+    let window_id = "search_helper_window";
     
-    tauri::WebviewWindowBuilder::new(
+    if let Some(win) = app.get_webview_window(window_id) {
+        println!("[Tweeker Backend] Found cached Search window. Navigating.");
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.navigate(search_url.parse().unwrap());
+        return Ok(());
+    }
+
+    let win = tauri::WebviewWindowBuilder::new(
         &app,
-        &window_id,
+        window_id,
         tauri::WebviewUrl::External(search_url.parse().unwrap()),
     )
     .title(format!("Google Search"))
@@ -768,6 +776,21 @@ pub async fn open_google_search_window(
     .build()
     .map_err(|e| format!("Failed to build search window: {}", e))?;
     
+    // Intercept CloseRequested
+    {
+        let win_clone = win.clone();
+        let app_handle = app.clone();
+        win.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if is_dialogs_cache_enabled(&app_handle) {
+                    api.prevent_close();
+                    let _ = win_clone.hide();
+                    println!("[Tweeker Backend] Intercepted close event for search, hiding window.");
+                }
+            }
+        });
+    }
+
     Ok(())
 }
 
@@ -779,21 +802,93 @@ pub async fn open_gemini_grammar_window(
     println!("[Tweeker Backend] Opening Gemini window for text: {}", text);
 
     let gemini_url = "https://gemini.google.com/app";
-    let window_id = format!("gemini_{}", uuid::Uuid::new_v4().to_string());
+    let window_id = "gemini_helper_window";
 
     let escaped_text = serde_json::to_string(&format!("Fix grammar: {}", text))
         .map_err(|e| format!("Failed to serialize text: {}", e))?;
 
-    let init_script = format!(
+    let erase = is_gemini_erase_enabled(&app);
+
+    let run_script = format!(
         r#"
         (function() {{
             const promptText = {};
-            console.log("[Tweeker Gemini] Injected init script. Prompt:", promptText);
+            const erasePrevious = {};
+            
+            localStorage.setItem('__tweeker_pending_prompt', promptText);
 
-            function tryInject() {{
+            function proceedInject() {{
                 const input = document.querySelector('rich-textarea div[contenteditable="true"], div[contenteditable="true"]');
                 if (input) {{
-                    console.log("[Tweeker Gemini] Found input area. Injecting prompt.");
+                    input.focus();
+                    input.textContent = '';
+                    document.execCommand('insertText', false, promptText);
+                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+
+                    setTimeout(() => {{
+                        const btn = document.querySelector('button[aria-label*="Send"], button[aria-label*="prompt"], button[aria-label*="Submit"], .send-button-container button');
+                        if (btn && !btn.disabled) {{
+                            btn.click();
+                        }} else {{
+                            const enterEvent = new KeyboardEvent('keydown', {{
+                                key: 'Enter',
+                                code: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            }});
+                            input.dispatchEvent(enterEvent);
+                        }}
+                    }}, 800);
+                }}
+            }}
+
+            if (erasePrevious) {{
+                console.log("[Tweeker Gemini] Erasing previous chat thread...");
+                const newChatBtn = document.querySelector('a[href="/app"], [aria-label*="New chat"], [aria-label*="New Chat"], button[aria-label*="new chat"]');
+                if (newChatBtn) {{
+                    newChatBtn.click();
+                    setTimeout(proceedInject, 1000);
+                }} else {{
+                    if (!window.location.href.endsWith('/app')) {{
+                        window.location.href = 'https://gemini.google.com/app';
+                    }} else {{
+                        proceedInject();
+                    }}
+                }}
+            }} else {{
+                proceedInject();
+            }}
+        }})();
+        "#,
+        escaped_text,
+        erase
+    );
+
+    if let Some(win) = app.get_webview_window(window_id) {
+        println!("[Tweeker Backend] Found cached Gemini window. Navigating & injecting prompt.");
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.eval(&run_script);
+        return Ok(());
+    }
+
+    let init_script = format!(
+        r#"
+        (function() {{
+            const defaultPrompt = {};
+            if (!localStorage.getItem('__tweeker_pending_prompt')) {{
+                localStorage.setItem('__tweeker_pending_prompt', defaultPrompt);
+            }}
+
+            console.log("[Tweeker Gemini] Init script loaded.");
+
+            function tryInject() {{
+                const promptText = localStorage.getItem('__tweeker_pending_prompt') || defaultPrompt;
+                const input = document.querySelector('rich-textarea div[contenteditable="true"], div[contenteditable="true"]');
+                if (input) {{
+                    console.log("[Tweeker Gemini] Injecting prompt:", promptText);
                     input.focus();
                     input.textContent = '';
                     document.execCommand('insertText', false, promptText);
@@ -824,6 +919,25 @@ pub async fn open_gemini_grammar_window(
 
             const injectInterval = setInterval(tryInject, 1000);
 
+            // Listen to copy events to send the text back to the main window
+            document.addEventListener('copy', () => {{
+                const selectedText = window.getSelection().toString().trim();
+                if (selectedText) {{
+                    console.log("[Tweeker Gemini] Copy detected:", selectedText);
+                    try {{
+                        if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {{
+                            window.__TAURI__.core.invoke('gemini_text_copied', {{ text: selectedText }});
+                        }} else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {{
+                            window.__TAURI__.invoke('gemini_text_copied', {{ text: selectedText }});
+                        }} else if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {{
+                            window.__TAURI_INTERNALS__.invoke('gemini_text_copied', {{ text: selectedText }});
+                        }}
+                    }} catch (e) {{
+                        console.error("[Tweeker Gemini] Invoke failed:", e);
+                    }}
+                }}
+            }});
+
             setTimeout(() => {{
                 clearInterval(injectInterval);
             }}, 15000);
@@ -832,9 +946,9 @@ pub async fn open_gemini_grammar_window(
         escaped_text
     );
 
-    tauri::WebviewWindowBuilder::new(
+    let win = tauri::WebviewWindowBuilder::new(
         &app,
-        &window_id,
+        window_id,
         tauri::WebviewUrl::External(gemini_url.parse().unwrap()),
     )
     .title(format!("Gemini Helper"))
@@ -843,11 +957,78 @@ pub async fn open_gemini_grammar_window(
     .build()
     .map_err(|e| format!("Failed to build Gemini helper window: {}", e))?;
 
+    // Intercept CloseRequested
+    {
+        let win_clone = win.clone();
+        let app_handle = app.clone();
+        win.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if is_dialogs_cache_enabled(&app_handle) {
+                    api.prevent_close();
+                    let _ = win_clone.hide();
+                    println!("[Tweeker Backend] Intercepted close event for gemini, hiding window.");
+                }
+            }
+        });
+    }
+
     Ok(())
 }
 
+#[tauri::command]
+pub async fn gemini_text_copied(
+    app: tauri::AppHandle,
+    text: String,
+) -> Result<(), String> {
+    println!("[Tweeker Backend] Text copied from Gemini: {}", text);
+    if let Some(main_window) = app.get_webview_window("main") {
+        let escaped = serde_json::to_string(&text)
+            .map_err(|e| format!("Failed to serialize copied text: {}", e))?;
+        let js = format!("window.__tweeker_latest_gemini_copy = {};", escaped);
+        let _ = main_window.eval(&js);
+    }
+    Ok(())
+}
 
+#[tauri::command]
+pub async fn set_dialogs_cache_enabled(
+    app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    println!("[Tweeker Backend] Setting dialogs cache enabled: {}", enabled);
+    let conn = storage::open_db(&app)?;
+    storage::set_setting(&conn, "tweeker_dialogs_cache", if enabled { "true" } else { "false" })?;
+    Ok(())
+}
 
+pub fn is_dialogs_cache_enabled(app: &tauri::AppHandle) -> bool {
+    if let Ok(conn) = storage::open_db(app) {
+        if let Ok(Some(val)) = storage::get_setting(&conn, "tweeker_dialogs_cache") {
+            return val == "true";
+        }
+    }
+    true // Default to true
+}
+
+#[tauri::command]
+pub async fn set_gemini_erase_chat(
+    app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    println!("[Tweeker Backend] Setting Gemini erase previous chat enabled: {}", enabled);
+    let conn = storage::open_db(&app)?;
+    storage::set_setting(&conn, "tweeker_dialogs_gemini_erase", if enabled { "true" } else { "false" })?;
+    Ok(())
+}
+
+pub fn is_gemini_erase_enabled(app: &tauri::AppHandle) -> bool {
+    if let Ok(conn) = storage::open_db(app) {
+        if let Ok(Some(val)) = storage::get_setting(&conn, "tweeker_dialogs_gemini_erase") {
+            return val == "true";
+        }
+    }
+    false // Default to false (off by default)
+}
 
 
 

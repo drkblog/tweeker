@@ -237,6 +237,12 @@
           "markdownDescription": "Enables the factory_reset command without any pre-configured scope."
         },
         {
+          "description": "Enables the gemini_text_copied command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-gemini-text-copied",
+          "markdownDescription": "Enables the gemini_text_copied command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_alarms command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-alarms",
@@ -387,6 +393,18 @@
           "markdownDescription": "Enables the set_decouple_mode command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_dialogs_cache_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-dialogs-cache-enabled",
+          "markdownDescription": "Enables the set_dialogs_cache_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_gemini_erase_chat command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-gemini-erase-chat",
+          "markdownDescription": "Enables the set_gemini_erase_chat command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_user_cache_limit command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-user-cache-limit",
@@ -469,6 +487,12 @@
           "type": "string",
           "const": "deny-factory-reset",
           "markdownDescription": "Denies the factory_reset command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the gemini_text_copied command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-gemini-text-copied",
+          "markdownDescription": "Denies the gemini_text_copied command without any pre-configured scope."
         },
         {
           "description": "Denies the get_alarms command without any pre-configured scope.",
@@ -619,6 +643,18 @@
           "type": "string",
           "const": "deny-set-decouple-mode",
           "markdownDescription": "Denies the set_decouple_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_dialogs_cache_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-dialogs-cache-enabled",
+          "markdownDescription": "Denies the set_dialogs_cache_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_gemini_erase_chat command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-gemini-erase-chat",
+          "markdownDescription": "Denies the set_gemini_erase_chat command without any pre-configured scope."
         },
         {
           "description": "Denies the set_user_cache_limit command without any pre-configured scope.",

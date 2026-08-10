@@ -1,0 +1,11 @@
+# Automatically generated
+
+[[permission]]
+identifier = "allow-set-dialogs-cache-enabled"
+description = "Enables the set_dialogs_cache_enabled command without any pre-configured scope."
+commands.allow = ["set_dialogs_cache_enabled"]
+
+[[permission]]
+identifier = "deny-set-dialogs-cache-enabled"
+description = "Denies the set_dialogs_cache_enabled command without any pre-configured scope."
+commands.deny = ["set_dialogs_cache_enabled"]

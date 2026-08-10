@@ -1,4 +1,5 @@
 fn main() {
+    // Force rebuild
     println!("cargo:rerun-if-changed=../src-inject");
     println!("cargo:rerun-if-changed=../src-frontend");
     tauri_build::try_build(

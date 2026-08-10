@@ -56,6 +56,9 @@ fn main() {
             commands::download_video_stream,
             commands::open_google_search_window,
             commands::open_gemini_grammar_window,
+            commands::gemini_text_copied,
+            commands::set_dialogs_cache_enabled,
+            commands::set_gemini_erase_chat,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

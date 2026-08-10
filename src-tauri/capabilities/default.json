@@ -65,6 +65,9 @@
     "allow-download-video-stream",
     "allow-open-google-search-window",
     "allow-open-gemini-grammar-window",
+    "allow-gemini-text-copied",
+    "allow-set-dialogs-cache-enabled",
+    "allow-set-gemini-erase-chat",
     "window-state:default"
   ]
 }

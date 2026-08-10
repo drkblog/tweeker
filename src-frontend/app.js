@@ -2177,6 +2177,8 @@ const SETTINGS_DEFAULTS = {
     'notifications.statistics.views-color': '#71767b',
     tweeker_max_concurrent_downloads: 2,
     'browser.context_menu.enabled': true,
+    'tweeker.dialogs.cache': true,
+    'tweeker.dialogs.gemini.erase_previous_chat': false,
 };
 
 const SETTINGS_DESCRIPTIONS = {
@@ -2201,6 +2203,8 @@ const SETTINGS_DESCRIPTIONS = {
     'notifications.statistics.views-color': 'Hex color for the Views icon and count in notification stats.',
     tweeker_max_concurrent_downloads: 'Maximum number of concurrent video downloads allowed to run in parallel.',
     'browser.context_menu.enabled': 'Globally enable or disable custom context menu overrides.',
+    'tweeker.dialogs.cache': 'Cache extra dialogs in background instead of destroying on close for near-instant reactivation.',
+    'tweeker.dialogs.gemini.erase_previous_chat': 'Start a new Gemini chat and delete the previous chat thread when the helper is opened.',
 };
 
 function applySettingsDefaults() {
@@ -2265,6 +2269,17 @@ function applySettingsDefaults() {
 
     state.contextMenuEnabled = true;
     try { localStorage.setItem('browser.context_menu.enabled', 'true'); } catch (e) {}
+    try { localStorage.setItem('tweeker.dialogs.cache', 'true'); } catch (e) {}
+    try { localStorage.setItem('tweeker.dialogs.gemini.erase_previous_chat', 'false'); } catch (e) {}
+    try {
+        if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+            window.__TAURI__.core.invoke('set_dialogs_cache_enabled', { enabled: true });
+            window.__TAURI__.core.invoke('set_gemini_erase_chat', { enabled: false });
+        } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+            window.__TAURI__.invoke('set_dialogs_cache_enabled', { enabled: true });
+            window.__TAURI__.invoke('set_gemini_erase_chat', { enabled: false });
+        }
+    } catch (e) {}
     try {
         window.postMessage({
             __tweeker: true,
@@ -2794,6 +2809,24 @@ function applyLiveAdvancedSetting(key, val) {
                 enabled: enabled
             }, '*');
         } catch (e) {}
+    } else if (key === 'tweeker.dialogs.cache') {
+        const enabled = val === 'true' || val === true;
+        try {
+            if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+                window.__TAURI__.core.invoke('set_dialogs_cache_enabled', { enabled: enabled });
+            } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+                window.__TAURI__.invoke('set_dialogs_cache_enabled', { enabled: enabled });
+            }
+        } catch (e) {}
+    } else if (key === 'tweeker.dialogs.gemini.erase_previous_chat') {
+        const enabled = val === 'true' || val === true;
+        try {
+            if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+                window.__TAURI__.core.invoke('set_gemini_erase_chat', { enabled: enabled });
+            } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+                window.__TAURI__.invoke('set_gemini_erase_chat', { enabled: enabled });
+            }
+        } catch (e) {}
     }
 
     addLogEntry({
@@ -2854,6 +2887,8 @@ const BACKUP_SETTINGS_KEYS = [
     'notifications.statistics.views-color',
     'tweeker_max_concurrent_downloads',
     'browser.context_menu.enabled',
+    'tweeker.dialogs.cache',
+    'tweeker.dialogs.gemini.erase_previous_chat',
 ];
 
 function buildBackupPayload() {
@@ -3111,6 +3146,24 @@ async function applyBackupRestore(backup, updateProgress) {
             type: 'set_context_menu_enabled',
             enabled: contextMenuEnabled
         }, '*');
+    } catch (e) {}
+
+    const dialogsCacheEnabled = localStorage.getItem('tweeker.dialogs.cache') !== 'false';
+    try {
+        if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+            window.__TAURI__.core.invoke('set_dialogs_cache_enabled', { enabled: dialogsCacheEnabled });
+        } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+            window.__TAURI__.invoke('set_dialogs_cache_enabled', { enabled: dialogsCacheEnabled });
+        }
+    } catch (e) {}
+
+    const geminiEraseEnabled = localStorage.getItem('tweeker.dialogs.gemini.erase_previous_chat') === 'true';
+    try {
+        if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+            window.__TAURI__.core.invoke('set_gemini_erase_chat', { enabled: geminiEraseEnabled });
+        } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+            window.__TAURI__.invoke('set_gemini_erase_chat', { enabled: geminiEraseEnabled });
+        }
     } catch (e) {}
 
     const savedAutoReadOnStart = localStorage.getItem('tweeker_autoread_on_start') === 'true';
@@ -4070,6 +4123,20 @@ async function init() {
             enabled: contextMenuEnabled
         }, '*');
     } catch (e) {}
+
+    const dialogsCacheEnabled = localStorage.getItem('tweeker.dialogs.cache') !== 'false';
+    try {
+        await invoke('set_dialogs_cache_enabled', { enabled: dialogsCacheEnabled });
+    } catch (e) {
+        console.error('[Tweeker App] Failed to sync dialogs cache setting to backend:', e);
+    }
+
+    const geminiEraseEnabled = localStorage.getItem('tweeker.dialogs.gemini.erase_previous_chat') === 'true';
+    try {
+        await invoke('set_gemini_erase_chat', { enabled: geminiEraseEnabled });
+    } catch (e) {
+        console.error('[Tweeker App] Failed to sync gemini erase chat setting to backend:', e);
+    }
 
     // Restore saved log entries
     try {
