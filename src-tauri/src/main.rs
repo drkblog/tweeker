@@ -54,6 +54,7 @@ fn main() {
             commands::save_diagnostic_report,
             commands::factory_reset,
             commands::download_video_stream,
+            commands::open_google_search_window,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

@@ -2205,6 +2205,88 @@
     // Start the observer after a delay to let X.com render
     setTimeout(startDOMObserver, 2000);
 
+    // ── Selection Context Menu Items ──
+    let activeContextMenu = null;
+
+    function removeCustomContextMenu() {
+        if (activeContextMenu) {
+            activeContextMenu.remove();
+            activeContextMenu = null;
+        }
+    }
+
+    document.addEventListener('contextmenu', (e) => {
+        removeCustomContextMenu();
+
+        const selectedText = window.getSelection().toString().trim();
+        if (selectedText.length === 0) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const menu = document.createElement('div');
+        menu.id = 'tweeker-selection-context-menu';
+        menu.className = 'tweeker-custom-context-menu';
+
+        const copyItem = document.createElement('div');
+        copyItem.className = 'context-menu-item';
+        copyItem.innerHTML = '<span>📋</span> Copy';
+        copyItem.addEventListener('click', () => {
+            navigator.clipboard.writeText(selectedText)
+                .then(() => {
+                    try {
+                        window.postMessage({
+                            __tweeker: true,
+                            type: 'log',
+                            payload: { text: 'Selection Context: Text copied to clipboard', type: 'info' }
+                        }, '*');
+                    } catch (e) {}
+                })
+                .catch((err) => console.error('[Tweeker Context] Failed to copy:', err));
+            removeCustomContextMenu();
+        });
+
+        const googleItem = document.createElement('div');
+        googleItem.className = 'context-menu-item';
+        googleItem.innerHTML = '<span>🔍</span> Google...';
+        googleItem.addEventListener('click', () => {
+            const encoded = encodeURIComponent(selectedText);
+            try {
+                if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+                    window.__TAURI__.core.invoke('open_google_search_window', { queryEncoded: encoded });
+                } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+                    window.__TAURI__.invoke('open_google_search_window', { queryEncoded: encoded });
+                } else if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+                    window.__TAURI_INTERNALS__.invoke('open_google_search_window', { queryEncoded: encoded });
+                }
+            } catch (err) {
+                console.error('[Tweeker Context] Failed to invoke search:', err);
+            }
+            removeCustomContextMenu();
+        });
+
+        menu.appendChild(copyItem);
+        menu.appendChild(googleItem);
+
+        menu.style.position = 'absolute';
+        menu.style.left = e.pageX + 'px';
+        menu.style.top = e.pageY + 'px';
+
+        document.body.appendChild(menu);
+        activeContextMenu = menu;
+    });
+
+    document.addEventListener('click', (e) => {
+        if (activeContextMenu && !activeContextMenu.contains(e.target)) {
+            removeCustomContextMenu();
+        }
+    });
+
+    document.addEventListener('scroll', () => {
+        removeCustomContextMenu();
+    }, { passive: true });
+
     // Periodic scanner to scan initially present tweets and ensure no tweets are missed
     setInterval(function() {
         try {

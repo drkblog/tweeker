@@ -63,6 +63,7 @@
     "allow-save-diagnostic-report",
     "allow-factory-reset",
     "allow-download-video-stream",
+    "allow-open-google-search-window",
     "window-state:default"
   ]
 }

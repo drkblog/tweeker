@@ -155,6 +155,13 @@ Tweeker provides an integrated video download manager directly inside the X.com 
 *   **Zero Leakage of Credentials**: The app only sends the public tweet URL (e.g., `https://x.com/username/status/12345`) to Cobalt mirrors. No user cookies, authentication headers, or local session data are ever exposed or transmitted.
 *   **Safe File Dialog**: File path selection is handled via a native OS File Dialog, ensuring the application cannot write to arbitrary directories without user consent.
 
+### Selection Context Menu Items
+Tweeker overrides the default browser context menu to provide custom workflow actions when text is selected on screen.
+
+*   **Trigger Mechanics**: If the user highlights text and right-clicks, Tweeker intercepts the browser event and displays a custom-designed glassmorphic context menu next to the cursor. If no text is highlighted, the browser's standard right-click context menu operates normally (retaining options to reload, copy images, inspect, etc.).
+*   **Google Search Integration ("Google...")**: Triggers a native Tauri backend command to launch a new sandboxed `WebviewWindow` loading Google search results for the selected query. This lets users research terms, handles, or topics dynamically in a separate window without leaving their timeline.
+*   **Copy Selection**: Copies the highlighted text directly to the user's system clipboard using standard web APIs.
+
 ---
 
 ## License

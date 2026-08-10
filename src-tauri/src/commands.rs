@@ -748,6 +748,30 @@ pub async fn download_video_stream(
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
+#[tauri::command]
+pub async fn open_google_search_window(
+    app: tauri::AppHandle,
+    query_encoded: String,
+) -> Result<(), String> {
+    println!("[Tweeker Backend] Opening Google Search window for encoded query: {}", query_encoded);
+
+    let search_url = format!("https://www.google.com/search?q={}", query_encoded);
+    let window_id = format!("search_{}", uuid::Uuid::new_v4().to_string());
+    
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        &window_id,
+        tauri::WebviewUrl::External(search_url.parse().unwrap()),
+    )
+    .title(format!("Google Search"))
+    .inner_size(900.0, 700.0)
+    .build()
+    .map_err(|e| format!("Failed to build search window: {}", e))?;
+    
+    Ok(())
+}
+
+
 
 
 
