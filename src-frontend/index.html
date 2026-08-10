@@ -472,6 +472,16 @@
                         </div>
                         <input type="text" id="settings-db-path" class="input" readonly style="font-size: 10px; width: 100%; cursor: text; font-family: monospace; background: rgba(0,0,0,0.2);" value="—">
                     </div>
+                    <div class="setting-item" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+                        <div class="setting-info">
+                            <span class="setting-label">Application Log Path</span>
+                            <span class="setting-desc">Location of local application log file</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; width: 100%;">
+                            <input type="text" id="settings-log-path" class="input" readonly style="font-size: 10px; flex: 1; cursor: text; font-family: monospace; background: rgba(0,0,0,0.2);" value="—">
+                            <button type="button" id="copy-log-path-btn" class="btn btn-secondary btn-sm" title="Copy log path to clipboard" style="padding: 4px 8px; flex-shrink: 0;">Copy</button>
+                        </div>
+                    </div>
                     <div class="setting-item">
                         <div class="setting-info">
                             <span class="setting-label">Database Statistics</span>

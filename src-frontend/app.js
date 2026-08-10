@@ -182,6 +182,8 @@ const dom = {
     sessionStart: document.getElementById('session-start'),
     settingsVersion: document.getElementById('settings-version'),
     settingsDbPath: document.getElementById('settings-db-path'),
+    settingsLogPath: document.getElementById('settings-log-path'),
+    copyLogPathBtn: document.getElementById('copy-log-path-btn'),
     dumpDbStatsBtn: document.getElementById('dump-db-stats-btn'),
 
     // Manager
@@ -2078,6 +2080,20 @@ if (dom.cleanCacheBtn) {
                 type: 'error',
                 level: 'ERROR',
                 text: `Manager: Failed to clean browser cache: ${err}`
+            });
+        }
+    });
+}
+
+// Copy application log path button handler
+if (dom.copyLogPathBtn) {
+    dom.copyLogPathBtn.addEventListener('click', () => {
+        if (dom.settingsLogPath && dom.settingsLogPath.value && dom.settingsLogPath.value !== '—') {
+            copyToClipboard(dom.settingsLogPath.value, 'Log path copied!');
+            addLogEntry({
+                type: 'info',
+                level: 'INFO',
+                text: 'Copied application log path to clipboard'
             });
         }
     });
@@ -4349,6 +4365,15 @@ async function emitDbStatsLog() {
         const stats = await fetchDbStats();
         if (dom.settingsDbPath && stats.db_path) {
             dom.settingsDbPath.value = stats.db_path;
+        }
+
+        try {
+            const logPath = await invoke('get_log_path');
+            if (dom.settingsLogPath && logPath) {
+                dom.settingsLogPath.value = logPath;
+            }
+        } catch (err) {
+            console.error('[Tweeker] Failed to get log path:', err);
         }
 
         const sizeBytes = stats.db_size_bytes || 0;

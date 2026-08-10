@@ -1,0 +1,10 @@
+# Generated permission for get_log_path
+[[permission]]
+identifier = "allow-get-log-path"
+description = "Enables the get_log_path command."
+commands.allow = ["get_log_path"]
+
+[[permission]]
+identifier = "deny-get-log-path"
+description = "Denies the get_log_path command."
+commands.deny = ["get_log_path"]

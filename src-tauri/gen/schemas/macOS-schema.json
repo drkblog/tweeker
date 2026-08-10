@@ -303,6 +303,12 @@
           "markdownDescription": "Enables the get_diagnostic_system_info command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_log_path command.",
+          "type": "string",
+          "const": "allow-get-log-path",
+          "markdownDescription": "Enables the get_log_path command."
+        },
+        {
           "description": "Enables the get_scheduled_tweets command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-scheduled-tweets",
@@ -553,6 +559,12 @@
           "type": "string",
           "const": "deny-get-diagnostic-system-info",
           "markdownDescription": "Denies the get_diagnostic_system_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_log_path command.",
+          "type": "string",
+          "const": "deny-get-log-path",
+          "markdownDescription": "Denies the get_log_path command."
         },
         {
           "description": "Denies the get_scheduled_tweets command without any pre-configured scope.",

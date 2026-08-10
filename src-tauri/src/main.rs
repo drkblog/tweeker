@@ -2,6 +2,7 @@
 
 mod commands;
 mod interceptor;
+mod logger;
 mod models;
 mod scheduler;
 mod state;
@@ -59,9 +60,11 @@ fn main() {
             commands::gemini_text_copied,
             commands::set_dialogs_cache_enabled,
             commands::set_gemini_erase_chat,
+            commands::get_log_path,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+            let _ = logger::init(&handle);
 
             // ── Native OS Menu setup ──
             if let Ok(conn) = storage::open_db(&handle) {
@@ -128,7 +131,7 @@ fn main() {
                                 let new_val = !cur;
                                 if storage::set_setting(&conn, "decouple_x_ui", if new_val { "true" } else { "false" }).is_ok() {
                                     let _ = decouple_item.set_checked(new_val);
-                                    println!("[Tweeker] Decoupled mode set to {} via OS menu, reloading window...", new_val);
+                                    tlog!("[Tweeker] Decoupled mode set to {} via OS menu, reloading window...", new_val);
                                     if let Some(window) = app_handle.get_webview_window("main") {
                                         let script = format!(
                                             "try {{ localStorage.setItem('tweeker_decouple_mode', '{}'); }} catch(e){{}} window.__TWEEKER_DECOUPLED__ = {}; window.location.reload();",
@@ -149,7 +152,7 @@ fn main() {
             // ── Initialize database ──
             if let Ok(conn) = storage::open_db(&handle) {
                 if let Err(e) = storage::run_migrations(&conn) {
-                    eprintln!("[Tweeker] Database migration failed: {}", e);
+                    tlog_err!("[Tweeker] Database migration failed: {}", e);
                 }
 
                 // Check for saved last URL
@@ -157,7 +160,7 @@ fn main() {
                     let clean = saved_url.trim();
                     if clean.starts_with("https://x.com") || clean.starts_with("https://twitter.com") {
                         start_url = clean.to_string();
-                        println!("[Tweeker] Restoring last URL on startup: {}", start_url);
+                        tlog!("[Tweeker] Restoring last URL on startup: {}", start_url);
                     }
                 }
 
@@ -169,11 +172,11 @@ fn main() {
                             let state = app.state::<AppState>();
                             let mut cache = state.user_cache.lock().unwrap();
                             *cache = cached_users;
-                            println!("[Tweeker] Loaded {} users from persistent cache", count);
+                            tlog!("[Tweeker] Loaded {} users from persistent cache", count);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[Tweeker] Failed to load user cache: {}", e);
+                        tlog_err!("[Tweeker] Failed to load user cache: {}", e);
                     }
                 }
 
@@ -185,15 +188,15 @@ fn main() {
                             let state = app.state::<AppState>();
                             let mut state_tweets = state.tweets.lock().unwrap();
                             *state_tweets = tweets;
-                            println!("[Tweeker] Loaded {} tweets from persistent storage", count);
+                            tlog!("[Tweeker] Loaded {} tweets from persistent storage", count);
                         }
                     }
                     Err(e) => {
-                        eprintln!("[Tweeker] Failed to load tweets: {}", e);
+                        tlog_err!("[Tweeker] Failed to load tweets: {}", e);
                     }
                 }
             } else {
-                eprintln!("[Tweeker] Failed to open database");
+                tlog_err!("[Tweeker] Failed to open database");
             }
 
             // ── Create the main WebviewWindow loading X.com with injected scripts ──
@@ -232,7 +235,7 @@ fn main() {
                 *session = Some(chrono::Utc::now());
             }
 
-            println!("[Tweeker] Application initialized successfully");
+            tlog!("[Tweeker] Application initialized successfully");
             Ok(())
         })
         .run(tauri::generate_context!())

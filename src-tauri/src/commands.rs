@@ -1,6 +1,7 @@
 use crate::models::*;
 use crate::state::AppState;
 use crate::storage;
+use crate::{tlog, tlog_err};
 use chrono::Utc;
 use tauri::Manager;
 use uuid::Uuid;
@@ -269,7 +270,7 @@ pub fn add_multiple_to_user_cache(
     drop(cache); // release lock before DB I/O
     if let Ok(conn) = storage::open_db(&app) {
         if let Err(e) = storage::save_user_cache_batch(&conn, &to_persist) {
-            eprintln!("[Tweeker] Failed to persist user cache batch: {}", e);
+            tlog_err!("[Tweeker] Failed to persist user cache batch: {}", e);
         }
     }
 }
@@ -455,7 +456,7 @@ pub fn clear_browser_cache(app: tauri::AppHandle) -> Result<(), String> {
         "#;
         let _ = window.eval(script);
     }
-    println!("[Tweeker] Browser cache cleared");
+    tlog!("[Tweeker] Browser cache cleared");
     Ok(())
 }
 
@@ -477,7 +478,7 @@ pub fn clear_site_data(app: tauri::AppHandle) -> Result<(), String> {
         "#;
         let _ = window.eval(script);
     }
-    println!("[Tweeker] Site data erased");
+    tlog!("[Tweeker] Site data erased");
     Ok(())
 }
 
@@ -542,7 +543,7 @@ pub fn purge_user_and_tweet_storage(
     let mut user_cache = state.user_cache.lock().unwrap();
     user_cache.clear();
 
-    println!("[Tweeker] Purged user cache and intercepted tweets storage");
+    tlog!("[Tweeker] Purged user cache and intercepted tweets storage");
     Ok(())
 }
 
@@ -606,7 +607,7 @@ pub fn factory_reset(
     state.scheduled_tweets.lock().unwrap().clear();
     state.user_cache.lock().unwrap().clear();
 
-    println!("[Tweeker] Factory reset complete, restarting application...");
+    tlog!("[Tweeker] Factory reset complete, restarting application...");
     
     // 3. Restart application
     app.restart();
@@ -630,7 +631,7 @@ pub async fn download_video_stream(
     app: tauri::AppHandle,
     tweet_url: String,
 ) -> Result<Option<String>, String> {
-    println!("[Tweeker Backend] Requesting video download for URL: {}", tweet_url);
+    tlog!("[Tweeker Backend] Requesting video download for URL: {}", tweet_url);
 
     let status_id = tweet_url
         .split("/status/")
@@ -656,7 +657,7 @@ pub async fn download_video_stream(
     let mut last_error = "No API endpoints configured".to_string();
 
     for api_url in apis {
-        println!("[Tweeker Backend] Trying Cobalt API endpoint: {}", api_url);
+        tlog!("[Tweeker Backend] Trying Cobalt API endpoint: {}", api_url);
         let res_result = client
             .post(api_url)
             .header("Accept", "application/json")
@@ -678,7 +679,7 @@ pub async fn download_video_stream(
                         }
                         if let Some(url) = parsed.url {
                             download_url = Some(url);
-                            println!("[Tweeker Backend] Successfully resolved stream URL from: {}", api_url);
+                            tlog!("[Tweeker Backend] Successfully resolved stream URL from: {}", api_url);
                             break;
                         } else {
                             last_error = format!("Endpoint {} response had no download URL", api_url);
@@ -722,7 +723,7 @@ pub async fn download_video_stream(
         None => return Ok(None),
     };
 
-    println!("[Tweeker Backend] Downloading video stream to: {}", path.display());
+    tlog!("[Tweeker Backend] Downloading video stream to: {}", path.display());
 
     let mut download_res = client
         .get(&download_url)
@@ -753,13 +754,13 @@ pub async fn open_google_search_window(
     app: tauri::AppHandle,
     query_encoded: String,
 ) -> Result<(), String> {
-    println!("[Tweeker Backend] Opening Google Search window for encoded query: {}", query_encoded);
+    tlog!("[Tweeker Backend] Opening Google Search window for encoded query: {}", query_encoded);
 
     let search_url = format!("https://www.google.com/search?q={}", query_encoded);
     let window_id = "search_helper_window";
     
     if let Some(win) = app.get_webview_window(window_id) {
-        println!("[Tweeker Backend] Found cached Search window. Navigating.");
+        tlog!("[Tweeker Backend] Found cached Search window. Navigating.");
         let _ = win.show();
         let _ = win.set_focus();
         let _ = win.navigate(search_url.parse().unwrap());
@@ -785,7 +786,7 @@ pub async fn open_google_search_window(
                 if is_dialogs_cache_enabled(&app_handle) {
                     api.prevent_close();
                     let _ = win_clone.hide();
-                    println!("[Tweeker Backend] Intercepted close event for search, hiding window.");
+                    tlog!("[Tweeker Backend] Intercepted close event for search, hiding window.");
                 }
             }
         });
@@ -799,7 +800,7 @@ pub async fn open_gemini_grammar_window(
     app: tauri::AppHandle,
     text: String,
 ) -> Result<(), String> {
-    println!("[Tweeker Backend] Opening Gemini window for text: {}", text);
+    tlog!("[Tweeker Backend] Opening Gemini window for text: {}", text);
 
     let gemini_url = "https://gemini.google.com/app";
     let window_id = "gemini_helper_window";
@@ -867,7 +868,7 @@ pub async fn open_gemini_grammar_window(
     );
 
     if let Some(win) = app.get_webview_window(window_id) {
-        println!("[Tweeker Backend] Found cached Gemini window. Navigating & injecting prompt.");
+        tlog!("[Tweeker Backend] Found cached Gemini window. Navigating & injecting prompt.");
         let _ = win.show();
         let _ = win.set_focus();
         let _ = win.eval(&run_script);
@@ -966,7 +967,7 @@ pub async fn open_gemini_grammar_window(
                 if is_dialogs_cache_enabled(&app_handle) {
                     api.prevent_close();
                     let _ = win_clone.hide();
-                    println!("[Tweeker Backend] Intercepted close event for gemini, hiding window.");
+                    tlog!("[Tweeker Backend] Intercepted close event for gemini, hiding window.");
                 }
             }
         });
@@ -980,7 +981,7 @@ pub async fn gemini_text_copied(
     app: tauri::AppHandle,
     text: String,
 ) -> Result<(), String> {
-    println!("[Tweeker Backend] Text copied from Gemini: {}", text);
+    tlog!("[Tweeker Backend] Text copied from Gemini: {}", text);
     if let Some(main_window) = app.get_webview_window("main") {
         let escaped = serde_json::to_string(&text)
             .map_err(|e| format!("Failed to serialize copied text: {}", e))?;
@@ -995,7 +996,7 @@ pub async fn set_dialogs_cache_enabled(
     app: tauri::AppHandle,
     enabled: bool,
 ) -> Result<(), String> {
-    println!("[Tweeker Backend] Setting dialogs cache enabled: {}", enabled);
+    tlog!("[Tweeker Backend] Setting dialogs cache enabled: {}", enabled);
     let conn = storage::open_db(&app)?;
     storage::set_setting(&conn, "tweeker_dialogs_cache", if enabled { "true" } else { "false" })?;
     Ok(())
@@ -1015,7 +1016,7 @@ pub async fn set_gemini_erase_chat(
     app: tauri::AppHandle,
     enabled: bool,
 ) -> Result<(), String> {
-    println!("[Tweeker Backend] Setting Gemini erase previous chat enabled: {}", enabled);
+    tlog!("[Tweeker Backend] Setting Gemini erase previous chat enabled: {}", enabled);
     let conn = storage::open_db(&app)?;
     storage::set_setting(&conn, "tweeker_dialogs_gemini_erase", if enabled { "true" } else { "false" })?;
     Ok(())
@@ -1028,6 +1029,11 @@ pub fn is_gemini_erase_enabled(app: &tauri::AppHandle) -> bool {
         }
     }
     false // Default to false (off by default)
+}
+
+#[tauri::command]
+pub async fn get_log_path() -> Result<String, String> {
+    crate::logger::get_log_path().ok_or_else(|| "Log path not initialized".to_string())
 }
 
 

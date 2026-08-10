@@ -68,6 +68,7 @@
     "allow-gemini-text-copied",
     "allow-set-dialogs-cache-enabled",
     "allow-set-gemini-erase-chat",
+    "allow-get-log-path",
     "window-state:default"
   ]
 }
