@@ -6,6 +6,7 @@ use chrono::Utc;
 use tauri::Manager;
 use uuid::Uuid;
 
+
 #[tauri::command]
 pub fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -761,10 +762,31 @@ pub async fn open_google_search_window(
     
     if let Some(win) = app.get_webview_window(window_id) {
         tlog!("[Tweeker Backend] Found cached Search window. Navigating.");
+        if let Some(main_window) = app.get_webview_window("main") {
+            let _ = main_window.eval(r#"
+                if (window.__tweeker_state && window.__tweeker_state.panelOpen) {
+                    window.__tweeker_panel_was_open_for_search = true;
+                    if (typeof window.__tweeker_toggle_panel === 'function') window.__tweeker_toggle_panel(false);
+                } else {
+                    window.__tweeker_panel_was_open_for_search = false;
+                }
+            "#);
+        }
         let _ = win.show();
         let _ = win.set_focus();
         let _ = win.navigate(search_url.parse().unwrap());
         return Ok(());
+    }
+
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.eval(r#"
+            if (window.__tweeker_state && window.__tweeker_state.panelOpen) {
+                window.__tweeker_panel_was_open_for_search = true;
+                if (typeof window.__tweeker_toggle_panel === 'function') window.__tweeker_toggle_panel(false);
+            } else {
+                window.__tweeker_panel_was_open_for_search = false;
+            }
+        "#);
     }
 
     let win = tauri::WebviewWindowBuilder::new(
@@ -783,10 +805,20 @@ pub async fn open_google_search_window(
         let app_handle = app.clone();
         win.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if is_dialogs_cache_enabled(&app_handle) {
+                let cache_enabled = is_dialogs_cache_enabled(&app_handle);
+                if cache_enabled {
                     api.prevent_close();
                     let _ = win_clone.hide();
                     tlog!("[Tweeker Backend] Intercepted close event for search, hiding window.");
+                }
+
+                // Recover panel state of main window!
+                if let Some(main_win) = app_handle.get_webview_window("main") {
+                    let _ = main_win.eval(r#"
+                        if (window.__tweeker_panel_was_open_for_search) {
+                            if (typeof window.__tweeker_toggle_panel === 'function') window.__tweeker_toggle_panel(true);
+                        }
+                    "#);
                 }
             }
         });
@@ -869,6 +901,16 @@ pub async fn open_gemini_grammar_window(
 
     if let Some(win) = app.get_webview_window(window_id) {
         tlog!("[Tweeker Backend] Found cached Gemini window. Navigating & injecting prompt.");
+        if let Some(main_window) = app.get_webview_window("main") {
+            let _ = main_window.eval(r#"
+                if (window.__tweeker_state && window.__tweeker_state.panelOpen) {
+                    window.__tweeker_panel_was_open_for_gemini = true;
+                    if (typeof window.__tweeker_toggle_panel === 'function') window.__tweeker_toggle_panel(false);
+                } else {
+                    window.__tweeker_panel_was_open_for_gemini = false;
+                }
+            "#);
+        }
         let _ = win.show();
         let _ = win.set_focus();
         let _ = win.eval(&run_script);
@@ -947,6 +989,17 @@ pub async fn open_gemini_grammar_window(
         escaped_text
     );
 
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.eval(r#"
+            if (window.__tweeker_state && window.__tweeker_state.panelOpen) {
+                window.__tweeker_panel_was_open_for_gemini = true;
+                if (typeof window.__tweeker_toggle_panel === 'function') window.__tweeker_toggle_panel(false);
+            } else {
+                window.__tweeker_panel_was_open_for_gemini = false;
+            }
+        "#);
+    }
+
     let win = tauri::WebviewWindowBuilder::new(
         &app,
         window_id,
@@ -964,10 +1017,20 @@ pub async fn open_gemini_grammar_window(
         let app_handle = app.clone();
         win.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if is_dialogs_cache_enabled(&app_handle) {
+                let cache_enabled = is_dialogs_cache_enabled(&app_handle);
+                if cache_enabled {
                     api.prevent_close();
                     let _ = win_clone.hide();
                     tlog!("[Tweeker Backend] Intercepted close event for gemini, hiding window.");
+                }
+
+                // Recover panel state of main window!
+                if let Some(main_win) = app_handle.get_webview_window("main") {
+                    let _ = main_win.eval(r#"
+                        if (window.__tweeker_panel_was_open_for_gemini) {
+                            if (typeof window.__tweeker_toggle_panel === 'function') window.__tweeker_toggle_panel(true);
+                        }
+                    "#);
                 }
             }
         });

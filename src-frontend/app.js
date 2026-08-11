@@ -4466,3 +4466,7 @@ async function emitDbStatsLog() {
 }
 
 init();
+
+// Expose state and togglePanel to window for dialog overlay minimization control
+window.__tweeker_state = state;
+window.__tweeker_toggle_panel = togglePanel;

@@ -1,6 +1,6 @@
 [package]
 name = "tweeker"
-version = "1.0.1"
+version = "1.0.8"
 edition = "2021"
 authors = ["drkbugs"]
 description = "A power-user desktop client for X.com (Twitter)"
