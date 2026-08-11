@@ -135,7 +135,7 @@ fn main() {
                                     tlog!("[Tweeker] Decoupled mode set to {} via OS menu, reloading window...", new_val);
                                     if let Some(window) = app_handle.get_webview_window("main") {
                                         let script = format!(
-                                            "try {{ localStorage.setItem('tweeker_decouple_mode', '{}'); }} catch(e){{}} window.__TWEEKER_DECOUPLED__ = {}; window.location.reload();",
+                                            "try {{ localStorage.setItem('tweeker.core.decouple_mode', '{}'); }} catch(e){{}} window.__TWEEKER_DECOUPLED__ = {}; window.location.reload();",
                                             if new_val { "true" } else { "false" },
                                             new_val
                                         );

@@ -21,7 +21,7 @@
 
     let isDecoupled = false;
     try {
-        isDecoupled = localStorage.getItem('tweeker_decouple_mode') === 'true';
+        isDecoupled = localStorage.getItem('tweeker.core.decouple_mode') === 'true';
     } catch (e) {}
 
     if (isDecoupled) {
@@ -61,7 +61,7 @@
             if (href.startsWith('https://x.com') || href.startsWith('https://twitter.com')) {
                 if (href !== lastSavedUrl) {
                     lastSavedUrl = href;
-                    localStorage.setItem('tweeker_last_url', href);
+                    localStorage.setItem('tweeker.core.last_url', href);
                     window.__tweeker.sendMessage('save_last_url', { url: href });
                 }
             }
@@ -73,7 +73,7 @@
     setInterval(checkAndSaveCurrentUrl, 2000);
 
     try {
-        const savedUrl = localStorage.getItem('tweeker_last_url');
+        const savedUrl = localStorage.getItem('tweeker.core.last_url');
         if (savedUrl && (window.location.pathname === '/' || window.location.pathname === '') && savedUrl !== window.location.href) {
             if (savedUrl.startsWith('https://x.com') || savedUrl.startsWith('https://twitter.com')) {
                 window.location.href = savedUrl;

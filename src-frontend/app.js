@@ -224,7 +224,7 @@ function togglePanel(forceState) {
     state.panelOpen = newState;
 
     // Persist open/closed state across app restarts
-    try { localStorage.setItem('tweeker_panel_open', newState ? 'true' : 'false'); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.panel_open', newState ? 'true' : 'false'); } catch (e) {}
 
     if (newState) {
         dom.overlayPanel.classList.add('open');
@@ -340,7 +340,7 @@ function getMyUserFollowersInfo() {
 
     if (handle) {
         window.__tweeker_my_handle = handle;
-        const userObj = (window._tweeker_user_cache && window._tweeker_user_cache[handle]) ||
+        const userObj = (window._tweeker.core.user_cache && window._tweeker.core.user_cache[handle]) ||
                         (window.__tweeker && window.__tweeker.userCache && window.__tweeker.userCache[handle]);
         if (userObj && typeof userObj.followers === 'number') {
             return userObj.followers;
@@ -357,7 +357,7 @@ function renderStats(stats) {
 
     const cachedUsers = (typeof stats.cached_users_count === 'number' && stats.cached_users_count > 0)
         ? stats.cached_users_count
-        : (window._tweeker_user_cache ? Object.keys(window._tweeker_user_cache).length : 0);
+        : (window._tweeker.core.user_cache ? Object.keys(window._tweeker.core.user_cache).length : 0);
     if (dom.statCachedUsers) dom.statCachedUsers.textContent = formatNumber(cachedUsers || 0);
 
     const myFollowers = getMyUserFollowersInfo();
@@ -374,8 +374,8 @@ function renderStats(stats) {
 
     // Top authors (max 5) based on cached users
     let topAuthors = [];
-    if (window._tweeker_user_cache && Object.keys(window._tweeker_user_cache).length > 0) {
-        topAuthors = Object.entries(window._tweeker_user_cache)
+    if (window._tweeker.core.user_cache && Object.keys(window._tweeker.core.user_cache).length > 0) {
+        topAuthors = Object.entries(window._tweeker.core.user_cache)
             .map(([handle, user]) => {
                 const cleanHandle = handle.trim().replace(/^@/, '').toLowerCase();
                 const followers = (user && typeof user.followers === 'number') ? user.followers : 0;
@@ -422,7 +422,7 @@ async function refreshAlarms() {
         const alarms = await invoke('get_alarms');
         if (Array.isArray(alarms) && alarms.length > 0) {
             state.alarms = alarms;
-            try { localStorage.setItem('tweeker_alarms', JSON.stringify(alarms)); } catch (e) {}
+            try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(alarms)); } catch (e) {}
         }
     } catch (e) {
         console.debug('[Tweeker] refreshAlarms fallback:', e);
@@ -475,7 +475,7 @@ async function refreshScheduledTweets() {
         const tweets = await invoke('get_scheduled_tweets');
         if (Array.isArray(tweets) && tweets.length > 0) {
             state.scheduledTweets = tweets;
-            try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(tweets)); } catch (e) {}
+            try { localStorage.setItem('tweeker.core.scheduled_tweets', JSON.stringify(tweets)); } catch (e) {}
         }
     } catch (e) {
         console.debug('[Tweeker] refreshScheduledTweets fallback:', e);
@@ -649,7 +649,7 @@ async function handleCreateAlarm(e) {
 
     if (!state.alarms) state.alarms = [];
     state.alarms.push(newAlarm);
-    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(state.alarms)); } catch (e) {}
 
     addLogEntry({
         type: 'system',
@@ -669,7 +669,7 @@ async function handleDeleteAlarm(id) {
         await invoke('delete_alarm', { id }).catch(() => {});
     } catch (err) {}
     state.alarms = (state.alarms || []).filter(a => a.id !== id);
-    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(state.alarms)); } catch (e) {}
     renderAlarms(state.alarms);
 
     addLogEntry({
@@ -690,7 +690,7 @@ async function handleToggleAlarm(id, enabled) {
             text: `Alarm '${alarm.name}' ${enabled ? 'enabled' : 'disabled'}`
         });
     }
-    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(state.alarms)); } catch (e) {}
 }
 
 async function handleToggleAlarmNotify(id, notify) {
@@ -705,7 +705,7 @@ async function handleToggleAlarmNotify(id, notify) {
             text: `Alarm '${alarm.name}' screen notification ${notify ? 'enabled' : 'disabled'}`
         });
     }
-    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(state.alarms)); } catch (e) {}
     renderAlarms(state.alarms);
 }
 
@@ -748,7 +748,7 @@ async function handleScheduleTweet(e) {
 
     if (!state.scheduledTweets) state.scheduledTweets = [];
     state.scheduledTweets.push(newTweet);
-    try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
 
     addLogEntry({
         type: 'system',
@@ -770,7 +770,7 @@ async function handleDeleteScheduledTweet(id) {
         await invoke('delete_scheduled_tweet', { id }).catch(() => {});
     } catch (err) {}
     state.scheduledTweets = (state.scheduledTweets || []).filter(t => t.id !== id);
-    try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
     renderScheduledTweets(state.scheduledTweets);
 
     addLogEntry({
@@ -930,7 +930,7 @@ function addLogEntry(entry, writeToBackend = true) {
 
     // Persist logs in localStorage
     try {
-        localStorage.setItem('tweeker_logs', JSON.stringify(state.logs.slice(-500)));
+        localStorage.setItem('tweeker.core.logs', JSON.stringify(state.logs.slice(-500)));
     } catch (e) {}
 
     // Send log to backend log file if configured and not coming from backend itself
@@ -1073,7 +1073,7 @@ function refreshLogsView() {
 
 function clearLogs() {
     state.logs = [];
-    try { localStorage.removeItem('tweeker_logs'); } catch (e) {}
+    try { localStorage.removeItem('tweeker.core.logs'); } catch (e) {}
     updateLogCountText();
     if (dom.logOutputContainer) {
         dom.logOutputContainer.innerHTML = '<p class="empty-state log-empty-state">No logs recorded yet.</p>';
@@ -1205,7 +1205,7 @@ function setDebugTwitterState(enabled) {
     
     // Persist to local storage
     try {
-        localStorage.setItem('tweeker_debug_twitter', state.debugTwitter ? 'true' : 'false');
+        localStorage.setItem('tweeker.core.debug_twitter', state.debugTwitter ? 'true' : 'false');
     } catch (e) {}
 
     // Notify injected script
@@ -1277,7 +1277,7 @@ function initDraggableToggle() {
     if (!toggle) return;
 
     // Restore saved position
-    const savedPos = localStorage.getItem('tweeker_toggle_pos');
+    const savedPos = localStorage.getItem('tweeker.core.toggle_pos');
     if (savedPos) {
         try {
             const { top, left } = JSON.parse(savedPos);
@@ -1355,7 +1355,7 @@ function initDraggableToggle() {
 
         if (dragThresholdPassed) {
             const rect = toggle.getBoundingClientRect();
-            localStorage.setItem('tweeker_toggle_pos', JSON.stringify({
+            localStorage.setItem('tweeker.core.toggle_pos', JSON.stringify({
                 left: rect.left,
                 top: rect.top
             }));
@@ -1421,7 +1421,7 @@ function applyPanelDimensions(width, height) {
 
 function savePanelSize(width, height) {
     try {
-        localStorage.setItem('tweeker_panel_size', JSON.stringify({ width, height }));
+        localStorage.setItem('tweeker.core.panel_size', JSON.stringify({ width, height }));
     } catch (e) {}
 }
 
@@ -1437,7 +1437,7 @@ function initResizablePanel() {
     let savedW = null;
     let savedH = null;
     try {
-        const saved = localStorage.getItem('tweeker_panel_size');
+        const saved = localStorage.getItem('tweeker.core.panel_size');
         if (saved) {
             const parsed = JSON.parse(saved);
             savedW = parsed.width;
@@ -1668,7 +1668,7 @@ if (dom.autoReadToggle) {
 if (dom.autoReadStartupToggle) {
     dom.autoReadStartupToggle.addEventListener('change', (e) => {
         const startupEnabled = e.target.checked;
-        localStorage.setItem('tweeker_autoread_on_start', startupEnabled ? 'true' : 'false');
+        localStorage.setItem('tweeker.core.autoread_on_start', startupEnabled ? 'true' : 'false');
         state.autoReadOnStart = startupEnabled;
         if (startupEnabled) {
             setAutoReadState(true);
@@ -1790,7 +1790,7 @@ if (dom.maxLogLinesInput) {
         if (isNaN(val) || val < 10) val = 2000;
         state.maxLogLines = val;
         e.target.value = val;
-        try { localStorage.setItem('tweeker_max_log_lines', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.max_log_lines', val.toString()); } catch (err) {}
         pruneLogs();
         refreshLogsView();
         addLogEntry({
@@ -1806,7 +1806,7 @@ if (dom.userCacheLimitInput) {
         let val = parseInt(e.target.value, 10);
         if (isNaN(val) || val < 10) val = 10000;
         e.target.value = val;
-        try { localStorage.setItem('tweeker_user_cache_limit', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.user_cache_limit', val.toString()); } catch (err) {}
         invoke('set_user_cache_limit', { limit: val }).catch((err) => {
             console.error('[Tweeker App] Failed to set user cache limit:', err);
         });
@@ -1823,7 +1823,7 @@ if (dom.relevantFollowersLimitInput) {
         let val = parseInt(e.target.value, 10);
         if (isNaN(val) || val < 0) val = 2500;
         e.target.value = val;
-        try { localStorage.setItem('tweeker_relevant_followers_limit', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.relevant_followers_limit', val.toString()); } catch (err) {}
         const color = dom.relevantHighlightColorInput ? dom.relevantHighlightColorInput.value : '#00ba7c';
         window.postMessage({
             __tweeker: true,
@@ -1842,7 +1842,7 @@ if (dom.relevantFollowersLimitInput) {
 if (dom.relevantHighlightColorInput) {
     dom.relevantHighlightColorInput.addEventListener('input', (e) => {
         const color = e.target.value;
-        try { localStorage.setItem('tweeker_relevant_highlight_color', color); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.relevant_highlight_color', color); } catch (err) {}
         window.postMessage({
             __tweeker: true,
             type: 'set_relevant_highlight_color',
@@ -1860,7 +1860,7 @@ if (dom.recentDurationInput) {
     dom.recentDurationInput.addEventListener('input', (e) => {
         let val = parseInt(e.target.value, 10);
         if (isNaN(val) || val < 1) val = 3;
-        try { localStorage.setItem('tweeker_recent_duration', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.recent_duration', val.toString()); } catch (err) {}
         window.postMessage({
             __tweeker: true,
             type: 'set_recent_settings',
@@ -1897,7 +1897,7 @@ if (dom.listMinFollowersInput) {
         if (isNaN(val) || val < 0) val = 0;
         e.target.value = val;
         state.listMinFollowers = val;
-        try { localStorage.setItem('tweeker_list_min_followers', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.list_min_followers', val.toString()); } catch (err) {}
         syncListFilterSettings();
         addLogEntry({
             type: 'system',
@@ -1912,7 +1912,7 @@ if (dom.listMinRatioInput) {
         if (isNaN(val) || val < 0.0) val = 0.0;
         e.target.value = val.toFixed(1);
         state.listMinRatio = val;
-        try { localStorage.setItem('tweeker_list_min_ratio', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.list_min_ratio', val.toString()); } catch (err) {}
         syncListFilterSettings();
         addLogEntry({
             type: 'system',
@@ -1925,7 +1925,7 @@ if (dom.listHighlightVerifiedToggle) {
     dom.listHighlightVerifiedToggle.addEventListener('change', (e) => {
         const enabled = e.target.checked;
         state.listHighlightVerified = enabled;
-        try { localStorage.setItem('tweeker_list_highlight_verified', enabled ? 'true' : 'false'); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.list_highlight_verified', enabled ? 'true' : 'false'); } catch (err) {}
         syncListFilterSettings();
         addLogEntry({
             type: 'system',
@@ -1938,7 +1938,7 @@ if (dom.listVerifiedColorInput) {
     dom.listVerifiedColorInput.addEventListener('input', (e) => {
         const color = e.target.value;
         state.listVerifiedColor = color;
-        try { localStorage.setItem('tweeker_list_verified_color', color); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.list_verified_color', color); } catch (err) {}
         syncListFilterSettings();
     });
 }
@@ -1947,7 +1947,7 @@ if (dom.listHighlightMegaToggle) {
     dom.listHighlightMegaToggle.addEventListener('change', (e) => {
         const enabled = e.target.checked;
         state.listHighlightMega = enabled;
-        try { localStorage.setItem('tweeker_list_highlight_mega', enabled ? 'true' : 'false'); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.list_highlight_mega', enabled ? 'true' : 'false'); } catch (err) {}
         syncListFilterSettings();
         addLogEntry({
             type: 'system',
@@ -1960,7 +1960,7 @@ if (dom.listMegaColorInput) {
     dom.listMegaColorInput.addEventListener('input', (e) => {
         const color = e.target.value;
         state.listMegaColor = color;
-        try { localStorage.setItem('tweeker_list_mega_color', color); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.list_mega_color', color); } catch (err) {}
         syncListFilterSettings();
     });
 }
@@ -2186,53 +2186,53 @@ if (dom.deleteSiteDataBtn) {
 // ── G4: Reset Application Settings to Defaults ──
 
 const SETTINGS_DEFAULTS = {
-    tweeker_max_log_lines: 2000,
-    tweeker_user_cache_limit: 10000,
-    tweeker_relevant_followers_limit: 2500,
-    tweeker_relevant_highlight_color: '#00ba7c',
-    tweeker_recent_duration: 3,
-    tweeker_list_min_followers: 0,
-    tweeker_list_min_ratio: 0.0,
-    tweeker_list_highlight_verified: false,
-    tweeker_list_verified_color: '#1d9bf0',
-    tweeker_list_highlight_mega: false,
-    tweeker_list_mega_color: '#a855f7',
-    tweeker_autoread_on_start: false,
-    tweeker_debug_twitter: false,
-    tweeker_max_debug_lines: 2000,
-    tweeker_log_filters: { INFO: true, WARN: true, ERROR: true, DEBUG: false },
+    'tweeker.core.max_log_lines': 2000,
+    'tweeker.core.user_cache_limit': 10000,
+    'tweeker.core.relevant_followers_limit': 2500,
+    'tweeker.core.relevant_highlight_color': '#00ba7c',
+    'tweeker.core.recent_duration': 3,
+    'tweeker.core.list_min_followers': 0,
+    'tweeker.core.list_min_ratio': 0.0,
+    'tweeker.core.list_highlight_verified': false,
+    'tweeker.core.list_verified_color': '#1d9bf0',
+    'tweeker.core.list_highlight_mega': false,
+    'tweeker.core.list_mega_color': '#a855f7',
+    'tweeker.core.autoread_on_start': false,
+    'tweeker.core.debug_twitter': false,
+    'tweeker.core.max_debug_lines': 2000,
+    'tweeker.core.log_filters': { INFO: true, WARN: true, ERROR: true, DEBUG: false },
     'notifications.statistics.background-color': '#43474d',
     'notifications.statistics.likes-color': '#f91880',
     'notifications.statistics.retweets-color': '#00ba7c',
     'notifications.statistics.replies-color': '#1d9bf0',
     'notifications.statistics.views-color': '#71767b',
-    tweeker_max_concurrent_downloads: 2,
+    'tweeker.core.max_concurrent_downloads': 2,
     'browser.context_menu.enabled': true,
     'tweeker.dialogs.cache': true,
     'tweeker.dialogs.gemini.erase_previous_chat': false,
 };
 
 const SETTINGS_DESCRIPTIONS = {
-    tweeker_max_log_lines: 'Maximum number of log lines to keep in the Logs console.',
-    tweeker_user_cache_limit: 'Maximum number of user profile stats to cache.',
-    tweeker_relevant_followers_limit: 'Follower threshold above which users are marked as Relevant.',
-    tweeker_relevant_highlight_color: 'Custom hex color for highlighting relevant user avatars.',
-    tweeker_recent_duration: 'Time threshold in minutes to highlight fresh timeline tweets.',
-    tweeker_list_min_followers: 'Hide users in X Lists with fewer followers than this.',
-    tweeker_list_min_ratio: 'Dim users in X Lists with an F/F ratio below this.',
-    tweeker_list_highlight_verified: 'Enable/disable custom border highlights around verified list cards.',
-    tweeker_list_verified_color: 'Custom hex border color for highlighted verified list cards.',
-    tweeker_list_highlight_mega: 'Enable/disable custom border highlights around mega-influencer list cards.',
-    tweeker_list_mega_color: 'Custom hex border color for highlighted mega-influencer list cards.',
-    tweeker_autoread_on_start: 'Automatically activate timeline Auto read toggle on startup.',
-    tweeker_debug_twitter: 'Enable verbose developer logs from intercepted browser calls.',
-    tweeker_max_debug_lines: 'Maximum number of debug console log lines.',
+    'tweeker.core.max_log_lines': 'Maximum number of log lines to keep in the Logs console.',
+    'tweeker.core.user_cache_limit': 'Maximum number of user profile stats to cache.',
+    'tweeker.core.relevant_followers_limit': 'Follower threshold above which users are marked as Relevant.',
+    'tweeker.core.relevant_highlight_color': 'Custom hex color for highlighting relevant user avatars.',
+    'tweeker.core.recent_duration': 'Time threshold in minutes to highlight fresh timeline tweets.',
+    'tweeker.core.list_min_followers': 'Hide users in X Lists with fewer followers than this.',
+    'tweeker.core.list_min_ratio': 'Dim users in X Lists with an F/F ratio below this.',
+    'tweeker.core.list_highlight_verified': 'Enable/disable custom border highlights around verified list cards.',
+    'tweeker.core.list_verified_color': 'Custom hex border color for highlighted verified list cards.',
+    'tweeker.core.list_highlight_mega': 'Enable/disable custom border highlights around mega-influencer list cards.',
+    'tweeker.core.list_mega_color': 'Custom hex border color for highlighted mega-influencer list cards.',
+    'tweeker.core.autoread_on_start': 'Automatically activate timeline Auto read toggle on startup.',
+    'tweeker.core.debug_twitter': 'Enable verbose developer logs from intercepted browser calls.',
+    'tweeker.core.max_debug_lines': 'Maximum number of debug console log lines.',
     'notifications.statistics.background-color': 'Hex background color for tweet stats bar in notifications screen.',
     'notifications.statistics.likes-color': 'Hex color for the Likes icon and count in notification stats.',
     'notifications.statistics.retweets-color': 'Hex color for the Retweets icon and count in notification stats.',
     'notifications.statistics.replies-color': 'Hex color for the Replies icon and count in notification stats.',
     'notifications.statistics.views-color': 'Hex color for the Views icon and count in notification stats.',
-    tweeker_max_concurrent_downloads: 'Maximum number of concurrent video downloads allowed to run in parallel.',
+    'tweeker.core.max_concurrent_downloads': 'Maximum number of concurrent video downloads allowed to run in parallel.',
     'browser.context_menu.enabled': 'Globally enable or disable custom context menu overrides.',
     'tweeker.dialogs.cache': 'Cache extra dialogs in background instead of destroying on close for near-instant reactivation.',
     'tweeker.dialogs.gemini.erase_previous_chat': 'Start a new Gemini chat and delete the previous chat thread when the helper is opened.',
@@ -2240,22 +2240,22 @@ const SETTINGS_DESCRIPTIONS = {
 
 function applySettingsDefaults() {
     // Max log lines
-    state.maxLogLines = SETTINGS_DEFAULTS.tweeker_max_log_lines;
-    try { localStorage.setItem('tweeker_max_log_lines', state.maxLogLines.toString()); } catch (e) {}
+    state.maxLogLines = SETTINGS_DEFAULTS['tweeker.core.max_log_lines'];
+    try { localStorage.setItem('tweeker.core.max_log_lines', state.maxLogLines.toString()); } catch (e) {}
     if (dom.maxLogLinesInput) dom.maxLogLinesInput.value = state.maxLogLines;
     pruneLogs();
 
     // User cache limit
-    const cacheLimit = SETTINGS_DEFAULTS.tweeker_user_cache_limit;
-    try { localStorage.setItem('tweeker_user_cache_limit', cacheLimit.toString()); } catch (e) {}
+    const cacheLimit = SETTINGS_DEFAULTS['tweeker.core.user_cache_limit'];
+    try { localStorage.setItem('tweeker.core.user_cache_limit', cacheLimit.toString()); } catch (e) {}
     if (dom.userCacheLimitInput) dom.userCacheLimitInput.value = cacheLimit;
     invoke('set_user_cache_limit', { limit: cacheLimit }).catch(() => {});
 
     // Relevant followers limit & color
-    const relevantLimit = SETTINGS_DEFAULTS.tweeker_relevant_followers_limit;
-    const highlightColor = SETTINGS_DEFAULTS.tweeker_relevant_highlight_color;
-    try { localStorage.setItem('tweeker_relevant_followers_limit', relevantLimit.toString()); } catch (e) {}
-    try { localStorage.setItem('tweeker_relevant_highlight_color', highlightColor); } catch (e) {}
+    const relevantLimit = SETTINGS_DEFAULTS['tweeker.core.relevant_followers_limit'];
+    const highlightColor = SETTINGS_DEFAULTS['tweeker.core.relevant_highlight_color'];
+    try { localStorage.setItem('tweeker.core.relevant_followers_limit', relevantLimit.toString()); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.relevant_highlight_color', highlightColor); } catch (e) {}
     if (dom.relevantFollowersLimitInput) dom.relevantFollowersLimitInput.value = relevantLimit;
     if (dom.relevantHighlightColorInput) dom.relevantHighlightColorInput.value = highlightColor;
     try {
@@ -2268,8 +2268,8 @@ function applySettingsDefaults() {
     } catch (e) {}
 
     // Recent tweet threshold
-    const recentDuration = SETTINGS_DEFAULTS.tweeker_recent_duration;
-    try { localStorage.setItem('tweeker_recent_duration', recentDuration.toString()); } catch (e) {}
+    const recentDuration = SETTINGS_DEFAULTS['tweeker.core.recent_duration'];
+    try { localStorage.setItem('tweeker.core.recent_duration', recentDuration.toString()); } catch (e) {}
     if (dom.recentDurationInput) dom.recentDurationInput.value = recentDuration;
     try {
         window.postMessage({
@@ -2294,9 +2294,9 @@ function applySettingsDefaults() {
         localStorage.setItem('notifications.statistics.views-color', notifViews);
     } catch (e) {}
 
-    const maxConcurrent = SETTINGS_DEFAULTS.tweeker_max_concurrent_downloads;
+    const maxConcurrent = SETTINGS_DEFAULTS['tweeker.core.max_concurrent_downloads'];
     state.maxConcurrentDownloads = maxConcurrent;
-    try { localStorage.setItem('tweeker_max_concurrent_downloads', maxConcurrent.toString()); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.max_concurrent_downloads', maxConcurrent.toString()); } catch (e) {}
 
     state.contextMenuEnabled = true;
     try { localStorage.setItem('browser.context_menu.enabled', 'true'); } catch (e) {}
@@ -2328,55 +2328,55 @@ function applySettingsDefaults() {
     } catch (e) {}
 
     // List filter: min followers
-    state.listMinFollowers = SETTINGS_DEFAULTS.tweeker_list_min_followers;
-    try { localStorage.setItem('tweeker_list_min_followers', state.listMinFollowers.toString()); } catch (e) {}
+    state.listMinFollowers = SETTINGS_DEFAULTS['tweeker.core.list_min_followers'];
+    try { localStorage.setItem('tweeker.core.list_min_followers', state.listMinFollowers.toString()); } catch (e) {}
     if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = state.listMinFollowers;
 
     // List filter: min ratio
-    state.listMinRatio = SETTINGS_DEFAULTS.tweeker_list_min_ratio;
-    try { localStorage.setItem('tweeker_list_min_ratio', state.listMinRatio.toString()); } catch (e) {}
+    state.listMinRatio = SETTINGS_DEFAULTS['tweeker.core.list_min_ratio'];
+    try { localStorage.setItem('tweeker.core.list_min_ratio', state.listMinRatio.toString()); } catch (e) {}
     if (dom.listMinRatioInput) dom.listMinRatioInput.value = state.listMinRatio.toFixed(1);
 
     // List highlight: verified
-    state.listHighlightVerified = SETTINGS_DEFAULTS.tweeker_list_highlight_verified;
-    try { localStorage.setItem('tweeker_list_highlight_verified', state.listHighlightVerified ? 'true' : 'false'); } catch (e) {}
+    state.listHighlightVerified = SETTINGS_DEFAULTS['tweeker.core.list_highlight_verified'];
+    try { localStorage.setItem('tweeker.core.list_highlight_verified', state.listHighlightVerified ? 'true' : 'false'); } catch (e) {}
     if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = state.listHighlightVerified;
 
     // List highlight: verified color
-    state.listVerifiedColor = SETTINGS_DEFAULTS.tweeker_list_verified_color;
-    try { localStorage.setItem('tweeker_list_verified_color', state.listVerifiedColor); } catch (e) {}
+    state.listVerifiedColor = SETTINGS_DEFAULTS['tweeker.core.list_verified_color'];
+    try { localStorage.setItem('tweeker.core.list_verified_color', state.listVerifiedColor); } catch (e) {}
     if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = state.listVerifiedColor;
 
     // List highlight: mega influencer
-    state.listHighlightMega = SETTINGS_DEFAULTS.tweeker_list_highlight_mega;
-    try { localStorage.setItem('tweeker_list_highlight_mega', state.listHighlightMega ? 'true' : 'false'); } catch (e) {}
+    state.listHighlightMega = SETTINGS_DEFAULTS['tweeker.core.list_highlight_mega'];
+    try { localStorage.setItem('tweeker.core.list_highlight_mega', state.listHighlightMega ? 'true' : 'false'); } catch (e) {}
     if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = state.listHighlightMega;
 
     // List highlight: mega color
-    state.listMegaColor = SETTINGS_DEFAULTS.tweeker_list_mega_color;
-    try { localStorage.setItem('tweeker_list_mega_color', state.listMegaColor); } catch (e) {}
+    state.listMegaColor = SETTINGS_DEFAULTS['tweeker.core.list_mega_color'];
+    try { localStorage.setItem('tweeker.core.list_mega_color', state.listMegaColor); } catch (e) {}
     if (dom.listMegaColorInput) dom.listMegaColorInput.value = state.listMegaColor;
 
     // Sync all list filter settings to injected script
     syncListFilterSettings();
 
     // Auto read on app start (startup preference only — does not change live state)
-    state.autoReadOnStart = SETTINGS_DEFAULTS.tweeker_autoread_on_start;
-    try { localStorage.setItem('tweeker_autoread_on_start', state.autoReadOnStart ? 'true' : 'false'); } catch (e) {}
+    state.autoReadOnStart = SETTINGS_DEFAULTS['tweeker.core.autoread_on_start'];
+    try { localStorage.setItem('tweeker.core.autoread_on_start', state.autoReadOnStart ? 'true' : 'false'); } catch (e) {}
     if (dom.autoReadStartupToggle) dom.autoReadStartupToggle.checked = state.autoReadOnStart;
 
     // Debug Twitter
-    setDebugTwitterState(SETTINGS_DEFAULTS.tweeker_debug_twitter);
+    setDebugTwitterState(SETTINGS_DEFAULTS['tweeker.core.debug_twitter']);
 
     // Max debug log lines
-    state.maxDebugLines = SETTINGS_DEFAULTS.tweeker_max_debug_lines;
-    try { localStorage.setItem('tweeker_max_debug_lines', state.maxDebugLines.toString()); } catch (e) {}
+    state.maxDebugLines = SETTINGS_DEFAULTS['tweeker.core.max_debug_lines'];
+    try { localStorage.setItem('tweeker.core.max_debug_lines', state.maxDebugLines.toString()); } catch (e) {}
     if (dom.maxDebugLinesInput) dom.maxDebugLinesInput.value = state.maxDebugLines;
     pruneDebugLogs();
 
     // Log level filters
-    state.logFilters = { ...SETTINGS_DEFAULTS.tweeker_log_filters };
-    try { localStorage.setItem('tweeker_log_filters', JSON.stringify(state.logFilters)); } catch (e) {}
+    state.logFilters = { ...SETTINGS_DEFAULTS['tweeker.core.log_filters'] };
+    try { localStorage.setItem('tweeker.core.log_filters', JSON.stringify(state.logFilters)); } catch (e) {}
     if (dom.logFilterInfo) dom.logFilterInfo.checked = !!state.logFilters.INFO;
     if (dom.logFilterWarn) dom.logFilterWarn.checked = !!state.logFilters.WARN;
     if (dom.logFilterError) dom.logFilterError.checked = !!state.logFilters.ERROR;
@@ -2428,8 +2428,8 @@ if (dom.purgeStorageBtn) {
             onConfirm: async (updateProgress) => {
                 try {
                     updateProgress(20, 'Wiping in-memory cache...');
-                    window._tweeker_user_cache = {};
-                    try { localStorage.removeItem('tweeker_user_cache'); } catch (e) {}
+                    window._tweeker.core.user_cache = {};
+                    try { localStorage.removeItem('tweeker.core.user_cache'); } catch (e) {}
 
                     // Notify injected script to wipe its caches
                     try {
@@ -2734,77 +2734,77 @@ function renderAdvancedSettings(filterQuery = '') {
 }
 
 function applyLiveAdvancedSetting(key, val) {
-    if (key === 'tweeker_max_log_lines') {
+    if (key === 'tweeker.core.max_log_lines') {
         const num = parseInt(val, 10);
         if (!isNaN(num) && num >= 10) {
             state.maxLogLines = num;
             if (dom.maxLogLinesInput) dom.maxLogLinesInput.value = num;
             pruneLogs();
         }
-    } else if (key === 'tweeker_user_cache_limit') {
+    } else if (key === 'tweeker.core.user_cache_limit') {
         const num = parseInt(val, 10);
         if (!isNaN(num) && num >= 10) {
             if (dom.userCacheLimitInput) dom.userCacheLimitInput.value = num;
             invoke('set_user_cache_limit', { limit: num }).catch(() => {});
         }
-    } else if (key === 'tweeker_relevant_followers_limit') {
+    } else if (key === 'tweeker.core.relevant_followers_limit') {
         const num = parseInt(val, 10);
         if (!isNaN(num) && num >= 0) {
             if (dom.relevantFollowersLimitInput) dom.relevantFollowersLimitInput.value = num;
-            const color = localStorage.getItem('tweeker_relevant_highlight_color') || '#00ba7c';
+            const color = localStorage.getItem('tweeker.core.relevant_highlight_color') || '#00ba7c';
             window.postMessage({ __tweeker: true, type: 'set_relevant_followers_limit', limit: num, color }, '*');
         }
-    } else if (key === 'tweeker_relevant_highlight_color') {
+    } else if (key === 'tweeker.core.relevant_highlight_color') {
         if (dom.relevantHighlightColorInput) dom.relevantHighlightColorInput.value = val;
-        const limitStr = localStorage.getItem('tweeker_relevant_followers_limit');
+        const limitStr = localStorage.getItem('tweeker.core.relevant_followers_limit');
         const limit = parseInt(limitStr, 10) || 2500;
         window.postMessage({ __tweeker: true, type: 'set_relevant_followers_limit', limit, color: val }, '*');
-    } else if (key === 'tweeker_recent_duration') {
+    } else if (key === 'tweeker.core.recent_duration') {
         const num = parseInt(val, 10);
         if (!isNaN(num) && num >= 1) {
             if (dom.recentDurationInput) dom.recentDurationInput.value = num;
             window.postMessage({ __tweeker: true, type: 'set_recent_settings', duration: num }, '*');
         }
-    } else if (key === 'tweeker_list_min_followers') {
+    } else if (key === 'tweeker.core.list_min_followers') {
         const num = parseInt(val, 10);
         if (!isNaN(num)) {
             state.listMinFollowers = num;
             if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = num;
             syncListFilterSettings();
         }
-    } else if (key === 'tweeker_list_min_ratio') {
+    } else if (key === 'tweeker.core.list_min_ratio') {
         const num = parseFloat(val);
         if (!isNaN(num)) {
             state.listMinRatio = num;
             if (dom.listMinRatioInput) dom.listMinRatioInput.value = num.toFixed(1);
             syncListFilterSettings();
         }
-    } else if (key === 'tweeker_list_highlight_verified') {
+    } else if (key === 'tweeker.core.list_highlight_verified') {
         const b = (val === 'true');
         state.listHighlightVerified = b;
         if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = b;
         syncListFilterSettings();
-    } else if (key === 'tweeker_list_verified_color') {
+    } else if (key === 'tweeker.core.list_verified_color') {
         state.listVerifiedColor = val;
         if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = val;
         syncListFilterSettings();
-    } else if (key === 'tweeker_list_highlight_mega') {
+    } else if (key === 'tweeker.core.list_highlight_mega') {
         const b = (val === 'true');
         state.listHighlightMega = b;
         if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = b;
         syncListFilterSettings();
-    } else if (key === 'tweeker_list_mega_color') {
+    } else if (key === 'tweeker.core.list_mega_color') {
         state.listMegaColor = val;
         if (dom.listMegaColorInput) dom.listMegaColorInput.value = val;
         syncListFilterSettings();
-    } else if (key === 'tweeker_autoread_on_start') {
+    } else if (key === 'tweeker.core.autoread_on_start') {
         const b = (val === 'true');
         state.autoReadOnStart = b;
         if (dom.autoReadStartupToggle) dom.autoReadStartupToggle.checked = b;
-    } else if (key === 'tweeker_debug_twitter') {
+    } else if (key === 'tweeker.core.debug_twitter') {
         const b = (val === 'true');
         setDebugTwitterState(b);
-    } else if (key === 'tweeker_max_debug_lines') {
+    } else if (key === 'tweeker.core.max_debug_lines') {
         const num = parseInt(val, 10);
         if (!isNaN(num) && num >= 10) {
             state.maxDebugLines = num;
@@ -2824,7 +2824,7 @@ function applyLiveAdvancedSetting(key, val) {
                 colors: { bg: notifBg, likes: notifLikes, retweets: notifRetweets, replies: notifReplies, views: notifViews }
             }, '*');
         } catch (e) {}
-    } else if (key === 'tweeker_max_concurrent_downloads') {
+    } else if (key === 'tweeker.core.max_concurrent_downloads') {
         const num = parseInt(val, 10);
         if (!isNaN(num) && num >= 1) {
             state.maxConcurrentDownloads = num;
@@ -2895,28 +2895,28 @@ if (dom.advancedSearchInput) {
 // ── G1: Export Application Data & Backup ──
 
 const BACKUP_SETTINGS_KEYS = [
-    'tweeker_max_log_lines',
-    'tweeker_user_cache_limit',
-    'tweeker_relevant_followers_limit',
-    'tweeker_relevant_highlight_color',
-    'tweeker_recent_duration',
-    'tweeker_list_min_followers',
-    'tweeker_list_min_ratio',
-    'tweeker_list_highlight_verified',
-    'tweeker_list_verified_color',
-    'tweeker_list_highlight_mega',
-    'tweeker_list_mega_color',
-    'tweeker_autoread_on_start',
-    'tweeker_debug_twitter',
-    'tweeker_max_debug_lines',
-    'tweeker_log_filters',
-    'tweeker_decouple_mode',
+    'tweeker.core.max_log_lines',
+    'tweeker.core.user_cache_limit',
+    'tweeker.core.relevant_followers_limit',
+    'tweeker.core.relevant_highlight_color',
+    'tweeker.core.recent_duration',
+    'tweeker.core.list_min_followers',
+    'tweeker.core.list_min_ratio',
+    'tweeker.core.list_highlight_verified',
+    'tweeker.core.list_verified_color',
+    'tweeker.core.list_highlight_mega',
+    'tweeker.core.list_mega_color',
+    'tweeker.core.autoread_on_start',
+    'tweeker.core.debug_twitter',
+    'tweeker.core.max_debug_lines',
+    'tweeker.core.log_filters',
+    'tweeker.core.decouple_mode',
     'notifications.statistics.background-color',
     'notifications.statistics.likes-color',
     'notifications.statistics.retweets-color',
     'notifications.statistics.replies-color',
     'notifications.statistics.views-color',
-    'tweeker_max_concurrent_downloads',
+    'tweeker.core.max_concurrent_downloads',
     'browser.context_menu.enabled',
     'tweeker.dialogs.cache',
     'tweeker.dialogs.gemini.erase_previous_chat',
@@ -3039,7 +3039,7 @@ async function applyBackupRestore(backup, updateProgress) {
             alarmsSkipped++;
         }
     }
-    try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(state.alarms)); } catch (e) {}
     renderAlarmsList();
 
     updateProgress(45, 'Restoring scheduled tweets...');
@@ -3079,7 +3079,7 @@ async function applyBackupRestore(backup, updateProgress) {
             tweetsSkipped++;
         }
     }
-    try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+    try { localStorage.setItem('tweeker.core.scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
     renderScheduledList();
 
     updateProgress(75, 'Restoring settings...');
@@ -3096,21 +3096,21 @@ async function applyBackupRestore(backup, updateProgress) {
     }
 
     // Apply restored settings live to state + DOM (same pattern as startup init)
-    const savedMaxLogs = parseInt(localStorage.getItem('tweeker_max_log_lines'), 10);
+    const savedMaxLogs = parseInt(localStorage.getItem('tweeker.core.max_log_lines'), 10);
     if (!isNaN(savedMaxLogs) && savedMaxLogs >= 10) {
         state.maxLogLines = savedMaxLogs;
         if (dom.maxLogLinesInput) dom.maxLogLinesInput.value = state.maxLogLines;
         pruneLogs();
     }
 
-    const savedCacheLimit = parseInt(localStorage.getItem('tweeker_user_cache_limit'), 10);
+    const savedCacheLimit = parseInt(localStorage.getItem('tweeker.core.user_cache_limit'), 10);
     if (!isNaN(savedCacheLimit) && savedCacheLimit >= 10) {
         if (dom.userCacheLimitInput) dom.userCacheLimitInput.value = savedCacheLimit;
         invoke('set_user_cache_limit', { limit: savedCacheLimit }).catch(() => {});
     }
 
-    const savedRelevantLimit = parseInt(localStorage.getItem('tweeker_relevant_followers_limit'), 10);
-    const savedHighlightColor = localStorage.getItem('tweeker_relevant_highlight_color') || '#00ba7c';
+    const savedRelevantLimit = parseInt(localStorage.getItem('tweeker.core.relevant_followers_limit'), 10);
+    const savedHighlightColor = localStorage.getItem('tweeker.core.relevant_highlight_color') || '#00ba7c';
     if (!isNaN(savedRelevantLimit) && savedRelevantLimit >= 0) {
         if (dom.relevantFollowersLimitInput) dom.relevantFollowersLimitInput.value = savedRelevantLimit;
     }
@@ -3120,34 +3120,34 @@ async function applyBackupRestore(backup, updateProgress) {
             limit: isNaN(savedRelevantLimit) ? 2500 : savedRelevantLimit, color: savedHighlightColor }, '*');
     } catch (e) {}
 
-    const savedRecentDuration = parseInt(localStorage.getItem('tweeker_recent_duration'), 10);
+    const savedRecentDuration = parseInt(localStorage.getItem('tweeker.core.recent_duration'), 10);
     const recentDuration = (!isNaN(savedRecentDuration) && savedRecentDuration >= 1) ? savedRecentDuration : 3;
     if (dom.recentDurationInput) dom.recentDurationInput.value = recentDuration;
     try {
         window.postMessage({ __tweeker: true, type: 'set_recent_settings', duration: recentDuration }, '*');
     } catch (e) {}
 
-    const listMinFollowers = parseInt(localStorage.getItem('tweeker_list_min_followers'), 10);
+    const listMinFollowers = parseInt(localStorage.getItem('tweeker.core.list_min_followers'), 10);
     state.listMinFollowers = (!isNaN(listMinFollowers) && listMinFollowers >= 0) ? listMinFollowers : 0;
     if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = state.listMinFollowers;
 
-    const listMinRatio = parseFloat(localStorage.getItem('tweeker_list_min_ratio'));
+    const listMinRatio = parseFloat(localStorage.getItem('tweeker.core.list_min_ratio'));
     state.listMinRatio = (!isNaN(listMinRatio) && listMinRatio >= 0.0) ? listMinRatio : 0.0;
     if (dom.listMinRatioInput) dom.listMinRatioInput.value = state.listMinRatio.toFixed(1);
 
-    const listHighlightVerified = localStorage.getItem('tweeker_list_highlight_verified') === 'true';
+    const listHighlightVerified = localStorage.getItem('tweeker.core.list_highlight_verified') === 'true';
     state.listHighlightVerified = listHighlightVerified;
     if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = listHighlightVerified;
 
-    const listVerifiedColor = localStorage.getItem('tweeker_list_verified_color') || '#1d9bf0';
+    const listVerifiedColor = localStorage.getItem('tweeker.core.list_verified_color') || '#1d9bf0';
     state.listVerifiedColor = listVerifiedColor;
     if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = listVerifiedColor;
 
-    const listHighlightMega = localStorage.getItem('tweeker_list_highlight_mega') === 'true';
+    const listHighlightMega = localStorage.getItem('tweeker.core.list_highlight_mega') === 'true';
     state.listHighlightMega = listHighlightMega;
     if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = listHighlightMega;
 
-    const listMegaColor = localStorage.getItem('tweeker_list_mega_color') || '#a855f7';
+    const listMegaColor = localStorage.getItem('tweeker.core.list_mega_color') || '#a855f7';
     state.listMegaColor = listMegaColor;
     if (dom.listMegaColorInput) dom.listMegaColorInput.value = listMegaColor;
 
@@ -3166,7 +3166,7 @@ async function applyBackupRestore(backup, updateProgress) {
         }, '*');
     } catch (e) {}
 
-    const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker_max_concurrent_downloads'), 10);
+    const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker.core.max_concurrent_downloads'), 10);
     state.maxConcurrentDownloads = (!isNaN(savedMaxConcurrent) && savedMaxConcurrent >= 1) ? savedMaxConcurrent : 2;
 
     const contextMenuEnabled = localStorage.getItem('browser.context_menu.enabled') !== 'false';
@@ -3197,14 +3197,14 @@ async function applyBackupRestore(backup, updateProgress) {
         }
     } catch (e) {}
 
-    const savedAutoReadOnStart = localStorage.getItem('tweeker_autoread_on_start') === 'true';
+    const savedAutoReadOnStart = localStorage.getItem('tweeker.core.autoread_on_start') === 'true';
     state.autoReadOnStart = savedAutoReadOnStart;
     if (dom.autoReadStartupToggle) dom.autoReadStartupToggle.checked = savedAutoReadOnStart;
 
-    const savedDebugTwitter = localStorage.getItem('tweeker_debug_twitter') === 'true';
+    const savedDebugTwitter = localStorage.getItem('tweeker.core.debug_twitter') === 'true';
     setDebugTwitterState(savedDebugTwitter);
 
-    const savedMaxDebug = parseInt(localStorage.getItem('tweeker_max_debug_lines'), 10);
+    const savedMaxDebug = parseInt(localStorage.getItem('tweeker.core.max_debug_lines'), 10);
     if (!isNaN(savedMaxDebug) && savedMaxDebug >= 10) {
         state.maxDebugLines = savedMaxDebug;
         if (dom.maxDebugLinesInput) dom.maxDebugLinesInput.value = state.maxDebugLines;
@@ -3212,7 +3212,7 @@ async function applyBackupRestore(backup, updateProgress) {
     }
 
     try {
-        const savedLogFilters = localStorage.getItem('tweeker_log_filters');
+        const savedLogFilters = localStorage.getItem('tweeker.core.log_filters');
         if (savedLogFilters) {
             const parsed = JSON.parse(savedLogFilters);
             state.logFilters = {
@@ -3434,7 +3434,7 @@ if (dom.maxDebugLinesInput) {
         if (isNaN(val) || val < 10) val = 2000;
         state.maxDebugLines = val;
         e.target.value = val;
-        try { localStorage.setItem('tweeker_max_debug_lines', val.toString()); } catch (err) {}
+        try { localStorage.setItem('tweeker.core.max_debug_lines', val.toString()); } catch (err) {}
         pruneDebugLogs();
         refreshDebugView();
         addLogEntry({
@@ -3575,7 +3575,7 @@ function checkAlarmsForTweet(tweet) {
             }
 
             renderAlarms(state.alarms);
-            try { localStorage.setItem('tweeker_alarms', JSON.stringify(state.alarms)); } catch (e) {}
+            try { localStorage.setItem('tweeker.core.alarms', JSON.stringify(state.alarms)); } catch (e) {}
 
             const tweetId = tweet.tweet_id || '';
             const author = tweet.author_handle || 'user';
@@ -3774,7 +3774,7 @@ async function checkScheduledTweets() {
 
     if (updated) {
         renderScheduledTweets(state.scheduledTweets);
-        try { localStorage.setItem('tweeker_scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
+        try { localStorage.setItem('tweeker.core.scheduled_tweets', JSON.stringify(state.scheduledTweets)); } catch (e) {}
     }
 }
 
@@ -3940,9 +3940,9 @@ window.addEventListener('message', (event) => {
     }
 
     if (type === 'add_users' && payload && payload.users) {
-        if (!window._tweeker_user_cache) window._tweeker_user_cache = {};
-        Object.assign(window._tweeker_user_cache, payload.users);
-        try { localStorage.setItem('tweeker_user_cache', JSON.stringify(window._tweeker_user_cache)); } catch(e) {}
+        if (!window._tweeker.core.user_cache) window._tweeker.core.user_cache = {};
+        Object.assign(window._tweeker.core.user_cache, payload.users);
+        try { localStorage.setItem('tweeker.core.user_cache', JSON.stringify(window._tweeker.core.user_cache)); } catch(e) {}
         invoke('add_multiple_to_user_cache', { users: payload.users }).catch((e) => {
             console.error('[Tweeker App] Failed to add users to cache:', e);
         });
@@ -4039,6 +4039,46 @@ listen('backend-log-message', (event) => {
 // ── Initialization ──
 
 async function init() {
+    // Migrate old settings starting with tweeker_ to tweeker.core.
+    try {
+        const migrations = {
+            ['tweeker' + '_max_log_lines']: 'tweeker.core.max_log_lines',
+            ['tweeker' + '_user_cache_limit']: 'tweeker.core.user_cache_limit',
+            ['tweeker' + '_relevant_followers_limit']: 'tweeker.core.relevant_followers_limit',
+            ['tweeker' + '_relevant_highlight_color']: 'tweeker.core.relevant_highlight_color',
+            ['tweeker' + '_recent_duration']: 'tweeker.core.recent_duration',
+            ['tweeker' + '_list_min_followers']: 'tweeker.core.list_min_followers',
+            ['tweeker' + '_list_min_ratio']: 'tweeker.core.list_min_ratio',
+            ['tweeker' + '_list_highlight_verified']: 'tweeker.core.list_highlight_verified',
+            ['tweeker' + '_list_verified_color']: 'tweeker.core.list_verified_color',
+            ['tweeker' + '_list_highlight_mega']: 'tweeker.core.list_highlight_mega',
+            ['tweeker' + '_list_mega_color']: 'tweeker.core.list_mega_color',
+            ['tweeker' + '_autoread_on_start']: 'tweeker.core.autoread_on_start',
+            ['tweeker' + '_debug_twitter']: 'tweeker.core.debug_twitter',
+            ['tweeker' + '_max_debug_lines']: 'tweeker.core.max_debug_lines',
+            ['tweeker' + '_log_filters']: 'tweeker.core.log_filters',
+            ['tweeker' + '_max_concurrent_downloads']: 'tweeker.core.max_concurrent_downloads',
+            ['tweeker' + '_decouple_mode']: 'tweeker.core.decouple_mode',
+            ['tweeker' + '_alarms']: 'tweeker.core.alarms',
+            ['tweeker' + '_last_url']: 'tweeker.core.last_url',
+            ['tweeker' + '_logs']: 'tweeker.core.logs',
+            ['tweeker' + '_panel_open']: 'tweeker.core.panel_open',
+            ['tweeker' + '_panel_size']: 'tweeker.core.panel_size',
+            ['tweeker' + '_scheduled_tweets']: 'tweeker.core.scheduled_tweets',
+            ['tweeker' + '_toggle_pos']: 'tweeker.core.toggle_pos',
+            ['tweeker' + '_user_cache']: 'tweeker.core.user_cache'
+        };
+        for (const [oldKey, newKey] of Object.entries(migrations)) {
+            const val = localStorage.getItem(oldKey);
+            if (val !== null) {
+                localStorage.setItem(newKey, val);
+                localStorage.removeItem(oldKey);
+            }
+        }
+    } catch (e) {
+        console.error('Settings migration failed:', e);
+    }
+
     // Set app version
     try {
         const version = await invoke('get_app_version');
@@ -4054,7 +4094,7 @@ async function init() {
     dom.scheduleDatetime.value = getLocalDatetimeInputValue(defaultNext);
 
     // Restore Auto read startup setting
-    const autoReadStartup = localStorage.getItem('tweeker_autoread_on_start') === 'true';
+    const autoReadStartup = localStorage.getItem('tweeker.core.autoread_on_start') === 'true';
     state.autoReadOnStart = autoReadStartup;
     if (dom.autoReadStartupToggle) {
         dom.autoReadStartupToggle.checked = autoReadStartup;
@@ -4064,7 +4104,7 @@ async function init() {
     setAutoReadState(autoReadStartup);
 
     // Restore saved max log lines setting
-    const savedMaxLogs = parseInt(localStorage.getItem('tweeker_max_log_lines'), 10);
+    const savedMaxLogs = parseInt(localStorage.getItem('tweeker.core.max_log_lines'), 10);
     if (!isNaN(savedMaxLogs) && savedMaxLogs >= 10) {
         state.maxLogLines = savedMaxLogs;
     }
@@ -4073,7 +4113,7 @@ async function init() {
     }
 
     // Restore saved user cache limit setting
-    const savedCacheLimit = parseInt(localStorage.getItem('tweeker_user_cache_limit'), 10);
+    const savedCacheLimit = parseInt(localStorage.getItem('tweeker.core.user_cache_limit'), 10);
     const cacheLimit = (!isNaN(savedCacheLimit) && savedCacheLimit >= 10) ? savedCacheLimit : 10000;
     try {
         await invoke('set_user_cache_limit', { limit: cacheLimit });
@@ -4085,14 +4125,14 @@ async function init() {
     }
 
     // Restore saved relevant followers limit setting
-    const savedRelevantLimit = parseInt(localStorage.getItem('tweeker_relevant_followers_limit'), 10);
+    const savedRelevantLimit = parseInt(localStorage.getItem('tweeker.core.relevant_followers_limit'), 10);
     const relevantLimit = (!isNaN(savedRelevantLimit) && savedRelevantLimit >= 0) ? savedRelevantLimit : 2500;
     if (dom.relevantFollowersLimitInput) {
         dom.relevantFollowersLimitInput.value = relevantLimit;
     }
 
     // Restore saved relevant highlight color setting
-    const savedHighlightColor = localStorage.getItem('tweeker_relevant_highlight_color') || '#00ba7c';
+    const savedHighlightColor = localStorage.getItem('tweeker.core.relevant_highlight_color') || '#00ba7c';
     if (dom.relevantHighlightColorInput) {
         dom.relevantHighlightColorInput.value = savedHighlightColor;
     }
@@ -4105,7 +4145,7 @@ async function init() {
     }, '*');
 
     // Restore saved recent duration setting
-    const savedRecentDuration = parseInt(localStorage.getItem('tweeker_recent_duration'), 10);
+    const savedRecentDuration = parseInt(localStorage.getItem('tweeker.core.recent_duration'), 10);
     const recentDuration = (!isNaN(savedRecentDuration) && savedRecentDuration >= 1) ? savedRecentDuration : 3;
     if (dom.recentDurationInput) {
         dom.recentDurationInput.value = recentDuration;
@@ -4117,27 +4157,27 @@ async function init() {
     }, '*');
 
     // Restore list page filter & highlight settings
-    const listMinFollowers = parseInt(localStorage.getItem('tweeker_list_min_followers'), 10);
+    const listMinFollowers = parseInt(localStorage.getItem('tweeker.core.list_min_followers'), 10);
     state.listMinFollowers = (!isNaN(listMinFollowers) && listMinFollowers >= 0) ? listMinFollowers : 0;
     if (dom.listMinFollowersInput) dom.listMinFollowersInput.value = state.listMinFollowers;
 
-    const listMinRatio = parseFloat(localStorage.getItem('tweeker_list_min_ratio'));
+    const listMinRatio = parseFloat(localStorage.getItem('tweeker.core.list_min_ratio'));
     state.listMinRatio = (!isNaN(listMinRatio) && listMinRatio >= 0.0) ? listMinRatio : 0.0;
     if (dom.listMinRatioInput) dom.listMinRatioInput.value = state.listMinRatio.toFixed(1);
 
-    const listHighlightVerified = localStorage.getItem('tweeker_list_highlight_verified') === 'true';
+    const listHighlightVerified = localStorage.getItem('tweeker.core.list_highlight_verified') === 'true';
     state.listHighlightVerified = listHighlightVerified;
     if (dom.listHighlightVerifiedToggle) dom.listHighlightVerifiedToggle.checked = listHighlightVerified;
 
-    const listVerifiedColor = localStorage.getItem('tweeker_list_verified_color') || '#1d9bf0';
+    const listVerifiedColor = localStorage.getItem('tweeker.core.list_verified_color') || '#1d9bf0';
     state.listVerifiedColor = listVerifiedColor;
     if (dom.listVerifiedColorInput) dom.listVerifiedColorInput.value = listVerifiedColor;
 
-    const listHighlightMega = localStorage.getItem('tweeker_list_highlight_mega') === 'true';
+    const listHighlightMega = localStorage.getItem('tweeker.core.list_highlight_mega') === 'true';
     state.listHighlightMega = listHighlightMega;
     if (dom.listHighlightMegaToggle) dom.listHighlightMegaToggle.checked = listHighlightMega;
 
-    const listMegaColor = localStorage.getItem('tweeker_list_mega_color') || '#a855f7';
+    const listMegaColor = localStorage.getItem('tweeker.core.list_mega_color') || '#a855f7';
     state.listMegaColor = listMegaColor;
     if (dom.listMegaColorInput) dom.listMegaColorInput.value = listMegaColor;
 
@@ -4157,7 +4197,7 @@ async function init() {
         }, '*');
     } catch (e) {}
 
-    const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker_max_concurrent_downloads'), 10);
+    const savedMaxConcurrent = parseInt(localStorage.getItem('tweeker.core.max_concurrent_downloads'), 10);
     state.maxConcurrentDownloads = (!isNaN(savedMaxConcurrent) && savedMaxConcurrent >= 1) ? savedMaxConcurrent : 2;
 
     const contextMenuEnabled = localStorage.getItem('browser.context_menu.enabled') !== 'false';
@@ -4186,7 +4226,7 @@ async function init() {
 
     // Restore saved log entries
     try {
-        const savedLogs = localStorage.getItem('tweeker_logs');
+        const savedLogs = localStorage.getItem('tweeker.core.logs');
         if (savedLogs) {
             state.logs = JSON.parse(savedLogs);
             pruneLogs();
@@ -4195,7 +4235,7 @@ async function init() {
 
     // Restore log level filters (default: all enabled except DEBUG)
     try {
-        const savedLogFilters = localStorage.getItem('tweeker_log_filters');
+        const savedLogFilters = localStorage.getItem('tweeker.core.log_filters');
         if (savedLogFilters) {
             const parsed = JSON.parse(savedLogFilters);
             state.logFilters = {
@@ -4220,7 +4260,7 @@ async function init() {
             DEBUG: dom.logFilterDebug ? dom.logFilterDebug.checked : false,
         };
         try {
-            localStorage.setItem('tweeker_log_filters', JSON.stringify(state.logFilters));
+            localStorage.setItem('tweeker.core.log_filters', JSON.stringify(state.logFilters));
         } catch (e) {}
         refreshLogsView();
     };
@@ -4235,7 +4275,7 @@ async function init() {
         const isDecoupled = await invoke('get_decouple_mode');
         state.decoupleMode = !!isDecoupled;
         try {
-            localStorage.setItem('tweeker_decouple_mode', isDecoupled ? 'true' : 'false');
+            localStorage.setItem('tweeker.core.decouple_mode', isDecoupled ? 'true' : 'false');
         } catch (e) {}
 
         if (dom.decoupleIndicator) {
@@ -4243,13 +4283,13 @@ async function init() {
         }
     } catch (e) {
         try {
-            state.decoupleMode = localStorage.getItem('tweeker_decouple_mode') === 'true';
+            state.decoupleMode = localStorage.getItem('tweeker.core.decouple_mode') === 'true';
             if (dom.decoupleIndicator) dom.decoupleIndicator.style.display = state.decoupleMode ? 'inline-block' : 'none';
         } catch (err) {}
     }
 
     // Restore saved Debug Twitter setting
-    const debugTwitterStartup = localStorage.getItem('tweeker_debug_twitter') === 'true';
+    const debugTwitterStartup = localStorage.getItem('tweeker.core.debug_twitter') === 'true';
     state.debugTwitter = debugTwitterStartup;
     if (dom.debugTwitterToggle) {
         dom.debugTwitterToggle.checked = debugTwitterStartup;
@@ -4257,7 +4297,7 @@ async function init() {
     setDebugTwitterState(debugTwitterStartup);
 
     // Restore saved max debug log lines setting
-    const savedMaxDebugLines = parseInt(localStorage.getItem('tweeker_max_debug_lines'), 10);
+    const savedMaxDebugLines = parseInt(localStorage.getItem('tweeker.core.max_debug_lines'), 10);
     if (!isNaN(savedMaxDebugLines) && savedMaxDebugLines >= 10) {
         state.maxDebugLines = savedMaxDebugLines;
     }
@@ -4276,12 +4316,12 @@ async function init() {
 
     // Restore saved alarms and scheduled tweets
     try {
-        const savedAlarms = localStorage.getItem('tweeker_alarms');
+        const savedAlarms = localStorage.getItem('tweeker.core.alarms');
         if (savedAlarms) state.alarms = JSON.parse(savedAlarms);
     } catch (e) {}
 
     try {
-        const savedSched = localStorage.getItem('tweeker_scheduled_tweets');
+        const savedSched = localStorage.getItem('tweeker.core.scheduled_tweets');
         if (savedSched) state.scheduledTweets = JSON.parse(savedSched);
     } catch (e) {}
 
@@ -4295,7 +4335,7 @@ async function init() {
     await refreshScheduledTweets();
 
     // Restore overlay panel open/closed state from previous session
-    const savedPanelOpen = localStorage.getItem('tweeker_panel_open');
+    const savedPanelOpen = localStorage.getItem('tweeker.core.panel_open');
     if (savedPanelOpen === 'true') {
         togglePanel(true);
     }
@@ -4353,7 +4393,7 @@ async function fetchDbStats() {
 
     const usersCount = (stats && typeof stats.cached_users_count === 'number' && stats.cached_users_count > 0)
         ? stats.cached_users_count
-        : ((window._tweeker_user_cache ? Object.keys(window._tweeker_user_cache).length : 0) || (window._tweeker_author_map ? window._tweeker_author_map.size : 0));
+        : ((window._tweeker.core.user_cache ? Object.keys(window._tweeker.core.user_cache).length : 0) || (window._tweeker_author_map ? window._tweeker_author_map.size : 0));
 
     const tweetsCount = (stats && typeof stats.total_tweets === 'number' && stats.total_tweets > 0)
         ? stats.total_tweets

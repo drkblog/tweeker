@@ -140,7 +140,7 @@ This document tracks upcoming power-user features and improvements to the Tweeke
 
 #### [Feature J] Timeline Video Downloader & Queue Manager
 - **Description**: Add a floating overlay "Download Video" button over video containers in the timeline. Downloads are queried via the Cobalt API and streamed chunk-by-chunk directly to a user-specified path via native file dialogs. If the direct download fails, a fallback manually opens `twitsave.com`.
-- **Concurrent Limits**: Restrict parallel downloads via a configurable parameter `tweeker_max_concurrent_downloads` (default: 2) in Advanced Settings, holding extra downloads in a pending state queue.
+- **Concurrent Limits**: Restrict parallel downloads via a configurable parameter `tweeker.core.max_concurrent_downloads` (default: 2) in Advanced Settings, holding extra downloads in a pending state queue.
 - **Benefits**: Eliminates the need for external browser extensions or untrusted copy-paste downloader sites by providing native, rate-limited downloads.
 
 #### [Feature K] Selection Floating Toolbar
