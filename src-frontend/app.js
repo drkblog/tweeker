@@ -890,7 +890,7 @@ function getLogLevel(item) {
     return 'DEBUG';
 }
 
-function addLogEntry(entry) {
+function addLogEntry(entry, writeToBackend = true) {
     if (!entry) return;
 
     const rawType = entry.type || 'debug';
@@ -933,6 +933,21 @@ function addLogEntry(entry) {
         localStorage.setItem('tweeker_logs', JSON.stringify(state.logs.slice(-500)));
     } catch (e) {}
 
+    // Send log to backend log file if configured and not coming from backend itself
+    if (writeToBackend && type !== 'backend') {
+        try {
+            const level = logItem.level;
+            const tagLabel = (type === 'system' || type === 'debug') ? 'DEBUG' : type.toUpperCase();
+            if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+                window.__TAURI__.core.invoke('log_from_frontend', { level, tag: tagLabel, message: text });
+            } else if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+                window.__TAURI__.invoke('log_from_frontend', { level, tag: tagLabel, message: text });
+            }
+        } catch (e) {
+            console.error('Failed to log to backend:', e);
+        }
+    }
+
     updateLogCountText();
     renderLogItem(logItem);
 }
@@ -973,7 +988,7 @@ function renderLogItem(item) {
 function getLogItemInnerHtml(item) {
     const rawType = (item.type || 'debug').toLowerCase();
     const type = rawType === 'system' ? 'debug' : rawType;
-    const tagLabel = (type === 'system' || type === 'debug') ? 'DEBUG' : type.toUpperCase();
+    const tagLabel = type === 'backend' ? 'BACKEND' : ((type === 'system' || type === 'debug') ? 'DEBUG' : type.toUpperCase());
     
     let rawText = item.text || '';
     let displayText = rawText;
@@ -4004,6 +4019,21 @@ listen('stats-updated', (event) => {
 // Listen for scheduler ticks (for future use)
 listen('scheduler-tick', (event) => {
     // Will be used to trigger scheduled tweet sending
+});
+
+// Listen for backend log messages to display in the Logs tab
+listen('backend-log-message', (event) => {
+    const payload = event.payload;
+    if (payload && Array.isArray(payload)) {
+        const [level, text] = payload;
+        // Do not display if it's already a duplicated log from UI frontend
+        if (text.startsWith('[UI:')) return;
+        addLogEntry({
+            type: 'backend',
+            level: level,
+            text: text
+        }, false);
+    }
 });
 
 // ── Initialization ──

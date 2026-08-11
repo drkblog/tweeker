@@ -61,6 +61,7 @@ fn main() {
             commands::set_dialogs_cache_enabled,
             commands::set_gemini_erase_chat,
             commands::get_log_path,
+            commands::log_from_frontend,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

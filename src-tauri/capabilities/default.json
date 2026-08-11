@@ -69,6 +69,7 @@
     "allow-set-dialogs-cache-enabled",
     "allow-set-gemini-erase-chat",
     "allow-get-log-path",
+    "allow-log-from-frontend",
     "window-state:default"
   ]
 }

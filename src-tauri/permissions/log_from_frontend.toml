@@ -1,0 +1,10 @@
+# Generated permission for log_from_frontend
+[[permission]]
+identifier = "allow-log-from-frontend"
+description = "Enables the log_from_frontend command."
+commands.allow = ["log_from_frontend"]
+
+[[permission]]
+identifier = "deny-log-from-frontend"
+description = "Denies the log_from_frontend command."
+commands.deny = ["log_from_frontend"]

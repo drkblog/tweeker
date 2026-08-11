@@ -351,6 +351,12 @@
           "markdownDescription": "Enables the import_backup command without any pre-configured scope."
         },
         {
+          "description": "Enables the log_from_frontend command.",
+          "type": "string",
+          "const": "allow-log-from-frontend",
+          "markdownDescription": "Enables the log_from_frontend command."
+        },
+        {
           "description": "Enables the open_gemini_grammar_window command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-gemini-grammar-window",
@@ -607,6 +613,12 @@
           "type": "string",
           "const": "deny-import-backup",
           "markdownDescription": "Denies the import_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the log_from_frontend command.",
+          "type": "string",
+          "const": "deny-log-from-frontend",
+          "markdownDescription": "Denies the log_from_frontend command."
         },
         {
           "description": "Denies the open_gemini_grammar_window command without any pre-configured scope.",

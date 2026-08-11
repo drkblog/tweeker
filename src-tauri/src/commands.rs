@@ -1036,6 +1036,13 @@ pub async fn get_log_path() -> Result<String, String> {
     crate::logger::get_log_path().ok_or_else(|| "Log path not initialized".to_string())
 }
 
+#[tauri::command]
+pub async fn log_from_frontend(level: String, tag: String, message: String) -> Result<(), String> {
+    let formatted = format!("[UI: {}] {}", tag, message);
+    crate::logger::log_msg(&level, &formatted);
+    Ok(())
+}
+
 
 
 

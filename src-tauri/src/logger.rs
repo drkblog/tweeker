@@ -5,12 +5,15 @@ use std::sync::Mutex;
 use std::sync::OnceLock;
 use chrono::Local;
 use tauri::Manager;
+use tauri::Emitter;
 
 static LOG_FILE: OnceLock<Mutex<File>> = OnceLock::new();
 static LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 
 /// Initialize the central logging facility, overwriting the log file.
 pub fn init(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    let _ = APP_HANDLE.set(app_handle.clone());
     let app_data = app_handle.path().app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
     
@@ -49,6 +52,10 @@ pub fn log_msg(level: &str, msg: &str) {
             let _ = file.write_all(formatted.as_bytes());
             let _ = file.flush();
         }
+    }
+
+    if let Some(app) = APP_HANDLE.get() {
+        let _ = app.emit("backend-log-message", (level.to_string(), msg.to_string()));
     }
 }
 

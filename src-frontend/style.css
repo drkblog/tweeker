@@ -1352,6 +1352,12 @@
     border: 1px solid hsla(0, 80%, 55%, 0.35) !important;
 }
 
+#tweeker-overlay-container .log-tag-backend {
+    background: hsla(35, 90%, 50%, 0.2) !important;
+    color: hsl(35, 95%, 70%) !important;
+    border: 1px solid hsla(35, 90%, 50%, 0.35) !important;
+}
+
 #tweeker-overlay-container .log-content {
     flex: 1 !important;
     color: var(--tw-text-primary) !important;
